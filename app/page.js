@@ -3,8 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V13.0]
- * 복원 완료: 개별 삭제, 선택 삭제, 엑셀 업/다운로드, CRUD 통합
+ * [STOCK-MANAGER ULTIMATE FINAL V14.0]
+ * 1. 거래관리 [수수료, 세금] 항목 완벽 복원
+ * 2. 개별/선택 삭제 및 CRUD 전체 통합
+ * 3. 엑셀 업/다운로드 (한글 깨짐 방지)
+ * 4. 8개 탭 전체 로직 및 디자인 고정
  */
 
 export default function StockManagerUltimate() {
@@ -19,28 +22,29 @@ export default function StockManagerUltimate() {
   const [cashFlows, setCashFlows] = useState([]);
   const [stockMaster, setStockMaster] = useState([]);
 
-  // 초기 로드
+  // 초기 로드 (브라우저 저장소 연동)
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v13");
-    const savedCash = localStorage.getItem("cash_v13");
-    const savedMaster = localStorage.getItem("master_v13");
+    const savedTx = localStorage.getItem("tx_v14");
+    const savedCash = localStorage.getItem("cash_v14");
+    const savedMaster = localStorage.getItem("master_v14");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
-  // 자동 저장
+  // 데이터 변경 시 자동 저장
   useEffect(() => {
-    localStorage.setItem("tx_v13", JSON.stringify(transactions));
-    localStorage.setItem("cash_v13", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v13", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v14", JSON.stringify(transactions));
+    localStorage.setItem("cash_v14", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v14", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
-  // --- [입력 상태] ---
+  // --- [입력 및 조회 상태] ---
   const today = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState("2026-05-01");
   const [endDate, setEndDate] = useState(today);
 
+  // 신규 입력 상태 (수수료, 세금 포함)
   const [newTx, setNewTx] = useState({
     날짜: today,
     구분: "매수",
@@ -66,7 +70,7 @@ export default function StockManagerUltimate() {
 
   const formatNum = (n) => (n ? Number(n).toLocaleString() : "0");
 
-  // --- [CRUD 및 삭제 로직] ---
+  // --- [CRUD 로직] ---
   const handleAutoFill = (name) => {
     const found = stockMaster.find((s) => s.종목명 === name);
     setNewTx((prev) => ({
@@ -77,12 +81,24 @@ export default function StockManagerUltimate() {
   };
 
   const saveTx = () => {
-    const subTotal = Number(newTx.수량) * Number(newTx.단가);
+    const qty = Number(newTx.수량);
+    const price = Number(newTx.단가);
+    const fee = Number(newTx.수수료);
+    const tax = Number(newTx.세금);
+
+    // 매수 시 비용 합산, 매도 시 비용 차감
+    const subTotal = qty * price;
     const total =
-      newTx.구분 === "매수"
-        ? subTotal + Number(newTx.수수료) + Number(newTx.세금)
-        : subTotal - Number(newTx.수수료) - Number(newTx.세금);
-    const data = { ...newTx, id: editingId || Date.now(), 합계: total };
+      newTx.구분 === "매수" ? subTotal + fee + tax : subTotal - fee - tax;
+
+    const data = {
+      ...newTx,
+      id: editingId || Date.now(),
+      합계: total,
+      수수료: fee,
+      세금: tax,
+    };
+
     if (editingId)
       setTransactions(transactions.map((t) => (t.id === editingId ? data : t)));
     else setTransactions([data, ...transactions]);
@@ -109,7 +125,6 @@ export default function StockManagerUltimate() {
     resetForms();
   };
 
-  // 개별 삭제 복원
   const deleteItem = (id) => {
     if (!confirm("해당 데이터를 삭제하시겠습니까?")) return;
     if (activeTab === "거래관리")
@@ -120,7 +135,6 @@ export default function StockManagerUltimate() {
       setStockMaster(stockMaster.filter((s) => s.id !== id));
   };
 
-  // 선택 삭제 복원
   const deleteSelected = () => {
     if (!confirm(`선택한 ${selectedIds.length}건을 삭제하시겠습니까?`)) return;
     if (activeTab === "거래관리")
@@ -148,13 +162,13 @@ export default function StockManagerUltimate() {
     setNewStock({ 티커: "", 종목명: "", 시장: "KOSPI", 섹터: "" });
   };
 
-  // --- [엑셀 로직 (한글 깨짐 방지)] ---
+  // --- [엑셀 로직] ---
   const downloadCSV = () => {
     let data = [];
     if (activeTab === "거래관리") data = transactions;
     else if (activeTab === "입출금") data = cashFlows;
     else if (activeTab === "종목마스터") data = stockMaster;
-    if (data.length === 0) return alert("내보낼 데이터가 없습니다.");
+    if (data.length === 0) return alert("데이터가 없습니다.");
 
     const headers = Object.keys(data[0]).join(",");
     const rows = data.map((row) => Object.values(row).join(",")).join("\n");
@@ -183,26 +197,26 @@ export default function StockManagerUltimate() {
           if (activeTab === "거래관리")
             return {
               id,
-              날짜: c[0],
-              구분: c[1],
-              종목명: c[2],
-              티커: c[3],
-              수량: Number(c[4]),
-              단가: Number(c[5]),
-              수수료: Number(c[6]),
-              세금: Number(c[7]),
-              합계: Number(c[8]),
+              날짜: c[1],
+              구분: c[2],
+              종목명: c[3],
+              티커: c[4],
+              수량: Number(c[5]),
+              단가: Number(c[6]),
+              수수료: Number(c[7]),
+              세금: Number(c[8]),
+              합계: Number(c[9]),
             };
           if (activeTab === "입출금")
             return {
               id,
-              날짜: c[0],
-              구분: c[1],
-              금액: Number(c[2]),
-              메모: c[3],
+              날짜: c[1],
+              구분: c[2],
+              금액: Number(c[3]),
+              메모: c[4],
             };
           if (activeTab === "종목마스터")
-            return { id, 티커: c[0], 종목명: c[1], 시장: c[2], 섹터: c[3] };
+            return { id, 티커: c[1], 종목명: c[2], 시장: c[3], 섹터: c[4] };
           return null;
         })
         .filter((d) => d !== null);
@@ -211,7 +225,7 @@ export default function StockManagerUltimate() {
       if (activeTab === "입출금") setCashFlows([...imported, ...cashFlows]);
       if (activeTab === "종목마스터")
         setStockMaster([...imported, ...stockMaster]);
-      alert(`${imported.length}건 로드 완료`);
+      alert(`${imported.length}건이 성공적으로 로드되었습니다.`);
     };
     reader.readAsText(file, "utf-8");
   };
@@ -219,13 +233,13 @@ export default function StockManagerUltimate() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* 상단 섹션 */}
+        {/* 헤더 */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-black italic text-slate-800 tracking-tighter uppercase">
             Portfolio Pro
           </h1>
           <div className="text-[10px] font-black text-slate-400">
-            V13.0 / {lastUpdate}
+            V14.0 TERMINAL / {lastUpdate}
           </div>
         </div>
 
@@ -309,7 +323,6 @@ export default function StockManagerUltimate() {
           </div>
 
           <div className="p-8">
-            {/* 액션바 복원 */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex gap-2">
                 {selectedIds.length > 0 && (
@@ -325,7 +338,7 @@ export default function StockManagerUltimate() {
                 <div className="flex gap-2">
                   <button
                     onClick={downloadCSV}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[11px] font-black hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[11px] font-black hover:bg-blue-700 transition-colors"
                   >
                     엑셀 다운로드 ↓
                   </button>
@@ -338,7 +351,7 @@ export default function StockManagerUltimate() {
                   />
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[11px] font-black border border-slate-200"
+                    className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[11px] font-black border border-slate-200 hover:bg-slate-200 transition-colors"
                   >
                     엑셀 업로드 ↑
                   </button>
@@ -346,7 +359,7 @@ export default function StockManagerUltimate() {
               )}
             </div>
 
-            {/* --- 거래관리 --- */}
+            {/* --- 거래관리 (수수료, 세금 복원) --- */}
             {activeTab === "거래관리" && (
               <div>
                 <div
@@ -364,6 +377,21 @@ export default function StockManagerUltimate() {
                       }
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
                     />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-black text-slate-500">
+                      구분
+                    </label>
+                    <select
+                      value={newTx.구분}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, 구분: e.target.value })
+                      }
+                      className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                    >
+                      <option>매수</option>
+                      <option>매도</option>
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
@@ -402,9 +430,35 @@ export default function StockManagerUltimate() {
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-black text-slate-500">
+                      수수료
+                    </label>
+                    <input
+                      type="number"
+                      value={newTx.수수료}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, 수수료: e.target.value })
+                      }
+                      className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-black text-slate-500">
+                      세금
+                    </label>
+                    <input
+                      type="number"
+                      value={newTx.세금}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, 세금: e.target.value })
+                      }
+                      className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                    />
+                  </div>
                   <button
                     onClick={saveTx}
-                    className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black"
+                    className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md"
                   >
                     {editingId ? "수정 완료" : "거래 저장"}
                   </button>
@@ -430,13 +484,18 @@ export default function StockManagerUltimate() {
                       <th>티커</th>
                       <th>수량</th>
                       <th>단가</th>
+                      <th>수수료</th>
+                      <th>세금</th>
                       <th>합계</th>
                       <th>관리</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px] font-bold">
                     {transactions.map((t) => (
-                      <tr key={t.id} className="h-12 hover:bg-slate-50">
+                      <tr
+                        key={t.id}
+                        className="h-12 hover:bg-slate-50 transition-colors"
+                      >
                         <td>
                           <input
                             type="checkbox"
@@ -464,8 +523,10 @@ export default function StockManagerUltimate() {
                         <td className="text-blue-600 italic">{t.티커}</td>
                         <td>{formatNum(t.수량)}</td>
                         <td>{formatNum(t.단가)}</td>
+                        <td>{formatNum(t.수수료)}</td>
+                        <td>{formatNum(t.세금)}</td>
                         <td>₩{formatNum(t.합계)}</td>
-                        <td className="flex justify-center gap-3">
+                        <td className="flex justify-center gap-2">
                           <button
                             onClick={() => {
                               setEditingId(t.id);
@@ -492,7 +553,7 @@ export default function StockManagerUltimate() {
             {/* --- 입출금 --- */}
             {activeTab === "입출금" && (
               <div>
-                <div className="mb-8 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-4 gap-4 items-end">
+                <div className="mb-8 p-6 rounded-2xl bg-slate-50 border grid grid-cols-4 gap-4 items-end">
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
                       날짜
@@ -534,13 +595,13 @@ export default function StockManagerUltimate() {
                   </div>
                   <button
                     onClick={saveCash}
-                    className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black"
+                    className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md"
                   >
                     내역 저장
                   </button>
                 </div>
                 <table className="w-full text-center">
-                  <thead className="bg-slate-800 text-white text-[11px] font-black">
+                  <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
                     <tr>
                       <th>
                         <input
@@ -555,6 +616,7 @@ export default function StockManagerUltimate() {
                         />
                       </th>
                       <th>날짜</th>
+                      <th>구분</th>
                       <th>금액</th>
                       <th>메모</th>
                       <th>관리</th>
@@ -577,9 +639,10 @@ export default function StockManagerUltimate() {
                           />
                         </td>
                         <td>{c.날짜}</td>
+                        <td className="text-emerald-600">입금</td>
                         <td className="font-black">₩{formatNum(c.금액)}</td>
                         <td>{c.메모}</td>
-                        <td className="flex justify-center gap-3">
+                        <td className="flex justify-center gap-2">
                           <button
                             onClick={() => {
                               setEditingId(c.id);
@@ -635,13 +698,13 @@ export default function StockManagerUltimate() {
                   </div>
                   <button
                     onClick={saveMaster}
-                    className="bg-blue-600 text-white py-3.5 rounded-xl text-[12px] font-black"
+                    className="bg-blue-600 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md"
                   >
                     종목 등록
                   </button>
                 </div>
                 <table className="w-full text-center">
-                  <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
+                  <thead className="bg-slate-800 text-white text-[11px] font-black">
                     <tr>
                       <th>
                         <input
@@ -682,7 +745,7 @@ export default function StockManagerUltimate() {
                         </td>
                         <td>{s.종목명}</td>
                         <td>{s.시장}</td>
-                        <td className="flex justify-center gap-3">
+                        <td className="flex justify-center gap-2">
                           <button
                             onClick={() => {
                               setEditingId(s.id);
@@ -716,21 +779,31 @@ export default function StockManagerUltimate() {
             ].includes(activeTab) && (
               <div className="overflow-x-auto">
                 {activeTab === "보유종목일별" && (
-                  <div className="flex gap-4 mb-6 bg-slate-50 p-4 rounded-xl border">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="border rounded p-2 text-xs font-bold"
-                    />
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="border rounded p-2 text-xs font-bold"
-                    />
-                    <button className="bg-slate-800 text-white px-4 text-xs rounded font-black">
-                      기간 조회
+                  <div className="flex gap-4 mb-6 bg-slate-50 p-4 rounded-xl border items-end">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase">
+                        시작
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full border rounded p-2 text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase">
+                        종료
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full border rounded p-2 text-xs font-bold"
+                      />
+                    </div>
+                    <button className="bg-slate-800 text-white px-6 py-2 text-xs rounded font-black shadow-sm">
+                      필터링
                     </button>
                   </div>
                 )}
@@ -783,7 +856,7 @@ export default function StockManagerUltimate() {
                           "현재가",
                           startDate,
                           endDate,
-                          "기간수익률",
+                          "수익률",
                         ].map((h) => <th key={h}>{h}</th>)}
                     </tr>
                   </thead>
@@ -791,9 +864,9 @@ export default function StockManagerUltimate() {
                     <tr className="h-16">
                       <td
                         colSpan="10"
-                        className="text-slate-400 italic font-normal"
+                        className="text-slate-400 italic font-normal uppercase"
                       >
-                        데이터를 입력하거나 엑셀을 업로드해주세요.
+                        No Data Available. Please Input Records.
                       </td>
                     </tr>
                   </tbody>
@@ -825,6 +898,14 @@ export default function StockManagerUltimate() {
           height: 16px;
           cursor: pointer;
           accent-color: #2563eb;
+        }
+        ::-webkit-scrollbar {
+          height: 6px;
+          width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
         }
       `}</style>
     </div>
