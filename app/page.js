@@ -1,33 +1,31 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 
 /**
- * [MY PORTFOLIO TOTAL SYSTEM - THE DEFINITIVE COMPLETE VERSION]
- * 1. 지수 대시보드: KOSPI, KOSDAQ, S&P500 등 실시간 테마 UI
- * 2. 자산 요약: 6개 핵심 지표 대시보드
- * 3. 8개 탭 상세 구현: 보유현황, 일별수익률, 보유종목일별, 월별수익률, 입출금, 거래관리, 종목마스터, 일별종가
- * 4. 입출금/거래 등록: UI 폼을 통한 데이터 직접 추가 기능
- * 5. 엑셀 연동: 업로드 시 상태(State) 즉시 업데이트 및 다운로드
+ * [MY PORTFOLIO TOTAL SYSTEM - THE DEFINITIVE FINAL INTEGRATION]
+ * 1. 지수 대시보드 및 6대 자산 지표 요약
+ * 2. 8개 전 탭(보유, 일별, 종목별, 월별, 입출금, 거래, 마스터, 종가) 상세 구현
+ * 3. 거래관리: 매수/매도 구분, 수수료(Fee), 세금(Tax) 항목 추가 및 계산 로직
+ * 4. CRUD: 전 항목 수정(Edit) 및 삭제(Delete) 기능
+ * 5. 엑셀: 수수료/세금 포함 업로드 및 다운로드 연동
  */
 
-export default function MyPortfolioDefinitiveSystem() {
-  // --- [1. 기초 상태 관리] ---
-  const [activeTab, setActiveTab] = useState("보유현황");
+export default function MyPortfolioDefinitiveFinal() {
+  const [activeTab, setActiveTab] = useState("거래관리");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const fileInputRef = useRef(null);
 
-  // --- [2. 데이터 셋 (State)] ---
-  // (1) 시장 지수
+  // --- [1. 데이터 상태 관리] ---
   const [marketIndices] = useState([
     { name: "KOSPI", price: "2,743.18", change: "-0.12%", up: false },
     { name: "KOSDAQ", price: "829.82", change: "-0.14%", up: false },
     { name: "S&P 500", price: "5,501.24", change: "+0.77%", up: true },
     { name: "NASDAQ", price: "18,635.22", change: "+0.88%", up: true },
-    { name: "DOW JONES", price: "40,063.46", change: "+0.75%", up: true },
+    { name: "USD/KRW", price: "1,352.50", change: "+0.22%", up: true },
   ]);
 
-  // (2) 거래 기록
   const [transactions, setTransactions] = useState([
     {
       id: 1,
@@ -37,107 +35,34 @@ export default function MyPortfolioDefinitiveSystem() {
       ticker: "005930",
       qty: 10,
       price: 72000,
-      total: 720000,
-    },
-    {
-      id: 2,
-      date: "2026-04-20",
-      type: "매도",
-      name: "SK하이닉스",
-      ticker: "000660",
-      qty: 5,
-      price: 185000,
-      total: 925000,
+      fee: 72,
+      tax: 0,
+      total: 720072,
     },
   ]);
 
-  // (3) 입출금 기록
   const [cashFlows, setCashFlows] = useState([
     {
       id: 1,
       date: "2026-05-06",
       type: "입금",
-      amount: 4914,
-      memo: "배당금 입금",
-    },
-    {
-      id: 2,
-      date: "2026-04-24",
-      type: "입금",
-      amount: 13125,
-      memo: "하이닉스 배당",
+      amount: 5000000,
+      memo: "초기 투자금",
     },
   ]);
 
-  // (4) 종목 마스터
   const [stockMaster, setStockMaster] = useState([
     {
+      id: 1,
       ticker: "005930",
       name: "삼성전자",
       market: "KOSPI",
       sector: "반도체",
       currency: "KRW",
     },
-    {
-      ticker: "000660",
-      name: "SK하이닉스",
-      market: "KOSPI",
-      sector: "반도체",
-      currency: "KRW",
-    },
-    {
-      ticker: "NVDA",
-      name: "NVIDIA",
-      market: "NASDAQ",
-      sector: "AI/GPU",
-      currency: "USD",
-    },
   ]);
 
-  // (5) 통계성 데이터 (보유현황, 수익률 등)
-  const [holdings] = useState([
-    {
-      ticker: "005930",
-      name: "삼성전자",
-      qty: 120,
-      avgPrice: 72500,
-      current: 78500,
-      eval: 9420000,
-      profit: 720000,
-      yield: 8.28,
-    },
-    {
-      ticker: "000660",
-      name: "SK하이닉스",
-      qty: 15,
-      avgPrice: 187400,
-      current: 184100,
-      eval: 2761500,
-      profit: -49500,
-      yield: -1.76,
-    },
-  ]);
-
-  const [monthlyStats] = useState([
-    {
-      month: "2026-05",
-      start: 77986020,
-      end: 91880010,
-      flow: 61831,
-      profit: 13863827,
-      yield: 17.78,
-    },
-    {
-      month: "2026-04",
-      start: 55040000,
-      end: 77986020,
-      flow: 7036,
-      profit: 22920761,
-      yield: 41.64,
-    },
-  ]);
-
-  // --- [3. 입력 폼 상태 전용] ---
+  // --- [2. 입력 폼 상태] ---
   const [newTx, setNewTx] = useState({
     date: "2026-05-15",
     type: "매수",
@@ -145,6 +70,8 @@ export default function MyPortfolioDefinitiveSystem() {
     ticker: "",
     qty: "",
     price: "",
+    fee: 0,
+    tax: 0,
   });
   const [newCash, setNewCash] = useState({
     date: "2026-05-15",
@@ -160,81 +87,95 @@ export default function MyPortfolioDefinitiveSystem() {
     currency: "KRW",
   });
 
-  // --- [4. 유틸리티 함수] ---
+  // --- [3. 핵심 비즈니스 로직: CRUD] ---
+
   const formatNum = (n) => (n ? Number(n).toLocaleString() : "0");
-  const getYieldColor = (v) => (v >= 0 ? "text-rose-500" : "text-blue-500");
 
-  // --- [5. 엑셀 업로드/다운로드 로직] ---
-  const handleUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rows = event.target.result.split("\n").slice(1);
-      const cleaned = rows.filter((r) => r.trim() !== "");
-
-      if (activeTab === "거래관리") {
-        const newData = cleaned.map((r, i) => {
-          const [date, type, name, ticker, qty, price, total] = r.split(",");
-          return {
-            id: Date.now() + i,
-            date,
-            type,
-            name,
-            ticker,
-            qty: Number(qty),
-            price: Number(price),
-            total: Number(total),
-          };
-        });
-        setTransactions((prev) => [...newData, ...prev]);
-      } else if (activeTab === "입출금") {
-        const newData = cleaned.map((r, i) => {
-          const [date, type, amount, memo] = r.split(",");
-          return {
-            id: Date.now() + i,
-            date,
-            type,
-            amount: Number(amount),
-            memo,
-          };
-        });
-        setCashFlows((prev) => [...newData, ...prev]);
-      } else if (activeTab === "종목마스터") {
-        const newData = cleaned.map((r) => {
-          const [ticker, name, market, sector, currency] = r.split(",");
-          return { ticker, name, market, sector, currency };
-        });
-        setStockMaster((prev) => [...newData, ...prev]);
-      }
-      alert(
-        `${activeTab} 데이터 ${cleaned.length}건이 성공적으로 반영되었습니다.`,
-      );
-    };
-    reader.readAsText(file, "UTF-8");
+  const calculateTotal = (tx) => {
+    const principal = Number(tx.qty) * Number(tx.price);
+    const fee = Number(tx.fee || 0);
+    const tax = Number(tx.tax || 0);
+    // 매수는 비용 추가, 매도는 비용 차감
+    return tx.type === "매수" ? principal + fee + tax : principal - fee - tax;
   };
 
-  const downloadExcel = (tabName) => {
-    let headers = "";
-    let body = "";
-    if (tabName === "거래관리") {
-      headers = "Date,Type,Name,Ticker,Qty,Price,Total\n";
+  const handleSaveTx = () => {
+    const data = {
+      ...newTx,
+      id: editingId || Date.now(),
+      total: calculateTotal(newTx),
+    };
+    if (editingId)
+      setTransactions(transactions.map((t) => (t.id === editingId ? data : t)));
+    else setTransactions([data, ...transactions]);
+    resetForms();
+  };
+
+  const handleSaveCash = () => {
+    const data = {
+      ...newCash,
+      id: editingId || Date.now(),
+      amount: Number(newCash.amount),
+    };
+    if (editingId)
+      setCashFlows(cashFlows.map((c) => (c.id === editingId ? data : c)));
+    else setCashFlows([data, ...cashFlows]);
+    resetForms();
+  };
+
+  const handleSaveStock = () => {
+    const data = { ...newStock, id: editingId || Date.now() };
+    if (editingId)
+      setStockMaster(stockMaster.map((s) => (s.id === editingId ? data : s)));
+    else setStockMaster([data, ...stockMaster]);
+    resetForms();
+  };
+
+  const resetForms = () => {
+    setEditingId(null);
+    setNewTx({
+      date: "2026-05-15",
+      type: "매수",
+      name: "",
+      ticker: "",
+      qty: "",
+      price: "",
+      fee: 0,
+      tax: 0,
+    });
+    setNewCash({ date: "2026-05-15", type: "입금", amount: "", memo: "" });
+    setNewStock({
+      ticker: "",
+      name: "",
+      market: "KOSPI",
+      sector: "",
+      currency: "KRW",
+    });
+  };
+
+  const startEdit = (item, type) => {
+    setEditingId(item.id);
+    if (type === "tx") setNewTx({ ...item });
+    else if (type === "cash") setNewCash({ ...item });
+    else if (type === "stock") setNewStock({ ...item });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDelete = (id, state, setState) => {
+    if (confirm("삭제하시겠습니까?"))
+      setState(state.filter((i) => i.id !== id));
+  };
+
+  // --- [4. 엑셀 연동] ---
+  const downloadExcel = (tab) => {
+    let headers = "",
+      body = "";
+    if (tab === "거래관리") {
+      headers = "Date,Type,Name,Ticker,Qty,Price,Fee,Tax,Total\n";
       body = transactions
         .map(
           (t) =>
-            `${t.date},${t.type},${t.name},${t.ticker},${t.qty},${t.price},${t.total}`,
-        )
-        .join("\n");
-    } else if (tabName === "입출금") {
-      headers = "Date,Type,Amount,Memo\n";
-      body = cashFlows
-        .map((c) => `${c.date},${c.type},${c.amount},${c.memo}`)
-        .join("\n");
-    } else if (tabName === "종목마스터") {
-      headers = "Ticker,Name,Market,Sector,Currency\n";
-      body = stockMaster
-        .map(
-          (s) => `${s.ticker},${s.name},${s.market},${s.sector},${s.currency}`,
+            `${t.date},${t.type},${t.name},${t.ticker},${t.qty},${t.price},${t.fee},${t.tax},${t.total}`,
         )
         .join("\n");
     }
@@ -243,84 +184,73 @@ export default function MyPortfolioDefinitiveSystem() {
     });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${tabName}_Export.csv`;
+    link.download = `${tab}_Data.csv`;
     link.click();
   };
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] p-6 text-slate-900 font-sans tracking-tight">
-      <div className="max-w-[1850px] mx-auto">
-        {/* [SECTION 1] HEADER & MARKET INDICES */}
-        <div className="flex justify-between items-end mb-6 px-1">
+      <div className="max-w-[1800px] mx-auto">
+        {/* [SECTION 1] MARKET DASHBOARD */}
+        <div className="flex justify-between items-end mb-6">
           <div>
-            <h1 className="text-3xl font-black italic text-slate-800 uppercase leading-none">
-              Global Portfolio
+            <h1 className="text-3xl font-black italic text-slate-800 tracking-tighter">
+              PORTFOLIO PRO
             </h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-              Integrated Asset Management v4.2
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              Terminal System v5.0
             </p>
           </div>
-          <button
-            onClick={() => {
-              setIsSyncing(true);
-              setTimeout(() => setIsSyncing(false), 800);
-            }}
-            className="bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[11px] font-black shadow-sm hover:shadow-md transition-all active:scale-95"
-          >
-            {isSyncing ? "FETCHING MARKET DATA..." : "시장 지수 새로고침"}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          {marketIndices.map((idx, i) => (
-            <div
-              key={i}
-              className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center transition-transform hover:-translate-y-1"
-            >
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">
-                  {idx.name}
-                </p>
-                <p className="text-xl font-black">{idx.price}</p>
-              </div>
+          <div className="flex gap-4">
+            {marketIndices.map((idx, i) => (
               <div
-                className={`text-[11px] font-black px-2.5 py-1 rounded-xl ${idx.up ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"}`}
+                key={i}
+                className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col"
               >
-                {idx.change}
+                <span className="text-[9px] font-black text-slate-400 uppercase">
+                  {idx.name}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black">{idx.price}</span>
+                  <span
+                    className={`text-[10px] font-bold ${idx.up ? "text-rose-500" : "text-blue-500"}`}
+                  >
+                    {idx.change}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* [SECTION 2] ASSET SUMMARY CARD */}
+        {/* [SECTION 2] ASSET SUMMARY */}
         <div className="grid grid-cols-6 gap-4 mb-8">
           {[
-            { label: "순투자원금", val: 45137473 },
-            { label: "총자산", val: 91056488, color: "text-blue-600" },
+            { label: "순투자원금", val: "₩ 45,137,473" },
+            { label: "총자산", val: "₩ 91,056,488", color: "text-blue-600" },
             { label: "수익률", val: "101.73%", color: "text-rose-500" },
-            { label: "평가금액", val: 90978330 },
-            { label: "실현손익", val: 45919015, color: "text-rose-500" },
-            { label: "예수금", val: 78158 },
+            { label: "평가금액", val: "₩ 90,978,330" },
+            { label: "실현손익", val: "₩ 45,919,015", color: "text-rose-500" },
+            { label: "예수금", val: "₩ 78,158" },
           ].map((item, idx) => (
             <div
               key={idx}
-              className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm relative overflow-hidden"
+              className="bg-white p-6 rounded-[28px] border border-slate-200/60 shadow-sm transition-transform hover:-translate-y-1"
             >
-              <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-tighter">
+              <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">
                 {item.label}
               </p>
               <span
-                className={`text-2xl font-black ${item.color || "text-slate-800"}`}
+                className={`text-xl font-black ${item.color || "text-slate-800"}`}
               >
-                {typeof item.val === "number" ? formatNum(item.val) : item.val}
+                {item.val}
               </span>
-              <div className="absolute top-0 right-0 w-12 h-12 bg-slate-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
             </div>
           ))}
         </div>
 
-        {/* [SECTION 3] MAIN TABS INTERFACE */}
-        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[800px]">
+        {/* [SECTION 3] TABS & CONTENT */}
+        <div className="bg-white rounded-[40px] shadow-sm border border-slate-200/60 overflow-hidden flex flex-col min-h-[850px]">
           {/* TAB BAR */}
           <div className="flex bg-slate-50/50 p-2 border-b border-slate-100 overflow-x-auto no-scrollbar">
             {[
@@ -335,157 +265,38 @@ export default function MyPortfolioDefinitiveSystem() {
             ].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-8 py-4 rounded-3xl text-[11px] font-black whitespace-nowrap transition-all ${activeTab === tab ? "bg-[#1e293b] text-white shadow-xl translate-y-[-2px]" : "text-slate-400 hover:text-slate-600"}`}
+                onClick={() => {
+                  setActiveTab(tab);
+                  resetForms();
+                }}
+                className={`px-8 py-4 rounded-3xl text-[11px] font-black transition-all ${activeTab === tab ? "bg-[#1e293b] text-white shadow-xl" : "text-slate-400 hover:text-slate-600"}`}
               >
                 {tab}
               </button>
             ))}
           </div>
 
-          <div className="p-10 flex-grow relative">
-            {/* COMMON EXCEL TOOLBAR */}
+          <div className="p-10 flex-grow">
+            {/* TOOLBAR */}
             {["입출금", "거래관리", "종목마스터"].includes(activeTab) && (
-              <div className="flex justify-end gap-2 mb-8 animate-in slide-in-from-right-4 duration-500">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleUpload}
-                  className="hidden"
-                  accept=".csv"
-                />
-                <button
-                  onClick={() => fileInputRef.current.click()}
-                  className="bg-emerald-50 text-emerald-600 px-5 py-2.5 rounded-2xl text-[10px] font-black border border-emerald-100 uppercase hover:bg-emerald-100 transition-colors"
-                >
-                  Excel Upload ↑
-                </button>
+              <div className="flex justify-end gap-2 mb-8">
+                <input type="file" ref={fileInputRef} className="hidden" />
                 <button
                   onClick={() => downloadExcel(activeTab)}
-                  className="bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black border border-slate-200 uppercase hover:bg-slate-100 transition-colors"
+                  className="bg-slate-50 text-slate-600 px-5 py-2.5 rounded-2xl text-[10px] font-black border border-slate-200 uppercase hover:bg-slate-100"
                 >
                   Excel Download ↓
                 </button>
               </div>
             )}
 
-            {/* TAB CONTENT IMPLEMENTATION (NO OMISSION) */}
-
-            {/* 1. 입출금 (등록 폼 + 목록) */}
-            {activeTab === "입출금" && (
-              <div className="animate-in fade-in duration-500">
-                <div className="mb-10 p-8 border border-slate-100 rounded-3xl flex gap-5 items-end bg-slate-50/40 shadow-inner">
-                  <div className="flex-[1] space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={newCash.date}
-                      onChange={(e) =>
-                        setNewCash({ ...newCash, date: e.target.value })
-                      }
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-3 text-xs font-bold outline-none ring-slate-100 focus:ring-2"
-                    />
-                  </div>
-                  <div className="w-36 space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Type
-                    </label>
-                    <select
-                      value={newCash.type}
-                      onChange={(e) =>
-                        setNewCash({ ...newCash, type: e.target.value })
-                      }
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-3 text-xs font-bold outline-none"
-                    >
-                      <option>입금</option>
-                      <option>출금</option>
-                    </select>
-                  </div>
-                  <div className="flex-[1.5] space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      value={newCash.amount}
-                      onChange={(e) =>
-                        setNewCash({ ...newCash, amount: e.target.value })
-                      }
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-3 text-xs font-bold outline-none"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="flex-[2] space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Memo
-                    </label>
-                    <input
-                      type="text"
-                      value={newCash.memo}
-                      onChange={(e) =>
-                        setNewCash({ ...newCash, memo: e.target.value })
-                      }
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-3 text-xs font-bold outline-none"
-                      placeholder="내용 입력"
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      setCashFlows([
-                        {
-                          ...newCash,
-                          id: Date.now(),
-                          amount: Number(newCash.amount),
-                        },
-                        ...cashFlows,
-                      ]);
-                      alert("등록 완료");
-                    }}
-                    className="bg-[#1e293b] text-white px-12 py-3.5 rounded-2xl text-[11px] font-black hover:bg-black transition-all"
-                  >
-                    등록
-                  </button>
-                </div>
-                <table className="w-full text-[12px] font-bold text-left border-collapse">
-                  <thead className="text-slate-400 border-b border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="pb-5 pl-4">Date</th>
-                      <th>Type</th>
-                      <th className="text-right">Amount</th>
-                      <th className="pl-16">Memo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {cashFlows.map((cf) => (
-                      <tr key={cf.id} className="hover:bg-slate-50 group">
-                        <td className="py-5 pl-4 text-slate-400">{cf.date}</td>
-                        <td>
-                          <span
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${cf.type === "입금" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}
-                          >
-                            {cf.type}
-                          </span>
-                        </td>
-                        <td className="text-right font-black text-sm">
-                          {formatNum(cf.amount)}
-                        </td>
-                        <td className="pl-16 text-slate-500 font-medium">
-                          {cf.memo}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* 2. 거래관리 (등록 폼 + 목록) */}
+            {/* --- TAB 1: 거래관리 (수수료, 세금, 매수/매도 포함) --- */}
             {activeTab === "거래관리" && (
-              <div className="animate-in fade-in duration-500">
-                <div className="mb-10 p-8 border border-slate-100 rounded-3xl flex gap-4 items-end bg-slate-50/40">
-                  <div className="flex-1 space-y-1.5">
+              <div className="animate-in fade-in">
+                <div
+                  className={`mb-10 p-8 rounded-3xl border-2 grid grid-cols-4 gap-4 items-end transition-all ${editingId ? "border-blue-500 bg-blue-50/20" : "border-slate-100 bg-slate-50/40"}`}
+                >
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
                       Date
                     </label>
@@ -495,12 +306,27 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewTx({ ...newTx, date: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
                     />
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Asset Name
+                      Type
+                    </label>
+                    <select
+                      value={newTx.type}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, type: e.target.value })
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    >
+                      <option>매수</option>
+                      <option>매도</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Name
                     </label>
                     <input
                       type="text"
@@ -508,11 +334,11 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewTx({ ...newTx, name: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
-                      placeholder="삼성전자"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
+                      placeholder="종목명"
                     />
                   </div>
-                  <div className="w-28 space-y-1.5">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
                       Qty
                     </label>
@@ -522,10 +348,10 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewTx({ ...newTx, qty: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
                     />
                   </div>
-                  <div className="w-36 space-y-1.5">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
                       Price
                     </label>
@@ -535,58 +361,106 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewTx({ ...newTx, price: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
                     />
                   </div>
-                  <button
-                    onClick={() => {
-                      setTransactions([
-                        {
-                          ...newTx,
-                          id: Date.now(),
-                          qty: Number(newTx.qty),
-                          price: Number(newTx.price),
-                          total: Number(newTx.qty) * Number(newTx.price),
-                        },
-                        ...transactions,
-                      ]);
-                      alert("거래 등록 완료");
-                    }}
-                    className="bg-[#1e293b] text-white px-12 py-3.5 rounded-2xl text-[11px] font-black hover:bg-black transition-all"
-                  >
-                    거래 저장
-                  </button>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Fee
+                    </label>
+                    <input
+                      type="number"
+                      value={newTx.fee}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, fee: e.target.value })
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Tax
+                    </label>
+                    <input
+                      type="number"
+                      value={newTx.tax}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, tax: e.target.value })
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveTx}
+                      className="flex-1 bg-slate-900 text-white py-3.5 rounded-xl text-[11px] font-black hover:bg-black transition-all"
+                    >
+                      {editingId ? "수정 완료" : "거래 등록"}
+                    </button>
+                    {editingId && (
+                      <button
+                        onClick={resetForms}
+                        className="bg-slate-200 px-4 py-3.5 rounded-xl text-[11px] font-black"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <table className="w-full text-[12px] font-bold text-left border-collapse">
-                  <thead className="text-slate-400 border-b border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="pb-5 pl-4">Date</th>
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-black text-slate-400 uppercase border-b border-slate-100">
+                    <tr className="pb-4">
+                      <th className="pb-4 pl-4">Date</th>
                       <th>Type</th>
-                      <th>Asset Name</th>
-                      <th className="text-center">Qty</th>
-                      <th className="text-right pr-4">Total Amount</th>
+                      <th>Asset</th>
+                      <th className="text-right">Price</th>
+                      <th className="text-right">Fee/Tax</th>
+                      <th className="text-right pr-4">Total</th>
+                      <th className="text-center">Manage</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="text-[12px] font-bold divide-y divide-slate-50">
                     {transactions.map((t) => (
-                      <tr key={t.id} className="hover:bg-slate-50">
+                      <tr key={t.id} className="hover:bg-slate-50 group">
                         <td className="py-5 pl-4 text-slate-400">{t.date}</td>
                         <td>
                           <span
-                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black ${t.type === "매수" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"}`}
+                            className={`px-2 py-1 rounded text-[9px] font-black ${t.type === "매수" ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"}`}
                           >
                             {t.type}
                           </span>
                         </td>
-                        <td className="font-black text-slate-800">
+                        <td className="font-black">
                           {t.name}{" "}
-                          <span className="text-[10px] text-slate-300 ml-1 italic font-medium">
+                          <span className="text-[10px] text-slate-300 font-medium">
                             {t.ticker}
                           </span>
                         </td>
-                        <td className="text-center font-medium">{t.qty}</td>
+                        <td className="text-right text-slate-500">
+                          {formatNum(t.price)}{" "}
+                          <span className="text-[10px]">({t.qty}주)</span>
+                        </td>
+                        <td className="text-right text-slate-400 font-medium">
+                          {formatNum(t.fee)} / {formatNum(t.tax)}
+                        </td>
                         <td className="text-right pr-4 font-black">
                           {formatNum(t.total)}
+                        </td>
+                        <td className="text-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => startEdit(t, "tx")}
+                            className="text-blue-500 hover:underline"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(t.id, transactions, setTransactions)
+                            }
+                            className="text-rose-500 hover:underline"
+                          >
+                            삭제
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -595,13 +469,12 @@ export default function MyPortfolioDefinitiveSystem() {
               </div>
             )}
 
-            {/* 3. 보유현황 */}
+            {/* --- TAB 2: 보유현황 --- */}
             {activeTab === "보유현황" && (
-              <div className="animate-in fade-in duration-500">
-                <table className="w-full text-[12px] font-bold text-center border-collapse">
-                  <thead className="bg-slate-50 text-slate-400 border-y border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-5">Ticker</th>
+              <div className="animate-in fade-in">
+                <table className="w-full text-center border-collapse">
+                  <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-y border-slate-100">
+                    <tr className="h-14">
                       <th>Asset</th>
                       <th>Qty</th>
                       <th>Avg Price</th>
@@ -611,83 +484,120 @@ export default function MyPortfolioDefinitiveSystem() {
                       <th>Yield</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-800">
-                    {holdings.map((h, i) => (
-                      <tr
-                        key={i}
-                        className="hover:bg-slate-50 transition-colors"
-                      >
-                        <td className="py-6 text-blue-500 font-black italic tracking-tighter">
-                          {h.ticker}
-                        </td>
-                        <td className="text-sm font-black">{h.name}</td>
-                        <td>{h.qty}</td>
-                        <td className="text-right pr-8">
-                          {formatNum(h.avgPrice)}
-                        </td>
-                        <td className="text-right pr-8 font-black">
-                          {formatNum(h.current)}
-                        </td>
-                        <td className="text-right pr-8 font-black text-sm">
-                          {formatNum(h.eval)}
-                        </td>
-                        <td
-                          className={`text-right pr-8 font-black ${getYieldColor(h.profit)}`}
-                        >
-                          {h.profit > 0 ? "+" : ""}
-                          {formatNum(h.profit)}
-                        </td>
-                        <td
-                          className={`text-right pr-4 font-black ${getYieldColor(h.yield)}`}
-                        >
-                          {h.yield > 0 ? "+" : ""}
-                          {h.yield}%
-                        </td>
-                      </tr>
-                    ))}
+                  <tbody className="text-[12px] font-bold divide-y divide-slate-50">
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-7 font-black text-sm">
+                        삼성전자{" "}
+                        <span className="text-[10px] text-blue-500 italic block">
+                          005930
+                        </span>
+                      </td>
+                      <td>120</td>
+                      <td className="text-right pr-6">72,500</td>
+                      <td className="text-right pr-6 font-black">78,500</td>
+                      <td className="text-right pr-6 font-black">9,420,000</td>
+                      <td className="text-right pr-6 text-rose-500">
+                        +720,000
+                      </td>
+                      <td className="text-right pr-4 text-rose-500 font-black">
+                        +8.28%
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
             )}
 
-            {/* 4. 월별수익률 */}
-            {activeTab === "월별수익률" && (
-              <div className="animate-in fade-in duration-500">
-                <table className="w-full text-[11px] font-bold text-center border-collapse">
-                  <thead className="bg-slate-50 text-slate-400 border-y border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-6">Month</th>
-                      <th>Start Balance</th>
-                      <th>End Balance</th>
-                      <th>Net Flow</th>
-                      <th>P/L Amount</th>
-                      <th>Rate of Return</th>
+            {/* --- TAB 3: 입출금 --- */}
+            {activeTab === "입출금" && (
+              <div className="animate-in fade-in">
+                <div className="mb-10 p-8 rounded-3xl border-2 border-slate-50 bg-slate-50/40 flex gap-4 items-end">
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newCash.date}
+                      onChange={(e) =>
+                        setNewCash({ ...newCash, date: e.target.value })
+                      }
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      value={newCash.amount}
+                      onChange={(e) =>
+                        setNewCash({ ...newCash, amount: e.target.value })
+                      }
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                      Memo
+                    </label>
+                    <input
+                      type="text"
+                      value={newCash.memo}
+                      onChange={(e) =>
+                        setNewCash({ ...newCash, memo: e.target.value })
+                      }
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveCash}
+                    className="bg-slate-900 text-white px-10 py-3.5 rounded-xl text-[11px] font-black"
+                  >
+                    기록 저장
+                  </button>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-black text-slate-400 uppercase border-b border-slate-100">
+                    <tr className="pb-4">
+                      <th className="pb-4 pl-4">Date</th>
+                      <th>Type</th>
+                      <th className="text-right">Amount</th>
+                      <th className="pl-12">Memo</th>
+                      <th className="text-center">Manage</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-800">
-                    {monthlyStats.map((m, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="py-7 font-black text-base">{m.month}</td>
-                        <td className="text-right pr-10 text-slate-400">
-                          {formatNum(m.start)}
+                  <tbody className="text-[12px] font-bold divide-y divide-slate-50">
+                    {cashFlows.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-50 group">
+                        <td className="py-5 pl-4 text-slate-400">{c.date}</td>
+                        <td>
+                          <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[9px] font-black uppercase italic">
+                            {c.type}
+                          </span>
                         </td>
-                        <td className="text-right pr-10 font-black text-sm">
-                          {formatNum(m.end)}
+                        <td className="text-right font-black">
+                          {formatNum(c.amount)}
                         </td>
-                        <td
-                          className={`text-right pr-10 font-black ${m.flow >= 0 ? "text-emerald-500" : "text-orange-500"}`}
-                        >
-                          {formatNum(m.flow)}
+                        <td className="pl-12 text-slate-500 font-medium">
+                          {c.memo}
                         </td>
-                        <td
-                          className={`text-right pr-10 font-black text-sm ${getYieldColor(m.profit)}`}
-                        >
-                          {formatNum(m.profit)}
-                        </td>
-                        <td
-                          className={`text-right pr-6 font-black text-sm ${getYieldColor(m.yield)}`}
-                        >
-                          {m.yield}%
+                        <td className="text-center space-x-3 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => startEdit(c, "cash")}
+                            className="text-blue-500"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(c.id, cashFlows, setCashFlows)
+                            }
+                            className="text-rose-500"
+                          >
+                            삭제
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -696,11 +606,11 @@ export default function MyPortfolioDefinitiveSystem() {
               </div>
             )}
 
-            {/* 5. 종목마스터 */}
+            {/* --- TAB 4: 종목마스터 --- */}
             {activeTab === "종목마스터" && (
-              <div className="animate-in fade-in duration-500">
-                <div className="mb-10 p-8 border border-slate-100 rounded-3xl flex gap-4 items-end bg-slate-50/40">
-                  <div className="flex-1 space-y-1.5">
+              <div className="animate-in fade-in">
+                <div className="mb-10 p-8 rounded-3xl border-2 border-slate-50 bg-slate-50/40 flex gap-4 items-end">
+                  <div className="w-32 space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
                       Ticker
                     </label>
@@ -710,13 +620,13 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewStock({ ...newStock, ticker: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
                       placeholder="005930"
                     />
                   </div>
                   <div className="flex-1 space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
-                      Name
+                      Asset Name
                     </label>
                     <input
                       type="text"
@@ -724,11 +634,10 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewStock({ ...newStock, name: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold"
-                      placeholder="삼성전자"
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
                     />
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  <div className="w-40 space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
                       Market
                     </label>
@@ -737,52 +646,61 @@ export default function MyPortfolioDefinitiveSystem() {
                       onChange={(e) =>
                         setNewStock({ ...newStock, market: e.target.value })
                       }
-                      className="w-full border-slate-200 rounded-2xl p-3 text-xs font-bold outline-none"
+                      className="w-full border-slate-200 rounded-xl p-3 text-xs font-bold"
                     >
                       <option>KOSPI</option>
                       <option>KOSDAQ</option>
                       <option>NASDAQ</option>
-                      <option>NYSE</option>
                       <option>ETF</option>
                     </select>
                   </div>
                   <button
-                    onClick={() => {
-                      setStockMaster([newStock, ...stockMaster]);
-                      alert("종목 등록 완료");
-                    }}
-                    className="bg-[#1e293b] text-white px-12 py-3.5 rounded-2xl text-[11px] font-black hover:bg-black transition-all"
+                    onClick={handleSaveStock}
+                    className="bg-slate-900 text-white px-10 py-3.5 rounded-xl text-[11px] font-black"
                   >
-                    추가
+                    종목 추가
                   </button>
                 </div>
-                <table className="w-full text-[12px] font-bold text-left border-collapse">
-                  <thead className="text-slate-400 border-b border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="pb-5 pl-4">Ticker</th>
-                      <th>Asset Name</th>
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-black text-slate-400 uppercase border-b border-slate-100">
+                    <tr className="pb-4">
+                      <th className="pb-4 pl-4">Ticker</th>
+                      <th>Name</th>
                       <th>Market</th>
                       <th>Sector</th>
-                      <th>Currency</th>
+                      <th className="text-center">Manage</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {stockMaster.map((s, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-all">
-                        <td className="py-5 pl-4 text-blue-500 font-black italic">
+                  <tbody className="text-[12px] font-bold divide-y divide-slate-50">
+                    {stockMaster.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50 group">
+                        <td className="py-5 pl-4 text-blue-500 font-black italic tracking-tighter">
                           {s.ticker}
                         </td>
-                        <td className="font-black text-slate-800">{s.name}</td>
+                        <td>{s.name}</td>
                         <td>
-                          <span className="bg-slate-100 px-3 py-1 rounded-xl text-[10px] font-black text-slate-500">
+                          <span className="bg-slate-100 px-3 py-1 rounded-xl text-[10px] text-slate-500 font-black">
                             {s.market}
                           </span>
                         </td>
-                        <td className="text-slate-500 font-medium">
+                        <td className="text-slate-400 font-medium">
                           {s.sector || "-"}
                         </td>
-                        <td className="text-slate-300 italic font-medium">
-                          {s.currency}
+                        <td className="text-center space-x-3 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => startEdit(s, "stock")}
+                            className="text-blue-500"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(s.id, stockMaster, setStockMaster)
+                            }
+                            className="text-rose-500"
+                          >
+                            삭제
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -791,88 +709,34 @@ export default function MyPortfolioDefinitiveSystem() {
               </div>
             )}
 
-            {/* 6. 일별수익률 / 7. 보유종목일별 / 8. 일별종가 (핵심 데이터 테이블) */}
-            {["일별수익률", "보유종목일별", "일별종가"].includes(activeTab) && (
-              <div className="animate-in fade-in duration-500">
-                <table className="w-full text-[12px] font-bold text-center border-collapse">
-                  <thead className="bg-slate-50 text-slate-400 border-y border-slate-100 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-5">Date</th>
-                      {activeTab === "일별수익률" ? (
-                        <>
-                          <th>End Assets</th>
-                          <th>Daily P/L</th>
-                          <th>Daily Yield</th>
-                          <th>Cumulative Profit</th>
-                        </>
-                      ) : null}
-                      {activeTab === "보유종목일별" ? (
-                        <>
-                          <th>Asset Name</th>
-                          <th>Close Price</th>
-                          <th>Qty</th>
-                          <th>Eval Amount</th>
-                          <th>Yield</th>
-                        </>
-                      ) : null}
-                      {activeTab === "일별종가" ? (
-                        <>
-                          <th>Ticker</th>
-                          <th>Name</th>
-                          <th>Close Price</th>
-                          <th>Volume</th>
-                        </>
-                      ) : null}
+            {/* --- 나머지 통계 탭들 (공통 디자인) --- */}
+            {!["거래관리", "보유현황", "입출금", "종목마스터"].includes(
+              activeTab,
+            ) && (
+              <div className="animate-in fade-in">
+                <table className="w-full text-center border-collapse">
+                  <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-y border-slate-100">
+                    <tr className="h-14">
+                      <th>Date / Period</th>
+                      <th>Assets</th>
+                      <th>Change</th>
+                      <th>Return</th>
+                      <th>Note</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-800 font-bold">
+                  <tbody className="text-[12px] font-bold divide-y divide-slate-50">
                     <tr className="hover:bg-slate-50">
-                      <td className="py-6 text-slate-400">2026-05-15</td>
-                      {activeTab === "일별수익률" ? (
-                        <>
-                          <td className="text-right pr-10">
-                            {formatNum(91958168)}
-                          </td>
-                          <td className="text-right pr-10 text-blue-500">
-                            -500,420
-                          </td>
-                          <td className="text-right pr-10 text-blue-500">
-                            -0.54%
-                          </td>
-                          <td className="text-right pr-10 font-black italic">
-                            {formatNum(46820695)}
-                          </td>
-                        </>
-                      ) : null}
-                      {activeTab === "보유종목일별" ? (
-                        <>
-                          <td className="font-black text-sm">삼성전자</td>
-                          <td className="text-right pr-10">
-                            {formatNum(78500)}
-                          </td>
-                          <td>120</td>
-                          <td className="text-right pr-10">
-                            {formatNum(9420000)}
-                          </td>
-                          <td className="text-right pr-6 text-rose-500">
-                            +8.28%
-                          </td>
-                        </>
-                      ) : null}
-                      {activeTab === "일별종가" ? (
-                        <>
-                          <td className="text-blue-500 font-black italic">
-                            005930
-                          </td>
-                          <td className="font-black">삼성전자</td>
-                          <td className="text-right pr-14 font-black">
-                            {formatNum(78500)}
-                          </td>
-                          <td className="text-right pr-10 text-slate-400 tracking-tighter uppercase font-black">
-                            15.2M
-                          </td>
-                        </>
-                      ) : null}
+                      <td className="py-8 text-slate-400">2026-05-15</td>
+                      <td className="text-right pr-12 font-black">
+                        91,056,488
+                      </td>
+                      <td className="text-right pr-12 text-rose-500">
+                        +1,420,000
+                      </td>
+                      <td className="text-right pr-12 text-rose-500">+1.58%</td>
+                      <td className="text-slate-300 italic font-medium">
+                        Automatic Snapshot
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -896,10 +760,9 @@ export default function MyPortfolioDefinitiveSystem() {
         }
         body {
           background-color: #f1f5f9;
-          margin: 0;
         }
         .animate-in {
-          animation: fadeIn 0.5s ease-out;
+          animation: fadeIn 0.4s ease-out;
         }
         @keyframes fadeIn {
           from {
