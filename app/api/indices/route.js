@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // 수집할 지수 심볼 (네이버 금융 기준)
   const symbols = [
     { name: "코스피", code: "KOSPI" },
     { name: "코스닥", code: "KOSDAQ" },
@@ -16,18 +15,31 @@ export async function GET() {
         const res = await fetch(
           `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${item.code}`,
           {
-            headers: { "User-Agent": "Mozilla/5.0" },
-            cache: "no-store",
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            },
+            next: { revalidate: 0 }, // 캐시 방지
           },
         );
+
         const data = await res.json();
+
+        // 데이터 존재 여부 엄격히 체크 (에러 방지)
+        if (
+          !data.result ||
+          !data.result.areas ||
+          !data.result.areas[0].datas[0]
+        ) {
+          return { name: item.name, value: "N/A", rate: "0%", isUp: true };
+        }
+
         const info = data.result.areas[0].datas[0];
 
         return {
           name: item.name,
-          value: info.nv.toLocaleString(), // 현재가
-          change: (info.cv > 0 ? "+" : "") + info.cv.toLocaleString(), // 전일비
-          rate: (info.cr > 0 ? "+" : "") + info.cr + "%", // 등락률
+          value: info.nv ? info.nv.toLocaleString() : "0",
+          rate: (info.cr > 0 ? "+" : "") + (info.cr || 0) + "%",
           isUp: info.cr > 0,
         };
       }),
@@ -35,6 +47,7 @@ export async function GET() {
 
     return NextResponse.json(results);
   } catch (error) {
-    return NextResponse.json({ error: "지수 수집 실패" }, { status: 500 });
+    console.error("Indices API Error:", error);
+    return NextResponse.json({ error: "데이터 연결 실패" }, { status: 500 });
   }
 }
