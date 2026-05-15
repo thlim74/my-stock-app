@@ -3,27 +3,30 @@ import { NextResponse } from "next/server";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code"); // 종목코드 (예: 005930)
+  let code = searchParams.get("code");
 
-  if (!code)
-    return NextResponse.json({ error: "Code is required" }, { status: 400 });
+  if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 });
+
+  // .KS 접미사 제거 (네이버 조회용)
+  const pureCode = code.replace(".KS", "").replace(".KQ", "");
 
   try {
-    // Yahoo Finance에서 데이터를 가져오는 무료 경로
+    // 네이버 금융 실시간 시세 API (가장 안정적임)
     const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KS`,
-      {
-        next: { revalidate: 60 }, // 1분마다 캐시 갱신
-      },
+      `https://polling.finance.naver.com/api/realtime/getLowRealtime?symbolCode=${pureCode}`,
+      { next: { revalidate: 60 } }
     );
+    
     const data = await res.json();
-    const price = data.chart.result[0].meta.regularMarketPrice;
+    
+    // 네이버 응답 구조에서 현재가 추출
+    const price = data.result.areas[0].datas[0].nv;
+
+    if (!price) throw new Error("Price not found");
 
     return NextResponse.json({ price });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch price" },
-      { status: 500 },
-    );
+    console.error("Fetch Error:", error);
+    return NextResponse.json({ error: "Failed to fetch price from Naver" }, { status: 500 });
   }
 }
