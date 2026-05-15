@@ -1,317 +1,281 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
-import { PlusCircle, Trash2, RefreshCw } from "lucide-react";
 
-export default function Home() {
-  const [stocks, setStocks] = useState([]);
-  const [name, setName] = useState("");
-  const [code, setCode] = useState(""); // 종목코드 상태 추가
-  const [quantity, setQuantity] = useState("");
-  const [buyPrice, setBuyPrice] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function PortfolioDashboard() {
+  // 1. 상태 관리
+  const [activeTab, setActiveTab] = useState("보유현황");
+  const [indices, setIndices] = useState([]);
+  const [loadingIndices, setLoadingIndices] = useState(true);
 
-  // 1. 데이터 불러오기
-  const fetchStocks = async () => {
-    const { data, error } = await supabase
-      .from("stocks")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) console.error("데이터 로드 에러:", error);
-    else setStocks(data || []);
+  const menuItems = [
+    "보유현황",
+    "일별수익률",
+    "월별수익률",
+    "보유종목일별",
+    "거래내역",
+    "일별종가",
+    "현금",
+    "입력관리",
+    "시스템상태",
+  ];
+
+  // 2. 실시간 지수 데이터 가져오기 함수
+  const fetchIndices = async () => {
+    setLoadingIndices(true);
+    try {
+      const res = await fetch("/api/indices");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setIndices(data);
+    } catch (e) {
+      console.error("지수 로딩 에러:", e);
+    } finally {
+      setLoadingIndices(false);
+    }
   };
 
+  // 초기 로딩 및 자동 갱신 설정
   useEffect(() => {
-    fetchStocks();
+    fetchIndices();
+    const timer = setInterval(fetchIndices, 60000); // 1분마다 갱신
+    return () => clearInterval(timer);
   }, []);
 
-  // 2. 실시간 가격 가져오기 함수 (API Route 호출)
-  const getLivePrice = async (stockCode) => {
-    try {
-      // 한국 종목 코드 형식 보정 (6자리 숫자인 경우 .KS 추가)
-      const formattedCode =
-        stockCode.length === 6 ? `${stockCode}.KS` : stockCode;
-      const res = await fetch(`/api/price?code=${formattedCode}`);
-      const data = await res.json();
-      return data.price || 0;
-    } catch (e) {
-      console.error("가격 조회 실패:", e);
-      return 0;
-    }
-  };
-
-  // 3. 종목 추가
-  const addStock = async () => {
-    if (!name || !code || !quantity || !buyPrice) {
-      return alert("종목명, 종목코드, 수량, 매수평단가를 모두 입력해주세요!");
-    }
-
-    setLoading(true);
-    const livePrice = await getLivePrice(code);
-
-    const { error } = await supabase.from("stocks").insert([
-      {
-        name,
-        code,
-        quantity: parseInt(quantity),
-        avg_price: parseInt(buyPrice),
-        current_price: livePrice || parseInt(buyPrice), // 가격 조회 실패 시 매수가로 대체
-      },
-    ]);
-
-    setLoading(false);
-
-    if (error) {
-      alert("저장 실패: " + error.message);
-    } else {
-      setName("");
-      setCode("");
-      setQuantity("");
-      setBuyPrice("");
-      fetchStocks();
-    }
-  };
-
-  // 4. 종목 삭제
-  const deleteStock = async (id) => {
-    if (confirm("정말 삭제하시겠습니까?")) {
-      const { error } = await supabase.from("stocks").delete().eq("id", id);
-      if (error) alert("삭제 실패");
-      else fetchStocks();
-    }
-  };
-
-  // 5. 전체 가격 새로고침
-  const refreshPrices = async () => {
-    if (stocks.length === 0) return;
-    setLoading(true);
-    for (const stock of stocks) {
-      if (stock.code) {
-        const newPrice = await getLivePrice(stock.code);
-        await supabase
-          .from("stocks")
-          .update({ current_price: newPrice })
-          .eq("id", stock.id);
-      }
-    }
-    await fetchStocks();
-    setLoading(false);
-  };
-
-  // 계산 로직
-  const totalInvested = stocks.reduce(
-    (acc, s) => acc + s.avg_price * s.quantity,
-    0,
-  );
-  const totalValue = stocks.reduce(
-    (acc, s) => acc + s.current_price * s.quantity,
-    0,
-  );
-  const totalProfit = totalValue - totalInvested;
-  const totalRate =
-    totalInvested > 0 ? ((totalProfit / totalInvested) * 100).toFixed(2) : 0;
-
   return (
-    <main className="min-h-screen bg-[#f8fafc] p-4 md:p-10">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900">MY PORTFOLIO</h1>
-            <p className="text-slate-500 text-sm">
-              실시간 가격이 반영되는 개인 자산 관리 대시보드
-            </p>
-          </div>
+    <div className="min-h-screen bg-slate-50 p-6 text-slate-900 font-sans">
+      {/* 상단 헤더 섹션 */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tighter text-slate-800 uppercase">
+            My Portfolio
+          </h1>
+          <p className="text-xs text-slate-400 font-bold mt-1">
+            동기화 데이터 기준: {new Date().toLocaleString()}
+          </p>
+        </div>
+        <div className="flex gap-2">
           <button
-            onClick={refreshPrices}
-            disabled={loading}
-            className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm hover:bg-slate-50 font-bold transition-all disabled:opacity-50"
+            onClick={fetchIndices}
+            className="rounded-xl bg-white px-4 py-2 text-xs font-bold shadow-sm border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            가격 갱신
+            {loadingIndices ? "갱신 중..." : "지수 새로고침"}
+          </button>
+          <button className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-slate-700 transition-all">
+            로그아웃
           </button>
         </div>
+      </div>
 
-        {/* 요약 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p className="text-xs font-bold text-slate-400 mb-1">총 투자금액</p>
-            <p className="text-2xl font-black">
-              {totalInvested.toLocaleString()}원
-            </p>
+      {/* 상단 지수 보드 (실시간 연동) */}
+      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-5">
+        {loadingIndices && indices.length === 0 ? (
+          <div className="col-span-5 py-10 text-center text-slate-300 font-bold animate-pulse">
+            마켓 데이터를 연결 중입니다...
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p className="text-xs font-bold text-slate-400 mb-1">평가손익</p>
-            <p
-              className={`text-2xl font-black ${totalProfit >= 0 ? "text-blue-600" : "text-red-500"}`}
+        ) : (
+          indices.map((idx, i) => (
+            <div
+              key={i}
+              className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100 transition-all hover:shadow-md"
             >
-              {totalProfit > 0 ? "+" : ""}
-              {totalProfit.toLocaleString()}원
+              <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">
+                {idx.name}
+              </p>
+              <div className="flex items-end justify-between">
+                <span className="text-lg font-black text-slate-800 tracking-tighter">
+                  {idx.value}
+                </span>
+                <span
+                  className={`text-[11px] font-bold ${idx.isUp ? "text-rose-500" : "text-blue-500"}`}
+                >
+                  {idx.rate}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 자산 요약 섹션 */}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "순투자원금", value: "45,137,473" },
+          { label: "총자산", value: "97,605,788" },
+          { label: "평가금액", value: "97,527,630" },
+          { label: "현금", value: "78,158" },
+        ].map((item, i) => (
+          <div
+            key={i}
+            className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100"
+          >
+            <p className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">
+              {item.label}
+            </p>
+            <p className="text-xl font-black text-slate-800">
+              {item.value}
+              <span className="ml-1 text-xs font-medium text-slate-400">
+                원
+              </span>
             </p>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p className="text-xs font-bold text-slate-400 mb-1">수익률</p>
-            <p
-              className={`text-2xl font-black ${totalProfit >= 0 ? "text-blue-600" : "text-red-500"}`}
+        ))}
+      </div>
+
+      {/* 메인 컨텐츠 영역 (9개 탭 메뉴) */}
+      <div className="rounded-[2.5rem] bg-white shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div className="flex border-b border-slate-50 bg-slate-50/30 p-2 overflow-x-auto scrollbar-hide">
+          {menuItems.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`whitespace-nowrap px-6 py-3 text-[11px] font-black transition-all ${
+                activeTab === tab
+                  ? "bg-slate-800 text-white rounded-2xl shadow-lg transform scale-105"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
             >
-              {totalProfit > 0 ? "+" : ""}
-              {totalRate}%
-            </p>
-          </div>
+              {tab}
+            </button>
+          ))}
         </div>
 
-        {/* 입력란 */}
-        <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-100 mb-10">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="col-span-2 md:col-span-1">
-              <label className="block text-xs font-bold text-slate-400 mb-2">
-                종목명
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="삼성전자"
-                className="w-full bg-slate-50 p-2.5 rounded-lg border focus:ring-2 focus:ring-slate-200 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-2">
-                종목코드
-              </label>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="005930"
-                className="w-full bg-slate-50 p-2.5 rounded-lg border focus:ring-2 focus:ring-slate-200 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-2">
-                수량
-              </label>
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="0"
-                className="w-full bg-slate-50 p-2.5 rounded-lg border focus:ring-2 focus:ring-slate-200 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-2">
-                매수평단가
-              </label>
-              <input
-                type="number"
-                value={buyPrice}
-                onChange={(e) => setBuyPrice(e.target.value)}
-                placeholder="0"
-                className="w-full bg-slate-50 p-2.5 rounded-lg border focus:ring-2 focus:ring-slate-200 outline-none"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={addStock}
-                disabled={loading}
-                className="w-full bg-slate-900 text-white p-2.5 rounded-lg font-bold hover:bg-slate-800 transition-colors disabled:bg-slate-400"
-              >
-                {loading ? "조회 중..." : "추가하기"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 목록 테이블 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
-              <tr>
-                <th className="p-4">Asset / Code</th>
-                <th className="p-4 text-right">Weight</th>
-                <th className="p-4 text-right">Price Info</th>
-                <th className="p-4 text-right">Profit</th>
-                <th className="p-4 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {stocks.map((stock) => {
-                const profitRate = (
-                  ((stock.current_price - stock.avg_price) / stock.avg_price) *
-                  100
-                ).toFixed(2);
-                const weight =
-                  totalInvested > 0
-                    ? (
-                        ((stock.avg_price * stock.quantity) / totalInvested) *
-                        100
-                      ).toFixed(1)
-                    : 0;
-                return (
-                  <tr
-                    key={stock.id}
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="font-bold text-slate-900">
-                        {stock.name}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        {stock.code} | {stock.quantity}주 보유
-                      </div>
+        <div className="p-8">
+          {activeTab === "보유현황" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-[11px] font-bold text-slate-400 border-b border-slate-50 text-left">
+                    <th className="pb-4">종목명 / 코드</th>
+                    <th className="pb-4 text-right">수량</th>
+                    <th className="pb-4 text-right">평균단가</th>
+                    <th className="pb-4 text-right">최근가</th>
+                    <th className="pb-4 text-right">평가금액</th>
+                    <th className="pb-4 text-right">수익률</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  <tr className="text-sm">
+                    <td className="py-5 font-black text-slate-800">
+                      삼성전자{" "}
+                      <span className="block text-[10px] text-slate-400 font-normal">
+                        005930
+                      </span>
                     </td>
-                    <td className="p-4 text-right">
-                      <div className="text-sm font-medium">{weight}%</div>
-                      <div className="w-full bg-slate-100 h-1 rounded-full mt-1">
-                        <div
-                          className="bg-slate-900 h-1 rounded-full"
-                          style={{ width: `${weight}%` }}
-                        ></div>
-                      </div>
+                    <td className="py-5 text-right font-medium">120</td>
+                    <td className="py-5 text-right text-slate-500">154,821</td>
+                    <td className="py-5 text-right font-black">293,250</td>
+                    <td className="py-5 text-right font-bold text-slate-800">
+                      35,190,000
                     </td>
-                    <td className="p-4 text-right">
-                      <div className="font-bold text-sm">
-                        {stock.current_price?.toLocaleString()}원
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-medium">
-                        평단 {stock.avg_price?.toLocaleString()}원
-                      </div>
-                    </td>
-                    <td
-                      className={`p-4 text-right font-bold ${profitRate >= 0 ? "text-blue-600" : "text-red-500"}`}
-                    >
-                      <div className="text-sm">{profitRate}%</div>
-                      <div className="text-[10px]">
-                        {(
-                          (stock.current_price - stock.avg_price) *
-                          stock.quantity
-                        ).toLocaleString()}
-                        원
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => deleteStock(stock.id)}
-                        className="text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <td className="py-5 text-right font-black text-rose-500">
+                      +89.41%
                     </td>
                   </tr>
-                );
-              })}
-              {stocks.length === 0 && (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="p-10 text-center text-slate-400 text-sm"
-                  >
-                    등록된 종목이 없습니다. 첫 종목을 추가해보세요!
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === "입력관리" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
+              <section>
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></div>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
+                    Transaction Input
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  <input
+                    type="date"
+                    className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <select className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none">
+                    <option>매수</option>
+                    <option>매도</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="종목명"
+                    className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="코드"
+                    className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="수량"
+                    className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="단가"
+                    className="bg-slate-50 border-none p-3 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <button className="bg-slate-800 text-white rounded-xl font-black text-xs py-3 hover:bg-slate-700 shadow-lg shadow-slate-200 transition-all active:scale-95">
+                    저장하기
+                  </button>
+                </div>
+              </section>
+              <div className="h-px bg-slate-50 shadow-inner" />
+              <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
+                    History
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="text-[10px] font-black text-slate-300 uppercase border-b border-slate-50">
+                      <tr>
+                        <th className="pb-4">Date</th>
+                        <th className="pb-4">Type</th>
+                        <th className="pb-4">Asset</th>
+                        <th className="pb-4 text-right">Qty</th>
+                        <th className="pb-4 text-right">Price</th>
+                        <th className="pb-4 text-right">Total</th>
+                        <th className="pb-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      <tr className="text-xs font-bold group hover:bg-slate-50/50">
+                        <td className="py-4 text-slate-400">2024.05.14</td>
+                        <td className="py-4 text-rose-500 uppercase">Buy</td>
+                        <td className="py-4 text-slate-800">삼성전자</td>
+                        <td className="py-4 text-right">10</td>
+                        <td className="py-4 text-right text-slate-500">
+                          72,000
+                        </td>
+                        <td className="py-4 text-right text-slate-800">
+                          720,000
+                        </td>
+                        <td className="py-4 text-center">
+                          <button className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all">
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeTab === "일별종가" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 text-center py-20">
+              <p className="text-slate-300 text-sm font-bold">
+                보유 종목에 한해서만 실시간 데이터를 수집합니다.
+              </p>
+              <p className="text-[10px] text-slate-200 mt-2 uppercase tracking-widest">
+                Only active holdings are tracked
+              </p>
+            </div>
+          )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
