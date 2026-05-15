@@ -23,15 +23,18 @@ export default function Home() {
     fetchStocks();
   }, []);
 
-  // 실시간 가격을 가져오는 함수 (가상의 API 연결 로직 포함)
-  const getLivePrice = async (stockNameOrCode) => {
+  // app/page.js 내부의 getLivePrice 함수를 이렇게 교체하세요
+  const getLivePrice = async (stockCode) => {
     try {
-      // 실제 구현 시에는 별도의 API Route를 만들어야 하지만,
-      // 테스트를 위해 입력값이 있을 때 랜덤 가격을 생성하거나
-      // 이후 외부 API 연동을 위한 브릿지 역할을 합니다.
-      const mockPrice = Math.floor(Math.random() * 100000) + 1000;
-      return mockPrice;
+      // 한국 종목은 뒤에 .KS를 붙여야 조회가 잘 됩니다 (예: 005930.KS)
+      const formattedCode = stockCode.endsWith(".KS")
+        ? stockCode
+        : `${stockCode}.KS`;
+      const res = await fetch(`/api/price?code=${formattedCode}`);
+      const data = await res.json();
+      return data.price || 0;
     } catch (e) {
+      console.error("가격 조회 실패:", e);
       return 0;
     }
   };
