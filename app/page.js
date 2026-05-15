@@ -5,6 +5,7 @@ import { PlusCircle, Trash2, RefreshCw } from "lucide-react";
 
 export default function Home() {
   const [stocks, setStocks] = useState([]);
+  const [stockCode, setStockCode] = useState(""); // 종목코드 입력란 추가
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
@@ -40,21 +41,23 @@ export default function Home() {
   };
 
   const addStock = async () => {
-    if (!name || !quantity || !buyPrice)
-      return alert("종목명, 수량, 매수평단가를 입력해주세요!");
-
+    if (!name || !stockCode || !buyPrice) {
+      // 종목코드도 필수 입력으로!
+      return alert("종목명, 종목코드, 매수평단가를 모두 입력해주세요.");
+    }
     setLoading(true);
 
-    // 현재가를 자동으로 조회 (여기에 실제 API 연동이 들어갑니다)
-    const livePrice = await getLivePrice(name);
+    // '삼성전자'가 아닌 '005930' 같은 코드를 넘겨야 합니다.
+    const livePrice = await getLivePrice(stockCode);
 
+    // Supabase에 저장할 때 code 컬럼도 꼭 넣어주세요!
     const { error } = await supabase.from("stocks").insert([
       {
         name,
+        code: stockCode, // 이 부분이 들어가야 나중에 갱신이 됩니다.
         quantity: parseInt(quantity),
         avg_price: parseInt(buyPrice),
-        current_price: livePrice, // 자동 조회된 가격 저장
-        code: name, // 입력한 종목명/코드를 저장
+        current_price: livePrice,
       },
     ]);
 
