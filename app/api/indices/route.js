@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  // 해외 지수는 코드 앞에 'SPI@', 'NAS@', 'DJI@' 등이 붙어야 정확합니다.
   const symbols = [
     { name: "코스피", code: "KOSPI" },
     { name: "코스닥", code: "KOSDAQ" },
@@ -18,29 +19,32 @@ export async function GET() {
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+              Referer: "https://finance.naver.com/",
             },
-            next: { revalidate: 0 }, // 캐시 방지
+            next: { revalidate: 0 },
           },
         );
 
         const data = await res.json();
 
-        // 데이터 존재 여부 엄격히 체크 (에러 방지)
-        if (
-          !data.result ||
-          !data.result.areas ||
-          !data.result.areas[0].datas[0]
-        ) {
+        // 데이터 경로가 비어있을 경우 예외 처리
+        const dataSource = data?.result?.areas?.[0]?.datas?.[0];
+
+        if (!dataSource) {
           return { name: item.name, value: "N/A", rate: "0%", isUp: true };
         }
 
-        const info = data.result.areas[0].datas[0];
+        // nv(현재가) 또는 cd(등락) 필드가 해외 지수는 다를 수 있으므로 안전하게 추출
+        const currentVal = dataSource.nv
+          ? (dataSource.nv / (item.code.includes("@") ? 1 : 1)).toLocaleString()
+          : "0";
+        const rateVal = dataSource.cr || 0;
 
         return {
           name: item.name,
-          value: info.nv ? info.nv.toLocaleString() : "0",
-          rate: (info.cr > 0 ? "+" : "") + (info.cr || 0) + "%",
-          isUp: info.cr > 0,
+          value: currentVal,
+          rate: (rateVal > 0 ? "+" : "") + rateVal + "%",
+          isUp: rateVal > 0,
         };
       }),
     );
@@ -48,6 +52,9 @@ export async function GET() {
     return NextResponse.json(results);
   } catch (error) {
     console.error("Indices API Error:", error);
-    return NextResponse.json({ error: "데이터 연결 실패" }, { status: 500 });
+    return NextResponse.json(
+      { error: "지수 데이터 연결 실패" },
+      { status: 500 },
+    );
   }
 }
