@@ -3,11 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V14.0]
- * 1. 거래관리 [수수료, 세금] 항목 완벽 복원
- * 2. 개별/선택 삭제 및 CRUD 전체 통합
- * 3. 엑셀 업/다운로드 (한글 깨짐 방지)
- * 4. 8개 탭 전체 로직 및 디자인 고정
+ * [STOCK-MANAGER ULTIMATE FINAL V15.0]
+ * 1. 거래관리 [수수료, 세금] 항목 유지
+ * 2. [업로드 예시 파일 다운로드] 기능 신규 추가 (한글 깨짐 방지)
+ * 3. 개별/선택 삭제 및 CRUD 전체 통합
+ * 4. 8개 탭 전체 로직 및 디자인 절대 고정
  */
 
 export default function StockManagerUltimate() {
@@ -22,21 +22,19 @@ export default function StockManagerUltimate() {
   const [cashFlows, setCashFlows] = useState([]);
   const [stockMaster, setStockMaster] = useState([]);
 
-  // 초기 로드 (브라우저 저장소 연동)
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v14");
-    const savedCash = localStorage.getItem("cash_v14");
-    const savedMaster = localStorage.getItem("master_v14");
+    const savedTx = localStorage.getItem("tx_v15");
+    const savedCash = localStorage.getItem("cash_v15");
+    const savedMaster = localStorage.getItem("master_v15");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
-  // 데이터 변경 시 자동 저장
   useEffect(() => {
-    localStorage.setItem("tx_v14", JSON.stringify(transactions));
-    localStorage.setItem("cash_v14", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v14", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v15", JSON.stringify(transactions));
+    localStorage.setItem("cash_v15", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v15", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
   // --- [입력 및 조회 상태] ---
@@ -44,7 +42,6 @@ export default function StockManagerUltimate() {
   const [startDate, setStartDate] = useState("2026-05-01");
   const [endDate, setEndDate] = useState(today);
 
-  // 신규 입력 상태 (수수료, 세금 포함)
   const [newTx, setNewTx] = useState({
     날짜: today,
     구분: "매수",
@@ -85,20 +82,10 @@ export default function StockManagerUltimate() {
     const price = Number(newTx.단가);
     const fee = Number(newTx.수수료);
     const tax = Number(newTx.세금);
-
-    // 매수 시 비용 합산, 매도 시 비용 차감
     const subTotal = qty * price;
     const total =
       newTx.구분 === "매수" ? subTotal + fee + tax : subTotal - fee - tax;
-
-    const data = {
-      ...newTx,
-      id: editingId || Date.now(),
-      합계: total,
-      수수료: fee,
-      세금: tax,
-    };
-
+    const data = { ...newTx, id: editingId || Date.now(), 합계: total };
     if (editingId)
       setTransactions(transactions.map((t) => (t.id === editingId ? data : t)));
     else setTransactions([data, ...transactions]);
@@ -126,7 +113,7 @@ export default function StockManagerUltimate() {
   };
 
   const deleteItem = (id) => {
-    if (!confirm("해당 데이터를 삭제하시겠습니까?")) return;
+    if (!confirm("삭제하시겠습니까?")) return;
     if (activeTab === "거래관리")
       setTransactions(transactions.filter((t) => t.id !== id));
     if (activeTab === "입출금")
@@ -162,22 +149,43 @@ export default function StockManagerUltimate() {
     setNewStock({ 티커: "", 종목명: "", 시장: "KOSPI", 섹터: "" });
   };
 
-  // --- [엑셀 로직] ---
+  // --- [엑셀/CSV 로직] ---
+  const downloadFile = (fileName, content) => {
+    const blob = new Blob(["\ufeff" + content], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+  };
+
   const downloadCSV = () => {
     let data = [];
     if (activeTab === "거래관리") data = transactions;
     else if (activeTab === "입출금") data = cashFlows;
     else if (activeTab === "종목마스터") data = stockMaster;
     if (data.length === 0) return alert("데이터가 없습니다.");
-
     const headers = Object.keys(data[0]).join(",");
     const rows = data.map((row) => Object.values(row).join(",")).join("\n");
-    const csvContent = "\ufeff" + headers + "\n" + rows;
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${activeTab}_${today}.csv`;
-    link.click();
+    downloadFile(`${activeTab}_데이터_${today}.csv`, headers + "\n" + rows);
+  };
+
+  // 예시 파일 다운로드 로직 추가
+  const downloadExample = () => {
+    let headers = "";
+    let exampleRow = "";
+    if (activeTab === "거래관리") {
+      headers = "날짜,구분,종목명,티커,수량,단가,수수료,세금,합계";
+      exampleRow = `${today},매수,삼성전자,005930,10,75000,100,0,750100`;
+    } else if (activeTab === "입출금") {
+      headers = "날짜,구분,금액,메모";
+      exampleRow = `${today},입금,1000000,초기자본입금`;
+    } else if (activeTab === "종목마스터") {
+      headers = "티커,종목명,시장,섹터";
+      exampleRow = "005930,삼성전자,KOSPI,반도체";
+    }
+    downloadFile(`${activeTab}_업로드양식.csv`, headers + "\n" + exampleRow);
   };
 
   const onUploadFile = (e) => {
@@ -197,26 +205,26 @@ export default function StockManagerUltimate() {
           if (activeTab === "거래관리")
             return {
               id,
-              날짜: c[1],
-              구분: c[2],
-              종목명: c[3],
-              티커: c[4],
-              수량: Number(c[5]),
-              단가: Number(c[6]),
-              수수료: Number(c[7]),
-              세금: Number(c[8]),
-              합계: Number(c[9]),
+              날짜: c[0],
+              구분: c[1],
+              종목명: c[2],
+              티커: c[3],
+              수량: Number(c[4]),
+              단가: Number(c[5]),
+              수수료: Number(c[6]),
+              세금: Number(c[7]),
+              합계: Number(c[8]),
             };
           if (activeTab === "입출금")
             return {
               id,
-              날짜: c[1],
-              구분: c[2],
-              금액: Number(c[3]),
-              메모: c[4],
+              날짜: c[0],
+              구분: c[1],
+              금액: Number(c[2]),
+              메모: c[3],
             };
           if (activeTab === "종목마스터")
-            return { id, 티커: c[1], 종목명: c[2], 시장: c[3], 섹터: c[4] };
+            return { id, 티커: c[0], 종목명: c[1], 시장: c[2], 섹터: c[3] };
           return null;
         })
         .filter((d) => d !== null);
@@ -225,7 +233,7 @@ export default function StockManagerUltimate() {
       if (activeTab === "입출금") setCashFlows([...imported, ...cashFlows]);
       if (activeTab === "종목마스터")
         setStockMaster([...imported, ...stockMaster]);
-      alert(`${imported.length}건이 성공적으로 로드되었습니다.`);
+      alert(`${imported.length}건 업로드 완료`);
     };
     reader.readAsText(file, "utf-8");
   };
@@ -233,13 +241,13 @@ export default function StockManagerUltimate() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* 헤더 */}
+        {/* 헤더 스테이션 */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-black italic text-slate-800 tracking-tighter uppercase">
             Portfolio Pro
           </h1>
           <div className="text-[10px] font-black text-slate-400">
-            V14.0 TERMINAL / {lastUpdate}
+            V15.0 FINAL VERSION / {lastUpdate}
           </div>
         </div>
 
@@ -295,7 +303,7 @@ export default function StockManagerUltimate() {
           ))}
         </div>
 
-        {/* 메인 시스템 */}
+        {/* 메인 탭 시스템 */}
         <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
           <div className="flex bg-slate-50 p-2 gap-1 border-b border-slate-200">
             {[
@@ -323,6 +331,7 @@ export default function StockManagerUltimate() {
           </div>
 
           <div className="p-8">
+            {/* 액션 컨트롤 바 */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex gap-2">
                 {selectedIds.length > 0 && (
@@ -337,10 +346,16 @@ export default function StockManagerUltimate() {
               {["입출금", "거래관리", "종목마스터"].includes(activeTab) && (
                 <div className="flex gap-2">
                   <button
+                    onClick={downloadExample}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[11px] font-black hover:bg-emerald-700 transition-colors"
+                  >
+                    업로드 예시 ↓
+                  </button>
+                  <button
                     onClick={downloadCSV}
                     className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[11px] font-black hover:bg-blue-700 transition-colors"
                   >
-                    엑셀 다운로드 ↓
+                    데이터 다운로드
                   </button>
                   <input
                     type="file"
@@ -359,7 +374,7 @@ export default function StockManagerUltimate() {
               )}
             </div>
 
-            {/* --- 거래관리 (수수료, 세금 복원) --- */}
+            {/* --- 거래관리 --- */}
             {activeTab === "거래관리" && (
               <div>
                 <div
@@ -616,7 +631,6 @@ export default function StockManagerUltimate() {
                         />
                       </th>
                       <th>날짜</th>
-                      <th>구분</th>
                       <th>금액</th>
                       <th>메모</th>
                       <th>관리</th>
@@ -639,7 +653,6 @@ export default function StockManagerUltimate() {
                           />
                         </td>
                         <td>{c.날짜}</td>
-                        <td className="text-emerald-600">입금</td>
                         <td className="font-black">₩{formatNum(c.금액)}</td>
                         <td>{c.메모}</td>
                         <td className="flex justify-center gap-2">
@@ -769,7 +782,7 @@ export default function StockManagerUltimate() {
               </div>
             )}
 
-            {/* --- 기타 조회 전용 탭 --- */}
+            {/* --- 기타 조회 탭 (공통) --- */}
             {[
               "보유현황",
               "일별수익률",
@@ -803,7 +816,7 @@ export default function StockManagerUltimate() {
                       />
                     </div>
                     <button className="bg-slate-800 text-white px-6 py-2 text-xs rounded font-black shadow-sm">
-                      필터링
+                      필터 조회
                     </button>
                   </div>
                 )}
@@ -866,7 +879,7 @@ export default function StockManagerUltimate() {
                         colSpan="10"
                         className="text-slate-400 italic font-normal uppercase"
                       >
-                        No Data Available. Please Input Records.
+                        Data Record Empty.
                       </td>
                     </tr>
                   </tbody>
