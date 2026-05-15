@@ -7,7 +7,7 @@ export default function PortfolioDashboard() {
   const [indices, setIndices] = useState([]);
   const [loadingIndices, setLoadingIndices] = useState(true);
 
-  // --- 종목마스터 관련 상태 추가 ---
+  // --- 종목마스터 관련 상태 ---
   const [masterList, setMasterList] = useState([
     { ticker: "005930", name: "삼성전자", currency: "KRW" },
     { ticker: "000660", name: "SK하이닉스", currency: "KRW" },
@@ -17,7 +17,7 @@ export default function PortfolioDashboard() {
   const [newCurrency, setNewCurrency] = useState("KRW");
   const [isSearching, setIsSearching] = useState(false);
 
-  // 8개 메뉴 설정 (요청하신 순서)
+  // 메뉴 설정
   const menuItems = [
     "보유현황",
     "일별수익률",
@@ -29,7 +29,7 @@ export default function PortfolioDashboard() {
     "일별종가",
   ];
 
-  // 지수 가져오기
+  // 지수 데이터 로딩
   const fetchIndices = async () => {
     setLoadingIndices(true);
     try {
@@ -43,31 +43,25 @@ export default function PortfolioDashboard() {
     }
   };
 
-  // --- 종목마스터: 티커 자동 찾기 로직 ---
+  // 종목마스터: 자동 찾기
   const handleAutoFind = async () => {
-    if (!newTicker) return alert("티커(코드)를 입력해주세요.");
+    if (!newTicker) return alert("티커를 입력하세요.");
     setIsSearching(true);
     try {
       const res = await fetch(`/api/master/search?code=${newTicker}`);
       const data = await res.json();
-      if (data.name) {
-        setNewName(data.name); // 찾은 종목명을 입력창에 자동 세팅
-      } else {
-        alert("종목을 찾을 수 없습니다.");
-      }
+      if (data.name) setNewName(data.name);
+      else alert("종목을 찾을 수 없습니다.");
     } catch (e) {
-      alert("조회 중 오류가 발생했습니다.");
+      alert("조회 중 오류 발생");
     } finally {
       setIsSearching(false);
     }
   };
 
-  // --- 종목마스터: 리스트 추가 로직 ---
+  // 종목마스터: 추가
   const handleAddMaster = () => {
-    if (!newTicker || !newName) return alert("티커와 종목명을 확인해주세요.");
-    const isDuplicate = masterList.some((item) => item.ticker === newTicker);
-    if (isDuplicate) return alert("이미 등록된 종목입니다.");
-
+    if (!newTicker || !newName) return alert("정보를 입력하세요.");
     setMasterList([
       ...masterList,
       { ticker: newTicker, name: newName, currency: newCurrency },
@@ -84,7 +78,7 @@ export default function PortfolioDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900 font-sans">
-      {/* 상단 헤더 & 지수 보드 (기존과 동일) */}
+      {/* 1. 헤더 */}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-800 uppercase">
@@ -102,30 +96,65 @@ export default function PortfolioDashboard() {
         </button>
       </div>
 
+      {/* 2. 실시간 주가지수 보드 */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-5">
-        {indices.map((idx, i) => (
+        {loadingIndices && indices.length === 0
+          ? Array(5)
+              .fill(0)
+              .map((_, i) => (
+                <div
+                  key={i}
+                  className="h-20 animate-pulse bg-slate-200 rounded-2xl"
+                />
+              ))
+          : indices.map((idx, i) => (
+              <div
+                key={i}
+                className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+              >
+                <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">
+                  {idx.name}
+                </p>
+                <div className="flex items-end justify-between">
+                  <span className="text-lg font-black text-slate-800 tracking-tighter">
+                    {idx.value}
+                  </span>
+                  <span
+                    className={`text-[11px] font-bold ${idx.isUp ? "text-rose-500" : "text-blue-500"}`}
+                  >
+                    {idx.rate}
+                  </span>
+                </div>
+              </div>
+            ))}
+      </div>
+
+      {/* 3. 자산현황 요약 카드 (복원됨) */}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "순투자원금", value: "45,137,473" },
+          { label: "총자산", value: "97,605,788" },
+          { label: "평가금액", value: "97,527,630" },
+          { label: "현금", value: "78,158" },
+        ].map((item, i) => (
           <div
             key={i}
-            className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+            className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100"
           >
-            <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">
-              {idx.name}
+            <p className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-widest">
+              {item.label}
             </p>
-            <div className="flex items-end justify-between">
-              <span className="text-lg font-black text-slate-800 tracking-tighter">
-                {idx.value}
+            <p className="text-xl font-black text-slate-800">
+              {item.value}
+              <span className="ml-1 text-xs font-medium text-slate-400">
+                원
               </span>
-              <span
-                className={`text-[11px] font-bold ${idx.isUp ? "text-rose-500" : "text-blue-500"}`}
-              >
-                {idx.rate}
-              </span>
-            </div>
+            </p>
           </div>
         ))}
       </div>
 
-      {/* 메인 탭 영역 */}
+      {/* 4. 메인 탭 영역 */}
       <div className="rounded-[2.5rem] bg-white shadow-2xl border border-slate-100 overflow-hidden">
         <div className="flex border-b border-slate-50 bg-slate-50/50 p-2 overflow-x-auto scrollbar-hide">
           {menuItems.map((tab) => (
@@ -144,20 +173,19 @@ export default function PortfolioDashboard() {
         </div>
 
         <div className="p-8">
-          {/* 종목마스터 탭 구현부 */}
+          {/* 종목마스터 탭 */}
           {activeTab === "종목마스터" && (
             <div className="animate-in fade-in duration-500">
-              {/* 상단 입력 섹션 */}
               <div className="mb-10 grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-3xl items-end border border-slate-100">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 mb-2 uppercase">
-                    Ticker (Code)
+                    Ticker
                   </label>
                   <input
                     value={newTicker}
                     onChange={(e) => setNewTicker(e.target.value)}
-                    placeholder="예: 005930"
-                    className="w-full bg-white border-none p-3 rounded-xl text-xs font-bold outline-none ring-1 ring-slate-200 focus:ring-slate-800"
+                    placeholder="005930"
+                    className="w-full bg-white border-none p-3 rounded-xl text-xs font-bold outline-none ring-1 ring-slate-200"
                   />
                 </div>
                 <div>
@@ -168,13 +196,13 @@ export default function PortfolioDashboard() {
                     <input
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      placeholder="종목명을 입력하거나 자동찾기"
+                      placeholder="종목명"
                       className="flex-1 bg-white border-none p-3 rounded-xl text-xs font-bold outline-none ring-1 ring-slate-200"
                     />
                     <button
                       onClick={handleAutoFind}
                       disabled={isSearching}
-                      className="bg-slate-200 px-4 rounded-xl text-[10px] font-black hover:bg-slate-300 transition-all disabled:opacity-50"
+                      className="bg-slate-200 px-4 rounded-xl text-[10px] font-black hover:bg-slate-300"
                     >
                       {isSearching ? "조회중" : "자동찾기"}
                     </button>
@@ -189,70 +217,67 @@ export default function PortfolioDashboard() {
                     onChange={(e) => setNewCurrency(e.target.value)}
                     className="w-full bg-white border-none p-3 rounded-xl text-xs font-bold outline-none ring-1 ring-slate-200"
                   >
-                    <option value="KRW">KRW (대한민국)</option>
-                    <option value="USD">USD (미국)</option>
+                    <option value="KRW">KRW</option>
+                    <option value="USD">USD</option>
                   </select>
                 </div>
                 <button
                   onClick={handleAddMaster}
-                  className="bg-slate-800 text-white rounded-xl font-black text-xs py-3.5 shadow-lg hover:bg-black transition-all"
+                  className="bg-slate-800 text-white rounded-xl font-black text-xs py-3.5 shadow-lg"
                 >
-                  종목 리스트 추가
+                  종목 추가
                 </button>
               </div>
 
-              {/* 종목 리스트 테이블 */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[11px] font-bold text-slate-400 border-b border-slate-50 uppercase tracking-tighter">
-                      <th className="pb-4 px-4">Ticker</th>
-                      <th className="pb-4">Asset Name</th>
-                      <th className="pb-4 text-center">Currency</th>
-                      <th className="pb-4 text-center">Action</th>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[11px] font-bold text-slate-400 border-b border-slate-50 uppercase">
+                    <th className="pb-4 px-4">Ticker</th>
+                    <th className="pb-4">Asset Name</th>
+                    <th className="pb-4 text-center">Currency</th>
+                    <th className="pb-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {masterList.map((item, i) => (
+                    <tr
+                      key={i}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
+                      <td className="py-4 px-4 font-bold text-slate-500 text-[11px] uppercase tracking-widest">
+                        {item.ticker}
+                      </td>
+                      <td className="py-4 font-black text-slate-800">
+                        {item.name}
+                      </td>
+                      <td className="py-4 text-center">
+                        <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-500">
+                          {item.currency}
+                        </span>
+                      </td>
+                      <td className="py-4 text-center">
+                        <button
+                          onClick={() =>
+                            setMasterList(
+                              masterList.filter((_, idx) => idx !== i),
+                            )
+                          }
+                          className="text-slate-300 hover:text-rose-500"
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {masterList.map((item, i) => (
-                      <tr
-                        key={i}
-                        className="group hover:bg-slate-50/50 transition-colors"
-                      >
-                        <td className="py-4 px-4 font-bold text-slate-500 uppercase tracking-widest text-[11px]">
-                          {item.ticker}
-                        </td>
-                        <td className="py-4 font-black text-slate-800">
-                          {item.name}
-                        </td>
-                        <td className="py-4 text-center">
-                          <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold text-slate-500">
-                            {item.currency}
-                          </span>
-                        </td>
-                        <td className="py-4 text-center">
-                          <button
-                            onClick={() =>
-                              setMasterList(
-                                masterList.filter((_, idx) => idx !== i),
-                              )
-                            }
-                            className="text-slate-300 hover:text-rose-500 transition-colors"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* 타 탭은 기존 안내 메시지 유지 */}
+          {/* 타 탭 안내 */}
           {activeTab !== "종목마스터" && (
             <div className="text-center py-20 text-slate-300 font-bold text-sm">
-              {activeTab} 페이지 구현 내용이 들어갈 자리입니다.
+              {activeTab} 탭의 내용을 구현 중입니다.
             </div>
           )}
         </div>
