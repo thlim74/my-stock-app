@@ -422,80 +422,39 @@ export default function MyPortfolioFullSystem() {
 
         {/* [2] MARKET INDICES - 5 COLUMN GRID (AS REQUESTED) */}
         <div className="grid grid-cols-5 gap-5 mb-10">
-          {marketIndices.map((idx, i) => (
-            <div
-              key={i}
-              className="bg-white p-6 rounded-[28px] shadow-sm border border-slate-100 group hover:border-slate-300 transition-all cursor-pointer"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                  {idx.name}
-                </span>
-                <span
-                  className={`w-2 h-2 rounded-full ${idx.color === "text-rose-500" ? "bg-rose-500" : "bg-blue-500"}`}
-                ></span>
-              </div>
-              <div className="flex justify-between items-end">
-                <span className="text-2xl font-black tracking-tight">
-                  {idx.price}
-                </span>
-                <span
-                  className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${idx.bg} ${idx.color}`}
-                >
-                  {idx.change}
-                </span>
-              </div>
-            </div>
-          ))}
+       {marketIndices.map((idx, i) => (
+  <div key={i} className="bg-white p-4 rounded-[16px] shadow-sm border border-slate-100 group">
+    <div className="flex justify-between items-center mb-2">
+      <span className="text-[9px] font-black text-slate-400 uppercase">{idx.name}</span>
+    </div>
+    <div className="flex justify-between items-center">
+      <span className="text-lg font-black tracking-tight">{idx.price}</span>
+      <span className={`text-[10px] font-bold ${idx.color}`}>
+        ({idx.change})
+      </span>
+    </div>
+  </div>
+))}
         </div>
 
         {/* [3] ASSET DASHBOARD SUMMARY */}
         <div className="grid grid-cols-4 gap-6 mb-12">
-          {[
-            {
-              label: "순투자원금",
-              val: summary.principal,
-              sub: "입출금 정산 완료",
-              color: "text-slate-800",
-            },
-            {
-              label: "총자산(평가금)",
-              val: summary.totalAssets,
-              sub: "현금성 자산 포함",
-              color: "text-blue-600",
-            },
-            {
-              label: "누적 평가손익",
-              val: summary.netProfit,
-              sub: "실현+미실현 손익",
-              color: "text-rose-500",
-            },
-            {
-              label: "전체 수익률",
-              val: summary.totalYield + "%",
-              sub: "누적 퍼포먼스",
-              color: "text-rose-500",
-            },
-          ].map((card, i) => (
-            <div
-              key={i}
-              className="bg-white p-9 rounded-[40px] shadow-sm border border-slate-100 relative overflow-hidden group"
-            >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-              <p className="text-[11px] font-black text-slate-400 mb-5 uppercase tracking-[0.1em]">
-                {card.label}
-              </p>
-              <div className="flex items-baseline gap-1 relative z-10">
-                <span className={`text-4xl font-black ${card.color}`}>
-                  {typeof card.val === "number"
-                    ? formatNum(card.val)
-                    : card.val}
-                </span>
-                {typeof card.val === "number" && (
-                  <span className="text-[10px] font-bold text-slate-300">
-                    원
-                  </span>
-                )}
+        {[
+  { label: "순투자원금", val: summary.principal, color: "text-slate-800" },
+  { label: "총자산", val: summary.totalAssets, color: "text-blue-600" },
+  { label: "평가손익", val: summary.netProfit, color: "text-rose-500" },
+  { label: "수익률", val: summary.totalYield + "%", color: "text-rose-500" },
+].map((card, i) => (
+  <div key={i} className="bg-white p-5 rounded-[20px] shadow-sm border border-slate-100">
+    <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">{card.label}</p>
+    <div className="flex items-baseline gap-1">
+      <span className={`text-2xl font-black ${card.color}`}>
+        {typeof card.val === "number" ? formatNum(card.val) : card.val}
+      </span>
+      {typeof card.val === "number" && <span className="text-[9px] font-bold text-slate-300 ml-1">원</span>}
+    </div>
+  </div>
+))}
               </div>
               <div className="mt-6 flex items-center gap-2">
                 <div
@@ -524,16 +483,16 @@ export default function MyPortfolioFullSystem() {
               "일별종가",
             ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-9 py-5 rounded-[28px] text-[11px] font-black whitespace-nowrap transition-all duration-300 ${
-                  activeTab === tab
-                    ? "bg-slate-900 text-white shadow-xl translate-y-[-2px]"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
-                }`}
-              >
-                {tab}
-              </button>
+  key={tab}
+  onClick={() => setActiveTab(tab)}
+  className={`px-6 py-3 rounded-full text-[11px] font-black transition-all ${
+    activeTab === tab 
+      ? "bg-slate-900 text-white shadow-md" 
+      : "text-slate-400 hover:bg-slate-100"
+  }`}
+>
+  {tab}
+</button>
             ))}
           </div>
 
@@ -669,40 +628,33 @@ export default function MyPortfolioFullSystem() {
 
             {/* 4-3. 거래관리 탭 */}
             {activeTab === "거래관리" && (
-              <div className="animate-in slide-in-from-right-4 duration-700">
-                <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100 mb-10 flex gap-6 items-end">
-                  <div className="flex-1 space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                      종목 검색
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="티커 또는 종목명"
-                      className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm"
-                    />
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                      구분
-                    </label>
-                    <select className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm">
-                      <option>매수</option>
-                      <option>매도</option>
-                    </select>
-                  </div>
-                  <div className="w-40 space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                      수량
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm"
-                    />
-                  </div>
-                  <button className="bg-rose-500 text-white px-8 py-4 rounded-2xl text-[11px] font-black shadow-lg shadow-rose-100 hover:scale-[1.02] transition-all">
-                    거래 등록
-                  </button>
-                </div>
+           {/* 272번 줄부터 시작 */}
+<div className="bg-white p-6 border border-slate-100 rounded-2xl mb-8 flex gap-4 items-end shadow-sm">
+  <div className="flex-1 space-y-1">
+    <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Date</label>
+    <input type="date" className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs font-bold focus:ring-1 focus:ring-slate-300 outline-none" defaultValue="2026-05-15" />
+  </div>
+  <div className="flex-1 space-y-1">
+    <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Type</label>
+    <select className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs font-bold outline-none"><option>매수 (Buy)</option><option>매도 (Sell)</option></select>
+  </div>
+  <div className="flex-1 space-y-1">
+    <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Select Asset</label>
+    <input type="text" placeholder="종목 선택" className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs font-bold outline-none" />
+  </div>
+  <div className="w-32 space-y-1">
+    <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Quantity</label>
+    <input type="number" placeholder="0" className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs font-bold outline-none" />
+  </div>
+  <div className="w-40 space-y-1">
+    <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Unit Price</label>
+    <input type="number" placeholder="0" className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs font-bold outline-none" />
+  </div>
+  <button className="bg-[#1e293b] text-white px-10 py-2.5 rounded-lg text-[11px] font-black hover:bg-black transition-all">거래 저장</button>
+</div>
+{/* 283번 줄 근처에서 끝 */}
+
+
                 <table className="w-full text-[11px] font-bold">
                   <thead className="bg-slate-50 text-slate-400 border-y border-slate-100 text-left">
                     <tr>
