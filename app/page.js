@@ -3,11 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V18.0]
- * 1. 엑셀 업로드 시 콤마(,) 포함된 숫자(통화 형식) 인식 기능 개선
- * 2. 거래관리 합계 자동계산 및 종목마스터 티커/시장 자동 연동
- * 3. [자료 다운로드 / 양식 다운로드] 기능 전면 포함
- * 4. CRUD 및 8개 탭 로직 무삭제 통합본
+ * [STOCK-MANAGER ULTIMATE FINAL V19.0]
+ * 1. 거래관리 내 [수수료], [세금] 항목 완벽 복원
+ * 2. 엑셀 업로드 시 콤마(,) 제거 및 자동 합계 계산 로직 (수량*단가 + 수수료 + 세금)
+ * 3. [자료 다운로드 / 양식 다운로드] 기능 포함
+ * 4. CRUD 및 8개 탭 전체 로직 통합본
  */
 
 export default function StockManagerUltimate() {
@@ -23,25 +23,25 @@ export default function StockManagerUltimate() {
   const [stockMaster, setStockMaster] = useState([]);
 
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v18");
-    const savedCash = localStorage.getItem("cash_v18");
-    const savedMaster = localStorage.getItem("master_v18");
+    const savedTx = localStorage.getItem("tx_v19");
+    const savedCash = localStorage.getItem("cash_v19");
+    const savedMaster = localStorage.getItem("master_v19");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("tx_v18", JSON.stringify(transactions));
-    localStorage.setItem("cash_v18", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v18", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v19", JSON.stringify(transactions));
+    localStorage.setItem("cash_v19", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v19", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
-  // --- [입력 및 조회 상태] ---
   const today = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState("2026-05-01");
   const [endDate, setEndDate] = useState(today);
 
+  // --- [입력 상태값] ---
   const [newTx, setNewTx] = useState({
     날짜: today,
     구분: "매수",
@@ -49,8 +49,8 @@ export default function StockManagerUltimate() {
     티커: "",
     수량: "",
     단가: "",
-    수수료: 0,
-    세금: 0,
+    수수료: "0",
+    세금: "0",
   });
   const [newCash, setNewCash] = useState({
     날짜: today,
@@ -65,10 +65,9 @@ export default function StockManagerUltimate() {
     섹터: "",
   });
 
-  // --- [유틸리티 함수] ---
+  // --- [유틸리티 & 계산] ---
   const formatNum = (n) => (n ? Number(n).toLocaleString() : "0");
 
-  // 콤마 제거 후 숫자로 변환 (통화 형식 지원)
   const parseCleanNum = (val) => {
     if (typeof val === "number") return val;
     if (!val) return 0;
@@ -81,6 +80,7 @@ export default function StockManagerUltimate() {
     const f = parseCleanNum(fee);
     const t = parseCleanNum(tax);
     const subTotal = q * p;
+    // 매수 시 비용 발생(+), 매도 시 비용 차감(-)
     return type === "매수" ? subTotal + f + t : subTotal - f - t;
   };
 
@@ -159,14 +159,14 @@ export default function StockManagerUltimate() {
       티커: "",
       수량: "",
       단가: "",
-      수수료: 0,
-      세금: 0,
+      수수료: "0",
+      세금: "0",
     });
     setNewCash({ 날짜: today, 구분: "입금", 금액: "", 메모: "" });
     setNewStock({ 티커: "", 종목명: "", 시장: "KOSPI", 섹터: "" });
   };
 
-  // --- [엑셀/CSV 처리] ---
+  // --- [엑셀/CSV 핸들링] ---
   const downloadFile = (fileName, content) => {
     const blob = new Blob(["\ufeff" + content], {
       type: "text/csv;charset=utf-8;",
@@ -200,7 +200,7 @@ export default function StockManagerUltimate() {
       row = "";
     if (activeTab === "거래관리") {
       headers = "날짜,구분,종목명,수량,단가,수수료,세금";
-      row = `${today},매수,삼성전자,"1,250","75,000",0,0`;
+      row = `${today},매수,삼성전자,"1,250","75,000","1,500",0`;
     } else if (activeTab === "입출금") {
       headers = "날짜,구분,금액,메모";
       row = `${today},입금,"1,000,000",투자원금`;
@@ -223,7 +223,6 @@ export default function StockManagerUltimate() {
 
       const imported = dataRows
         .map((line) => {
-          // CSV 필드 내 콤마 포함 대응 (따옴표로 묶인 경우 포함)
           const c =
             line
               .replace("\ufeff", "")
@@ -275,7 +274,7 @@ export default function StockManagerUltimate() {
       if (activeTab === "종목마스터")
         setStockMaster([...imported, ...stockMaster]);
       alert(
-        `${imported.length}건이 콤마 제거 및 자동 계산을 거쳐 업로드되었습니다.`,
+        `${imported.length}건이 수수료/세금 포함 자동 계산되어 업로드되었습니다.`,
       );
     };
     reader.readAsText(file, "utf-8");
@@ -284,13 +283,13 @@ export default function StockManagerUltimate() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* 헤더 */}
+        {/* 헤더 스테이션 */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-black italic text-slate-800 tracking-tighter uppercase">
             Portfolio Pro
           </h1>
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            V18.0 CURRENCY-READY / {lastUpdate}
+            System Integrated v19.0 / {lastUpdate}
           </div>
         </div>
 
@@ -346,8 +345,8 @@ export default function StockManagerUltimate() {
           ))}
         </div>
 
-        {/* 메인 시스템 */}
-        <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[800px]">
+        {/* 메인 시스템 콘솔 */}
+        <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
           <div className="flex bg-slate-50 p-2 gap-1 border-b border-slate-200">
             {[
               "보유현황",
@@ -374,7 +373,7 @@ export default function StockManagerUltimate() {
           </div>
 
           <div className="p-8">
-            {/* 상단 컨트롤 바 */}
+            {/* 상단 액션 바 */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex gap-2">
                 {selectedIds.length > 0 && (
@@ -409,7 +408,7 @@ export default function StockManagerUltimate() {
                   />
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[11px] font-black shadow-md"
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[11px] font-black shadow-md hover:bg-black transition-all"
                   >
                     엑셀 업로드 ↑
                   </button>
@@ -417,15 +416,15 @@ export default function StockManagerUltimate() {
               )}
             </div>
 
-            {/* --- 거래관리 --- */}
+            {/* --- 거래관리 (수수료, 세금 복원) --- */}
             {activeTab === "거래관리" && (
               <div>
                 <div
                   className={`mb-8 p-6 rounded-2xl border grid grid-cols-4 gap-4 items-end ${editingId ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}
                 >
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      날짜
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Date
                     </label>
                     <input
                       type="date"
@@ -437,8 +436,8 @@ export default function StockManagerUltimate() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      구분
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Type
                     </label>
                     <select
                       value={newTx.구분}
@@ -452,19 +451,20 @@ export default function StockManagerUltimate() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      종목명
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Stock Name
                     </label>
                     <input
                       type="text"
                       value={newTx.종목명}
                       onChange={(e) => handleAutoFill(e.target.value)}
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="종목명 입력"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      수량
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Quantity
                     </label>
                     <input
                       type="text"
@@ -473,11 +473,12 @@ export default function StockManagerUltimate() {
                         setNewTx({ ...newTx, 수량: e.target.value })
                       }
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="0"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      단가
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Price
                     </label>
                     <input
                       type="text"
@@ -486,6 +487,35 @@ export default function StockManagerUltimate() {
                         setNewTx({ ...newTx, 단가: e.target.value })
                       }
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Fee (수수료)
+                    </label>
+                    <input
+                      type="text"
+                      value={newTx.수수료}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, 수수료: e.target.value })
+                      }
+                      className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Tax (세금)
+                    </label>
+                    <input
+                      type="text"
+                      value={newTx.세금}
+                      onChange={(e) =>
+                        setNewTx({ ...newTx, 세금: e.target.value })
+                      }
+                      className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="0"
                     />
                   </div>
                   <button
@@ -515,13 +545,18 @@ export default function StockManagerUltimate() {
                       <th>종목명</th>
                       <th>수량</th>
                       <th>단가</th>
+                      <th>수수료</th>
+                      <th>세금</th>
                       <th>합계</th>
                       <th>관리</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px] font-bold">
                     {transactions.map((t) => (
-                      <tr key={t.id} className="h-12 hover:bg-slate-50">
+                      <tr
+                        key={t.id}
+                        className="h-12 hover:bg-slate-50 transition-colors"
+                      >
                         <td>
                           <input
                             type="checkbox"
@@ -548,7 +583,11 @@ export default function StockManagerUltimate() {
                         <td className="font-black">{t.종목명}</td>
                         <td>{formatNum(t.수량)}</td>
                         <td>{formatNum(t.단가)}</td>
-                        <td>₩{formatNum(t.합계)}</td>
+                        <td>{formatNum(t.수수료)}</td>
+                        <td>{formatNum(t.세금)}</td>
+                        <td className="text-slate-900 font-black italic">
+                          ₩{formatNum(t.합계)}
+                        </td>
                         <td className="flex justify-center gap-2">
                           <button
                             onClick={() => {
@@ -578,8 +617,8 @@ export default function StockManagerUltimate() {
               <div>
                 <div className="mb-8 p-6 rounded-2xl bg-slate-50 border grid grid-cols-4 gap-4 items-end">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      날짜
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Date
                     </label>
                     <input
                       type="date"
@@ -591,8 +630,8 @@ export default function StockManagerUltimate() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      금액
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Amount
                     </label>
                     <input
                       type="text"
@@ -604,8 +643,8 @@ export default function StockManagerUltimate() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      메모
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Memo
                     </label>
                     <input
                       type="text"
@@ -624,7 +663,7 @@ export default function StockManagerUltimate() {
                   </button>
                 </div>
                 <table className="w-full text-center">
-                  <thead className="bg-slate-800 text-white text-[11px] font-black">
+                  <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
                     <tr>
                       <th>
                         <input
@@ -694,8 +733,8 @@ export default function StockManagerUltimate() {
               <div>
                 <div className="mb-8 p-6 rounded-2xl bg-blue-50 border border-blue-100 grid grid-cols-4 gap-4 items-end">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      티커
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Ticker
                     </label>
                     <input
                       type="text"
@@ -707,8 +746,8 @@ export default function StockManagerUltimate() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-black text-slate-500">
-                      종목명
+                    <label className="text-[11px] font-black text-slate-500 uppercase">
+                      Stock Name
                     </label>
                     <input
                       type="text"
@@ -792,7 +831,7 @@ export default function StockManagerUltimate() {
               </div>
             )}
 
-            {/* --- 공통 조회 탭 --- */}
+            {/* --- 공통 조회 전용 탭 (기조 데이터 유지) --- */}
             {[
               "보유현황",
               "일별수익률",
