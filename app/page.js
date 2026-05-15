@@ -663,12 +663,12 @@ export default function MyPortfolioEnterpriseSystem() {
                           {formatNum(m.flow)}
                         </td>
                         <td
-                          className={`text-right pr-6 font-black ${getYYieldColor(m.profit)}`}
+                          className={`text-right pr-6 font-black ${getYieldColor(m.profit)}`}
                         >
                           {formatNum(m.profit)}
                         </td>
                         <td
-                          className={`text-right pr-6 text-sm ${getYYieldColor(m.yield)}`}
+                          className={`text-right pr-6 text-sm ${getYieldColor(m.yield)}`}
                         >
                           {m.yield}%
                         </td>
