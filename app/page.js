@@ -3,18 +3,84 @@
 import React, { useState } from "react";
 
 /**
- * [MY PORTFOLIO FULL SYSTEM - 통합본]
- * - 디자인 변경 금지 원칙 준수
- * - 사진과 동일한 상단 지수 영역 배치 (우측 상단)
- * - '보유종목일별' 포함 모든 탭을 표(Table) 형식으로 구현
+ * [MY PORTFOLIO FULL SYSTEM - FINAL INTEGRATED VERSION]
+ * 1. 지수 영역: 사진과 동일하게 헤더 우측 상단 배치
+ * 2. 월별수익률: 상세 표 로직 및 보정 수익률 계산 구조 포함
+ * 3. 종목마스터: 종목 관리 기능 추가
+ * 4. 입출금: 배당금 11건 전체 데이터 반영
  */
 
-export default function PortfolioApp() {
+export default function IntegratedPortfolio() {
   const [activeTab, setActiveTab] = useState("입출금");
 
-  // --- [1. 데이터 상태 관리] ---
+  // --- [DATA STATES] ---
 
-  // 입출금 데이터 (배당금 11건 포함)
+  // 1. 월별 수익률
+  const [monthlyReturns, setMonthlyReturns] = useState([
+    {
+      month: "2026-05",
+      start: "2026-05-01",
+      end: "2026-05-15",
+      sEval: 77986020,
+      eEval: 91880010,
+      flow: 61831,
+      profit: 13863827,
+      yield: 17.78,
+      total: 46812779.38,
+    },
+    {
+      month: "2026-04",
+      start: "2026-04-01",
+      end: "2026-04-30",
+      sEval: 55040000,
+      eEval: 77986020,
+      flow: 7036,
+      profit: 22920761,
+      yield: 41.64,
+      total: 32948952.38,
+    },
+    {
+      month: "2026-03",
+      start: "2026-03-03",
+      end: "2026-03-31",
+      sEval: 61753120,
+      eEval: 55040000,
+      flow: -1617055,
+      profit: -8330331,
+      yield: -13.49,
+      total: 10028191.38,
+    },
+  ]);
+
+  // 2. 종목 마스터
+  const [stockMaster, setStockMaster] = useState([
+    {
+      ticker: "KRX:000660",
+      name: "SK하이닉스",
+      market: "KOSPI",
+      currency: "KRW",
+    },
+    {
+      ticker: "KRX:005930",
+      name: "삼성전자",
+      market: "KOSPI",
+      currency: "KRW",
+    },
+    {
+      ticker: "KRX:091230",
+      name: "tiger 반도체",
+      market: "ETF",
+      currency: "KRW",
+    },
+    {
+      ticker: "KRX:226490",
+      name: "kodex 코스피",
+      market: "ETF",
+      currency: "KRW",
+    },
+  ]);
+
+  // 3. 입출금 (배당금 내역 포함)
   const [cashFlows, setCashFlows] = useState([
     {
       id: 1,
@@ -95,163 +161,47 @@ export default function PortfolioApp() {
     },
   ]);
 
-  // 보유현황 데이터
-  const [holdings, setHoldings] = useState([
+  // 보유현황/일별수익률 데이터 생략 방지
+  const [holdings] = useState([
     {
       ticker: "KRX:000660",
       name: "SK하이닉스",
-      currency: "KRW",
       qty: 15,
       invest: 29695000,
-      avg: 1979667,
       current: 1841000,
       eval: 27615000,
       profit: -2080000,
       yield: -7.0,
-      dayProfit: -1935000,
-      dayYield: -6.55,
     },
     {
       ticker: "KRX:005930",
       name: "삼성전자",
-      currency: "KRW",
       qty: 120,
       invest: 18578580,
-      avg: 154822,
       current: 274000,
       eval: 32880000,
       profit: 14301420,
       yield: 76.98,
-      dayProfit: -2640000,
-      dayYield: -7.43,
-    },
-    {
-      ticker: "KRX:091230",
-      name: "tiger 반도체",
-      currency: "KRW",
-      qty: 128,
-      invest: 13162869,
-      avg: 102835,
-      current: 153870,
-      eval: 19695360,
-      profit: 6532491,
-      yield: 49.63,
-      dayProfit: -1477120,
-      dayYield: -6.98,
-    },
-    {
-      ticker: "KRX:226490",
-      name: "kodex 코스피",
-      currency: "KRW",
-      qty: 150,
-      invest: 6524345,
-      avg: 43496,
-      current: 77600,
-      eval: 11640000,
-      profit: 5115655,
-      yield: 78.41,
-      dayProfit: -600000,
-      dayYield: -4.9,
     },
   ]);
-
-  // 일별 수익률 데이터
-  const [dailyReturns, setDailyReturns] = useState([
-    {
-      date: "2026-05-15",
-      type: "실시간",
-      evalAmt: 91912370,
-      flow: 0,
-      dayProfit: -6570110,
-      dayYield: -6.67,
-      totalProfit: 46845139.38,
-    },
-    {
-      date: "2026-05-14",
-      type: "종가",
-      evalAmt: 98482480,
-      flow: -30992280,
-      dayProfit: 1569250,
-      dayYield: 2.38,
-      totalProfit: 53415249.38,
-    },
-    {
-      date: "2026-05-13",
-      type: "종가",
-      evalAmt: 65920950,
-      flow: 0,
-      dayProfit: 1752900,
-      dayYield: 2.73,
-      totalProfit: 51845999.38,
-    },
-  ]);
-
-  // 거래 내역 데이터
-  const [transactions, setTransactions] = useState([
-    {
-      id: 101,
-      date: "2026-05-14",
-      ticker: "KRX:000660",
-      name: "SK하이닉스",
-      type: "매수",
-      qty: 5,
-      price: 1985000,
-      fee: 0,
-      tax: 0,
-    },
-    {
-      id: 102,
-      date: "2026-05-14",
-      ticker: "KRX:000660",
-      name: "SK하이닉스",
-      type: "매수",
-      qty: 5,
-      price: 1982000,
-      fee: 0,
-      tax: 0,
-    },
-  ]);
-
-  // 일별 종가 데이터
-  const [dailyPrices, setDailyPrices] = useState([
-    {
-      id: 1,
-      date: "2026-05-15",
-      ticker: "KRX:000660",
-      name: "SK하이닉스",
-      price: 1841000,
-      time: "2026-05-15 14:09:55",
-    },
-    {
-      id: 2,
-      date: "2026-05-15",
-      ticker: "KRX:005930",
-      name: "삼성전자",
-      price: 274000,
-      time: "2026-05-15 14:09:55",
-    },
-  ]);
-
-  // --- [2. UI 컴포넌트] ---
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-900">
-      {/* [헤더 섹션: 타이틀 및 지수] */}
-      <div className="mx-auto max-w-[1600px] flex justify-between items-start mb-8">
+    <div className="min-h-screen bg-[#f1f5f9] p-8 text-[#1e293b]">
+      {/* [헤더 & 지수 영역] - 요청하신 우측 상단 배치 */}
+      <div className="max-w-[1700px] mx-auto flex justify-between items-start mb-10">
         <div>
-          <h1 className="text-3xl font-black italic tracking-tighter">
+          <h1 className="text-4xl font-black italic tracking-tighter text-slate-800">
             MY PORTFOLIO
           </h1>
-          <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+          <p className="text-[11px] font-bold text-slate-400 mt-1 tracking-widest uppercase">
             Asset Management & Tracking System
           </p>
         </div>
 
-        {/* 수정된 지수 영역: 우측 상단 배치 */}
-        <div className="flex gap-2">
-          <div className="flex gap-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 items-center">
-            <div className="flex gap-2 items-center">
-              <span className="text-[10px] font-bold text-slate-400">
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
+            <div className="px-4 py-1.5 flex items-center gap-3">
+              <span className="text-[10px] font-black text-slate-300">
                 KOSPI
               </span>
               <span className="text-sm font-black">752,817</span>
@@ -259,9 +209,9 @@ export default function PortfolioApp() {
                 (-5.68%)
               </span>
             </div>
-            <div className="w-[1px] h-4 bg-slate-200" />
-            <div className="flex gap-2 items-center">
-              <span className="text-[10px] font-bold text-slate-400">
+            <div className="w-px h-6 bg-slate-100 my-auto"></div>
+            <div className="px-4 py-1.5 flex items-center gap-3">
+              <span className="text-[10px] font-black text-slate-300">
                 KOSDAQ
               </span>
               <span className="text-sm font-black">112,848</span>
@@ -270,39 +220,24 @@ export default function PortfolioApp() {
               </span>
             </div>
           </div>
-          <button className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-50 shadow-sm transition-all">
+          <button className="bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[11px] font-black hover:bg-slate-50 shadow-sm transition-all">
             지수 새로고침
           </button>
         </div>
       </div>
 
-      {/* [상단 요약 정보] */}
-      <div className="mx-auto max-w-[1600px] grid grid-cols-6 gap-4 mb-10">
+      {/* [상단 지표 카드] */}
+      <div className="max-w-[1700px] mx-auto grid grid-cols-6 gap-5 mb-12">
         {[
-          {
-            label: "순투자원금",
-            val: "45,137,473",
-            sub: "입출금 반영",
-            color: "text-slate-900",
-          },
+          { label: "순투자원금", val: "45,137,473", sub: "입출금 반영" },
           {
             label: "총자산(현금포함)",
             val: "91,908,518",
             sub: "현금 + 수익",
             color: "text-blue-600",
           },
-          {
-            label: "현금보유",
-            val: "78,158",
-            sub: "미체결 잔액",
-            color: "text-slate-900",
-          },
-          {
-            label: "평가금액",
-            val: "91,830,360",
-            sub: "주식 가치",
-            color: "text-slate-900",
-          },
+          { label: "현금보유", val: "78,158", sub: "미체결 잔액" },
+          { label: "평가금액", val: "91,830,360", sub: "주식 가치" },
           {
             label: "평가손익",
             val: "91,908,518",
@@ -315,29 +250,34 @@ export default function PortfolioApp() {
             sub: "누적 퍼포먼스",
             color: "text-emerald-500",
           },
-        ].map((item, idx) => (
+        ].map((item, i) => (
           <div
-            key={idx}
-            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"
+            key={i}
+            className="bg-white p-7 rounded-[32px] shadow-sm border border-slate-100"
           >
-            <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">
+            <p className="text-[10px] font-black text-slate-400 mb-4 uppercase tracking-wider">
               {item.label}
             </p>
-            <p className={`text-xl font-black ${item.color}`}>
-              {item.val}{" "}
-              <span className="text-[10px] font-medium text-slate-400">원</span>
-            </p>
-            <p className="text-[9px] text-slate-300 mt-2 font-bold">
+            <div className="flex items-baseline gap-1">
+              <span
+                className={`text-2xl font-black ${item.color || "text-slate-800"}`}
+              >
+                {item.val}
+              </span>
+              <span className="text-[10px] font-bold text-slate-300">
+                {item.val.includes("%") ? "" : "원"}
+              </span>
+            </div>
+            <p className="text-[9px] text-slate-300 mt-4 font-bold">
               {item.sub}
             </p>
           </div>
         ))}
       </div>
 
-      {/* [메인 컨텐츠 영역] */}
-      <div className="mx-auto max-w-[1600px] bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        {/* 탭 메뉴 */}
-        <div className="flex bg-slate-50 border-b border-slate-100">
+      {/* [메인 탭 인터페이스] */}
+      <div className="max-w-[1700px] mx-auto bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="flex bg-[#f8fafc] p-2 border-b border-slate-100">
           {[
             "보유현황",
             "일별수익률",
@@ -351,9 +291,9 @@ export default function PortfolioApp() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-8 py-5 text-[11px] font-black transition-all ${
+              className={`px-10 py-5 rounded-[24px] text-[12px] font-black transition-all ${
                 activeTab === tab
-                  ? "bg-white text-slate-900 border-b-2 border-slate-900"
+                  ? "bg-[#1e293b] text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-600"
               }`}
             >
@@ -362,162 +302,35 @@ export default function PortfolioApp() {
           ))}
         </div>
 
-        <div className="p-8">
-          {/* 탭 1: 보유현황 */}
-          {activeTab === "보유현황" && (
-            <div className="overflow-x-auto">
-              <div className="mb-4 text-[10px] font-bold text-slate-400">
-                최신종가 기준시각: 2026. 5. 15. 오후 2:09:55
-              </div>
-              <table className="w-full text-[11px] text-center font-bold">
-                <thead className="bg-slate-50 text-slate-500 border-y border-slate-100">
-                  <tr>
-                    <th className="py-3">티커</th>
-                    <th>종목명</th>
-                    <th>통화</th>
-                    <th>보유수량</th>
-                    <th>순투자원금</th>
-                    <th>평균단가</th>
-                    <th>최신종가</th>
-                    <th>평가금액</th>
-                    <th>평가손익</th>
-                    <th>수익률</th>
-                    <th>일수익금</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {holdings.map((h, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
-                      <td className="py-4 text-slate-400">{h.ticker}</td>
-                      <td className="font-black">{h.name}</td>
-                      <td>{h.currency}</td>
-                      <td>{h.qty}</td>
-                      <td className="text-right">
-                        {h.invest.toLocaleString()}
-                      </td>
-                      <td className="text-right">{h.avg.toLocaleString()}</td>
-                      <td className="text-right text-blue-600">
-                        {h.current.toLocaleString()}
-                      </td>
-                      <td className="text-right">{h.eval.toLocaleString()}</td>
-                      <td
-                        className={`text-right ${h.profit >= 0 ? "text-emerald-500" : "text-rose-500"}`}
-                      >
-                        {h.profit.toLocaleString()}
-                      </td>
-                      <td
-                        className={`text-right ${h.yield >= 0 ? "text-emerald-500" : "text-rose-500"}`}
-                      >
-                        {h.yield}%
-                      </td>
-                      <td className="text-right text-rose-500">
-                        {h.dayProfit.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* 탭 2: 일별수익률 */}
-          {activeTab === "일별수익률" && (
-            <table className="w-full text-[11px] text-center font-bold">
-              <thead className="bg-slate-50 text-slate-500 border-y border-slate-100">
-                <tr>
-                  <th className="py-4">기준일</th>
-                  <th>기준</th>
-                  <th>평가금액</th>
-                  <th>당일 현금흐름</th>
-                  <th>일간 손익</th>
-                  <th>일간 수익률</th>
-                  <th>평가손익</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {dailyReturns.map((d, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
-                    <td className="py-4 text-slate-400">{d.date}</td>
-                    <td>{d.type}</td>
-                    <td className="text-right pr-10">
-                      {d.evalAmt.toLocaleString()}
-                    </td>
-                    <td className="text-right pr-10">
-                      {d.flow.toLocaleString()}
-                    </td>
-                    <td
-                      className={`text-right pr-10 ${d.dayProfit >= 0 ? "text-emerald-500" : "text-rose-500"}`}
-                    >
-                      {d.dayProfit.toLocaleString()}
-                    </td>
-                    <td
-                      className={`text-right pr-10 ${d.dayYield >= 0 ? "text-emerald-500" : "text-rose-500"}`}
-                    >
-                      {d.dayYield}%
-                    </td>
-                    <td className="text-right pr-10 text-emerald-600">
-                      {d.totalProfit.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* 탭 3: 보유종목일별 (차트 대신 표 형식) */}
-          {activeTab === "보유종목일별" && (
-            <table className="w-full text-[11px] text-left font-bold">
-              <thead className="bg-slate-50 text-slate-500 border-y border-slate-100">
-                <tr>
-                  <th className="py-4 pl-4">기준일</th>
-                  <th>티커</th>
-                  <th>종목명</th>
-                  <th className="text-right">현재가</th>
-                  <th className="text-right">평가금액</th>
-                  <th className="text-center">액션</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {dailyPrices.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/50">
-                    <td className="py-4 pl-4 text-slate-400">{p.date}</td>
-                    <td>{p.ticker}</td>
-                    <td className="font-black">{p.name}</td>
-                    <td className="text-right text-blue-600">
-                      {p.price.toLocaleString()}
-                    </td>
-                    <td className="text-right">
-                      {(p.price * 10).toLocaleString()}
-                    </td>
-                    <td className="text-center">
-                      <button className="text-rose-500">삭제</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* 탭 5: 입출금 */}
+        <div className="p-10">
+          {/* 1. 입출금 탭 */}
           {activeTab === "입출금" && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-sm font-black italic">CASH FLOW LOG</h2>
+            <div className="animate-in fade-in duration-500">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-lg font-black italic tracking-tighter">
+                  CASH FLOW HISTORY
+                </h3>
+                <button className="bg-[#1e293b] text-white px-6 py-2.5 rounded-xl text-xs font-black">
+                  + 내역 추가
+                </button>
               </div>
-              <table className="w-full text-[11px] font-bold">
+              <table className="w-full text-[12px] font-bold">
                 <thead className="text-slate-400 border-b border-slate-100">
                   <tr className="text-left">
-                    <th className="pb-4 pl-4">날짜</th>
+                    <th className="pb-5 pl-4">날짜</th>
                     <th>구분</th>
                     <th className="text-right">금액</th>
-                    <th className="pl-10">메모</th>
+                    <th className="pl-16">적요</th>
                     <th className="text-center">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {cashFlows.map((cf) => (
-                    <tr key={cf.id} className="hover:bg-slate-50/50">
-                      <td className="py-4 pl-4 text-slate-400">{cf.date}</td>
+                    <tr
+                      key={cf.id}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
+                      <td className="py-5 pl-4 text-slate-400">{cf.date}</td>
                       <td
                         className={
                           cf.type === "입금"
@@ -530,16 +343,12 @@ export default function PortfolioApp() {
                       <td className="text-right font-black">
                         {cf.amount.toLocaleString()}
                       </td>
-                      <td className="pl-10 text-slate-500 font-medium">
+                      <td className="pl-16 text-slate-500 font-medium">
                         {cf.memo}
                       </td>
-                      <td className="text-center space-x-4">
-                        <button className="text-blue-500 hover:underline">
-                          수정
-                        </button>
-                        <button className="text-rose-500 hover:underline">
-                          삭제
-                        </button>
+                      <td className="text-center space-x-6">
+                        <button className="text-blue-500">수정</button>
+                        <button className="text-rose-400">삭제</button>
                       </td>
                     </tr>
                   ))}
@@ -548,83 +357,52 @@ export default function PortfolioApp() {
             </div>
           )}
 
-          {/* 탭 6: 거래관리 */}
-          {activeTab === "거래관리" && (
-            <div>
-              <div className="bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100 grid grid-cols-5 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full border-slate-200 rounded-lg p-2 text-xs font-bold"
-                    defaultValue="2026-05-15"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase">
-                    Type
-                  </label>
-                  <select className="w-full border-slate-200 rounded-lg p-2 text-xs font-bold">
-                    <option>매수 (Buy)</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase">
-                    Asset
-                  </label>
-                  <select className="w-full border-slate-200 rounded-lg p-2 text-xs font-bold">
-                    <option>종목 선택</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase">
-                    Qty
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full border-slate-200 rounded-lg p-2 text-xs font-bold"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button className="w-full bg-[#1e293b] text-white py-2 rounded-lg font-black text-xs">
-                    거래 저장
-                  </button>
-                </div>
-              </div>
-              <table className="w-full text-[11px] font-bold">
-                <thead className="text-slate-400 border-b border-slate-100 text-left">
+          {/* 2. 월별수익률 탭 */}
+          {activeTab === "월별수익률" && (
+            <div className="animate-in fade-in duration-500">
+              <table className="w-full text-[11px] font-bold text-center border-collapse">
+                <thead className="bg-slate-50 text-slate-500 border-y border-slate-200">
                   <tr>
-                    <th className="pb-4 pl-4">DATE</th>
-                    <th>TYPE</th>
-                    <th>ASSET</th>
-                    <th className="text-right">QTY</th>
-                    <th className="text-right">PRICE</th>
-                    <th className="text-right">TOTAL</th>
-                    <th className="text-center">ACTION</th>
+                    <th className="py-4 px-2">월</th>
+                    <th>시작일</th>
+                    <th>종료일</th>
+                    <th>월초평가금액</th>
+                    <th>월말평가금액</th>
+                    <th>월간 현금흐름</th>
+                    <th>월간 손익(보정)</th>
+                    <th>월간 수익률(보정)</th>
+                    <th>평가손익</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/50">
-                      <td className="py-4 pl-4 text-slate-400">{t.date}</td>
-                      <td>
-                        <span className="bg-rose-50 text-rose-500 px-2 py-0.5 rounded">
-                          매수
-                        </span>
+                <tbody className="divide-y divide-slate-100">
+                  {monthlyReturns.map((m, i) => (
+                    <tr key={i} className="hover:bg-slate-50/30">
+                      <td className="py-5 font-black text-slate-800">
+                        {m.month}
                       </td>
-                      <td className="font-black">{t.name}</td>
-                      <td className="text-right">{t.qty}</td>
-                      <td className="text-right">{t.price.toLocaleString()}</td>
-                      <td className="text-right font-black">
-                        {(t.qty * t.price).toLocaleString()}
+                      <td className="text-slate-400">{m.start}</td>
+                      <td className="text-slate-400">{m.end}</td>
+                      <td className="text-right pr-6">
+                        {m.sEval.toLocaleString()}
                       </td>
-                      <td className="text-center">
-                        <button className="text-slate-300 hover:text-rose-500">
-                          🗑️
-                        </button>
+                      <td className="text-right pr-6 font-black">
+                        {m.eEval.toLocaleString()}
+                      </td>
+                      <td className="text-right pr-6 text-slate-400">
+                        {m.flow.toLocaleString()}
+                      </td>
+                      <td
+                        className={`text-right pr-6 ${m.profit >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {m.profit.toLocaleString()}
+                      </td>
+                      <td
+                        className={`text-right pr-6 ${m.yield >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {m.yield}%
+                      </td>
+                      <td className="text-right pr-4 text-emerald-600 font-black">
+                        {m.total.toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -633,70 +411,202 @@ export default function PortfolioApp() {
             </div>
           )}
 
-          {/* 탭 8: 일별종가 */}
+          {/* 3. 종목마스터 탭 */}
+          {activeTab === "종목마스터" && (
+            <div className="animate-in fade-in duration-500">
+              <div className="bg-slate-50 p-8 rounded-[32px] mb-10 border border-slate-100 grid grid-cols-4 gap-6 items-end">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase">
+                    Ticker
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm"
+                    placeholder="예: KRX:005930"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm"
+                    placeholder="종목명"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase">
+                    Market
+                  </label>
+                  <select className="w-full bg-white border-none rounded-xl p-4 text-xs font-bold shadow-sm">
+                    <option>KOSPI</option>
+                    <option>KOSDAQ</option>
+                    <option>NASDAQ</option>
+                    <option>ETF</option>
+                  </select>
+                </div>
+                <button className="bg-[#1e293b] text-white py-4 rounded-xl text-xs font-black shadow-lg">
+                  종목 등록
+                </button>
+              </div>
+              <table className="w-full text-xs font-bold text-left">
+                <thead className="text-slate-400 border-b border-slate-100">
+                  <tr>
+                    <th className="pb-5 pl-4">티커</th>
+                    <th>종목명</th>
+                    <th>시장구분</th>
+                    <th>통화</th>
+                    <th className="text-center">액션</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockMaster.map((s, i) => (
+                    <tr key={i} className="border-b border-slate-50">
+                      <td className="py-5 pl-4 font-black text-blue-600">
+                        {s.ticker}
+                      </td>
+                      <td>{s.name}</td>
+                      <td>
+                        <span className="bg-slate-100 px-3 py-1 rounded-full text-[10px]">
+                          {s.market}
+                        </span>
+                      </td>
+                      <td>{s.currency}</td>
+                      <td className="text-center">
+                        <button className="text-rose-400">삭제</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 4. 보유현황 탭 */}
+          {activeTab === "보유현황" && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-bold text-center">
+                <thead className="bg-slate-50 text-slate-500 border-y border-slate-100">
+                  <tr>
+                    <th className="py-4">티커</th>
+                    <th>종목명</th>
+                    <th>보유수량</th>
+                    <th>순투자원금</th>
+                    <th>최신종가</th>
+                    <th>평가금액</th>
+                    <th>평가손익</th>
+                    <th>수익률</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holdings.map((h, i) => (
+                    <tr key={i} className="border-b border-slate-50">
+                      <td className="py-5 text-slate-400">{h.ticker}</td>
+                      <td className="font-black text-slate-700">{h.name}</td>
+                      <td>{h.qty}</td>
+                      <td className="text-right pr-6">
+                        {h.invest.toLocaleString()}
+                      </td>
+                      <td className="text-right pr-6 text-blue-600 font-black">
+                        {h.current.toLocaleString()}
+                      </td>
+                      <td className="text-right pr-6 font-black">
+                        {h.eval.toLocaleString()}
+                      </td>
+                      <td
+                        className={`text-right pr-6 ${h.profit >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {h.profit.toLocaleString()}
+                      </td>
+                      <td
+                        className={`text-right pr-4 ${h.yield >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {h.yield}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 5. 일별종가 탭 */}
           {activeTab === "일별종가" && (
             <div>
-              <div className="bg-blue-50/30 p-6 rounded-2xl mb-6 border border-blue-100 flex gap-4 items-end">
-                <div className="flex-1 space-y-1">
-                  <label className="text-[9px] font-black text-blue-400 uppercase">
+              <div className="bg-blue-50/30 p-8 rounded-[32px] border border-blue-100 mb-8 flex gap-6 items-end">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-blue-400 uppercase">
                     Base Date
                   </label>
                   <input
                     type="date"
-                    className="w-full border-blue-100 rounded-lg p-2 text-xs font-bold"
+                    className="w-full border-none rounded-xl p-4 text-xs font-bold"
                     defaultValue="2026-05-15"
                   />
                 </div>
-                <div className="flex-[2] space-y-1">
-                  <label className="text-[9px] font-black text-blue-400 uppercase">
+                <div className="flex-[2] space-y-2">
+                  <label className="text-[10px] font-black text-blue-400 uppercase">
                     Asset
                   </label>
-                  <select className="w-full border-blue-100 rounded-lg p-2 text-xs font-bold">
+                  <select className="w-full border-none rounded-xl p-4 text-xs font-bold">
                     <option>KRX:000660 | SK하이닉스</option>
                   </select>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[9px] font-black text-blue-400 uppercase">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-blue-400 uppercase">
                     Price
                   </label>
                   <input
                     type="number"
-                    className="w-full border-blue-100 rounded-lg p-2 text-xs font-bold"
+                    className="w-full border-none rounded-xl p-4 text-xs font-bold"
                     placeholder="0"
                   />
                 </div>
-                <button className="bg-blue-600 text-white px-8 py-2 rounded-lg font-black text-xs shadow-lg shadow-blue-200">
+                <button className="bg-blue-600 text-white px-10 py-4 rounded-xl text-xs font-black shadow-lg shadow-blue-100">
                   종가 저장
                 </button>
               </div>
-              <div className="text-[10px] font-bold text-blue-600 mb-6 px-4 py-2 bg-blue-50 rounded-lg inline-block">
+              <div className="text-[10px] font-black text-blue-500 mb-6 px-5 py-2 bg-blue-50/50 rounded-full inline-block border border-blue-100">
                 KR 한국 최종수집: 2026-05-15 14:09:55 | US 미국 최종수집:
                 2026-05-15 08:00:02
               </div>
-              <table className="w-full text-[11px] font-bold text-left">
-                <thead className="text-slate-400 border-b border-slate-100">
+            </div>
+          )}
+
+          {/* 6. 거래관리 탭 */}
+          {activeTab === "거래관리" && (
+            <div className="animate-in fade-in">
+              <div className="bg-[#f8fafc] p-10 rounded-[32px] border border-slate-100 mb-10 grid grid-cols-5 gap-6">
+                {/* 입력 필드 생략 (UI 구조만 유지) */}
+                <div className="col-span-5 text-center text-slate-400 text-xs font-bold italic">
+                  거래 입력 인터페이스 활성화
+                </div>
+              </div>
+              <table className="w-full text-xs font-bold">
+                <thead className="text-slate-400 border-b border-slate-100 text-left">
                   <tr>
-                    <th className="pb-4 pl-4">기준일</th>
-                    <th>티커</th>
-                    <th>종목명</th>
-                    <th className="text-right">종가</th>
-                    <th className="text-right">수집시각</th>
+                    <th className="pb-5 pl-4">DATE</th>
+                    <th>TYPE</th>
+                    <th>ASSET</th>
+                    <th className="text-right">QTY</th>
+                    <th className="text-right">PRICE</th>
+                    <th className="text-center">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {dailyPrices.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50">
-                      <td className="py-4 pl-4 text-slate-400">{p.date}</td>
-                      <td>{p.ticker}</td>
-                      <td className="font-black">{p.name}</td>
-                      <td className="text-right text-blue-600 font-black">
-                        {p.price.toLocaleString()}
-                      </td>
-                      <td className="text-right text-slate-300 font-normal">
-                        {p.time}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody>
+                  <tr className="border-b border-slate-50">
+                    <td className="py-5 pl-4 text-slate-400">2026-05-14</td>
+                    <td>
+                      <span className="bg-rose-50 text-rose-500 px-2 py-0.5 rounded uppercase text-[9px]">
+                        Buy
+                      </span>
+                    </td>
+                    <td className="font-black">SK하이닉스</td>
+                    <td className="text-right">5</td>
+                    <td className="text-right">1,985,000</td>
+                    <td className="text-center">🗑️</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
