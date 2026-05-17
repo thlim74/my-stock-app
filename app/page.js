@@ -3,12 +3,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V24.0]
- * - VS Code 문법 오류 완벽 해결 (닫는 괄호 및 단일 컴포넌트 규격 엄격 준수)
- * - 8개 전체 탭 실시간 유기적 연산 데이터 출력 (보유현황, 일별/월별 수익률 완벽 가동)
- * - 거래관리 내 [수수료], [세금] 입력 및 합계 반영 로직 무삭제 유지
- * - 정밀 CSV 파서 탑재로 빈 셀 업로드 시 데이터 밀림 현상 원천 차단
- * - 기존 디자인 토폴로지 및 레이아웃 절대 보존
+ * [STOCK-MANAGER ULTIMATE FINAL V24.5]
+ * - 8개 탭 실시간 상호 연산 완전 기동 모델
+ * - 거래내역 내 [수수료], [세금] 항목 온전하게 유지 및 자산 평가 연산 연동
+ * - 데이터 업로드 시 티커 누락 자동 생성 커널 탑재
+ * - 업로드 성공/실패/자동생성 처리 로그 독립 표시창 구현
+ * - 기존 디자인 토폴로지 및 레이아웃 완벽 보존
  */
 
 export default function StockManagerUltimate() {
@@ -16,6 +16,7 @@ export default function StockManagerUltimate() {
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate] = useState(new Date().toLocaleTimeString());
+  const [uploadLogs, setUploadLogs] = useState([]); // 업로드 오류 및 자동생성 별도 표시 상태
   const fileInputRef = useRef(null);
 
   // --- [원천 데이터 저장소] ---
@@ -24,18 +25,18 @@ export default function StockManagerUltimate() {
   const [stockMaster, setStockMaster] = useState([]);
 
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v24");
-    const savedCash = localStorage.getItem("cash_v24");
-    const savedMaster = localStorage.getItem("master_v24");
+    const savedTx = localStorage.getItem("tx_v24_5");
+    const savedCash = localStorage.getItem("cash_v24_5");
+    const savedMaster = localStorage.getItem("master_v24_5");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("tx_v24", JSON.stringify(transactions));
-    localStorage.setItem("cash_v24", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v24", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v24_5", JSON.stringify(transactions));
+    localStorage.setItem("cash_v24_5", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v24_5", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
   const today = new Date().toISOString().split("T")[0];
@@ -64,7 +65,7 @@ export default function StockManagerUltimate() {
     섹터: "",
   });
 
-  // --- [수치 포맷 유틸리티] ---
+  // --- [수치 포맷 및 티커 자동 생성 유틸리티] ---
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
   const parseCleanNum = (val) => {
     if (typeof val === "number") return val;
@@ -72,12 +73,21 @@ export default function StockManagerUltimate() {
     return Number(String(val).replace(/,/g, "")) || 0;
   };
 
+  const generateAutoTicker = (name) => {
+    if (!name) return "000000";
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const num = Math.abs(hash % 900000) + 100000;
+    return String(num);
+  };
+
   // --- [8개 탭 실시간 상호 연산 코어 엔진] ---
   const stats = useMemo(() => {
     let netInvestment = 0;
     let cashBalance = 0;
 
-    // 1. 입출금 원장 계산
     cashFlows.forEach((c) => {
       const amt = Number(c.금액) || 0;
       if (c.구분 === "입금") {
@@ -89,7 +99,6 @@ export default function StockManagerUltimate() {
       }
     });
 
-    // 2. 시간순 거래 정렬 및 종목별 포지션 평가자산 빌드
     const sortedTx = [...transactions].sort(
       (a, b) => new Date(a.날짜) - new Date(b.날짜),
     );
@@ -133,7 +142,6 @@ export default function StockManagerUltimate() {
       }
     });
 
-    // 실시간 [보유현황] 가공
     const holdingList = Object.values(holdingMap)
       .filter((h) => h.보유량 > 0)
       .map((h) => {
@@ -165,7 +173,6 @@ export default function StockManagerUltimate() {
         ? ((totalAsset - netInvestment) / netInvestment) * 100
         : 0;
 
-    // 3. [일별수익률] 타임라인 시뮬레이션
     const allDates = Array.from(
       new Set([
         ...transactions.map((t) => t.날짜),
@@ -233,7 +240,6 @@ export default function StockManagerUltimate() {
       };
     });
 
-    // 4. [월별수익률] 가공
     const monthlyMap = {};
     dailyList.forEach((d) => {
       monthlyMap[d.날짜.substring(0, 7)] = d;
@@ -249,7 +255,6 @@ export default function StockManagerUltimate() {
         수익률: monthlyMap[m].일수익률,
       }));
 
-    // 5. [보유종목일별] 타임라인 가공
     const dailyStockMatrix = [];
     allDates.forEach((date) => {
       const snap = {};
@@ -306,9 +311,26 @@ export default function StockManagerUltimate() {
       f = parseCleanNum(newTx.수수료),
       t = parseCleanNum(newTx.세금);
     const total = newTx.구분 === "매수" ? q * p + f + t : q * p - f - t;
+    let currentTicker = newTx.티커;
+    if (!currentTicker && newTx.종목명) {
+      currentTicker = generateAutoTicker(newTx.종목명);
+      if (!stockMaster.some((s) => s.종목명 === newTx.종목명)) {
+        setStockMaster((prev) => [
+          {
+            id: Date.now() + 1,
+            티커: currentTicker,
+            종목명: newTx.종목명,
+            시장: "KOSPI",
+            섹터: "수동생성",
+          },
+          ...prev,
+        ]);
+      }
+    }
     const data = {
       ...newTx,
       id: editingId || Date.now(),
+      티커: currentTicker,
       수량: q,
       단가: p,
       수수료: f,
@@ -336,7 +358,11 @@ export default function StockManagerUltimate() {
   };
 
   const saveMaster = () => {
-    const data = { ...newStock, id: editingId || Date.now() };
+    let ticker = newStock.티커;
+    if (!ticker && newStock.종목명) {
+      ticker = generateAutoTicker(newStock.종목명);
+    }
+    const data = { ...newStock, id: editingId || Date.now(), 티커: ticker };
     if (editingId)
       setStockMaster(stockMaster.map((s) => (s.id === editingId ? data : s)));
     else setStockMaster([data, ...stockMaster]);
@@ -380,7 +406,7 @@ export default function StockManagerUltimate() {
     setNewStock({ 티커: "", 종목명: "", 시장: "KOSPI", 섹터: "" });
   };
 
-  // --- [엑셀 고정밀 I/O 엔진 - 빈 셀 밀림 완벽 디펜스] ---
+  // --- [엑셀 고정밀 I/O 엔진 - 티커 자동생성 및 디버그 인디케이터 장착] ---
   const downloadFile = (fileName, content) => {
     const blob = new Blob(["\ufeff" + content], {
       type: "text/csv;charset=utf-8;",
@@ -423,7 +449,7 @@ export default function StockManagerUltimate() {
       row = `${today},입금,1000000,투자금`;
     } else if (activeTab === "종목마스터") {
       headers = "티커,종목명,시장,섹터";
-      row = "005930,삼성전자,KOSPI,반도체";
+      row = "005930,삼성전자,KOSPI,반도체\n,티커없는종목,KOSDAQ,IT";
     }
     downloadFile(`${activeTab}_양식.csv`, headers + "\n" + row);
   };
@@ -437,7 +463,9 @@ export default function StockManagerUltimate() {
       const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
       const dataRows = lines.slice(1);
 
-      // 연속 콤마(,,) 보존형 정밀 순회 파서
+      const logs = [];
+      const autoRegisteredStocks = [];
+
       const parseCSVLine = (line) => {
         const res = [];
         let curr = "";
@@ -455,58 +483,123 @@ export default function StockManagerUltimate() {
       };
 
       const imported = dataRows
-        .map((line) => {
-          const c = parseCSVLine(line);
-          if (c.length < 2) return null;
-          const randId = Date.now() + Math.random();
+        .map((line, idx) => {
+          try {
+            const c = parseCSVLine(line);
+            if (c.length < 2) return null;
+            const randId = Date.now() + Math.random() + idx;
 
-          if (activeTab === "종목마스터") {
-            return {
-              id: randId,
-              티커: c[0] || "",
-              종목명: c[1] || "",
-              시장: c[2] || "KOSPI",
-              섹터: c[3] || "",
-            };
-          }
-          if (activeTab === "거래관리") {
-            const q = parseCleanNum(c[3]),
-              p = parseCleanNum(c[4]),
-              f = parseCleanNum(c[5]),
-              t = parseCleanNum(c[6]);
-            const master = stockMaster.find((s) => s.종목명 === c[2]);
-            return {
-              id: randId,
-              날짜: c[0],
-              구분: c[1],
-              종목명: c[2],
-              티커: master?.티커 || "",
-              수량: q,
-              단가: p,
-              수수료: f,
-              세금: t,
-              합계: c[1] === "매수" ? q * p + f + t : q * p - f - t,
-            };
-          }
-          if (activeTab === "입출금") {
-            return {
-              id: randId,
-              날짜: c[0],
-              구분: c[1],
-              금액: parseCleanNum(c[2]),
-              메모: c[3] || "",
-            };
+            if (activeTab === "종목마스터") {
+              let ticker = c[0] || "";
+              const name = c[1] || "";
+              if (!name)
+                throw new Error(
+                  `[행 ${idx + 2}] 종목명이 누락되어 행을 스킵했습니다.`,
+                );
+              if (!ticker) {
+                ticker = generateAutoTicker(name);
+                logs.push(
+                  `[티커 자동 생성] 행 ${idx + 2}: '${name}'의 티커가 없어 자동으로생성코드 [${ticker}]를 생성하여 결합했습니다.`,
+                );
+              }
+              return {
+                id: randId,
+                티커: ticker,
+                종목명: name,
+                시장: c[2] || "KOSPI",
+                섹터: c[3] || "",
+              };
+            }
+
+            if (activeTab === "거래관리") {
+              const date = c[0] || "";
+              const type = c[1] || "";
+              const name = c[2] || "";
+              if (!date || !type || !name)
+                throw new Error(
+                  `[행 ${idx + 2}] 날짜, 구분 또는 종목명이 빈 칸입니다.`,
+                );
+
+              const q = parseCleanNum(c[3]);
+              const p = parseCleanNum(c[4]);
+              const f = parseCleanNum(c[5]);
+              const t = parseCleanNum(c[6]);
+
+              let master =
+                stockMaster.find((s) => s.종목명 === name) ||
+                autoRegisteredStocks.find((s) => s.종목명 === name);
+              let ticker = master ? master.티커 : "";
+
+              if (!ticker) {
+                ticker = generateAutoTicker(name);
+                autoRegisteredStocks.push({
+                  id: randId + 1000,
+                  티커: ticker,
+                  종목명: name,
+                  시장: "KOSPI",
+                  섹터: "자동생성",
+                });
+                logs.push(
+                  `[티커 자동 연동] 행 ${idx + 2}: 거래내역에 기재된 '${name}' 종목이 마스터에 없어 가상 티커 [${ticker}]를 즉시 부여하고 원장에 자동 등록했습니다.`,
+                );
+              }
+
+              const total = type === "매수" ? q * p + f + t : q * p - f - t;
+              return {
+                id: randId,
+                날짜: date,
+                구분: type,
+                종목명: name,
+                티커: ticker,
+                수량: q,
+                단가: p,
+                수수료: f,
+                세금: t,
+                합계: total,
+              };
+            }
+
+            if (activeTab === "입출금") {
+              const date = c[0] || "";
+              const type = c[1] || "";
+              if (!date || !type)
+                throw new Error(
+                  `[행 ${idx + 2}] 필수 파라미터가 유실되었습니다.`,
+                );
+              return {
+                id: randId,
+                날짜: date,
+                구분: type,
+                금액: parseCleanNum(c[2]),
+                메모: c[3] || "",
+              };
+            }
+          } catch (err) {
+            logs.push(`[업로드 구문 오류] ${err.message}`);
+            return null;
           }
           return null;
         })
         .filter((d) => d !== null);
 
+      if (autoRegisteredStocks.length > 0) {
+        setStockMaster((prev) => [...autoRegisteredStocks, ...prev]);
+      }
+
       if (activeTab === "거래관리")
-        setTransactions([...imported, ...transactions]);
-      if (activeTab === "입출금") setCashFlows([...imported, ...cashFlows]);
+        setTransactions((prev) => [...imported, ...prev]);
+      if (activeTab === "입출금")
+        setCashFlows((prev) => [...imported, ...prev]);
       if (activeTab === "종목마스터")
-        setStockMaster([...imported, ...stockMaster]);
-      alert(`${imported.length}건 데이터 분리 유효성 검증 완료 및 연동 성공`);
+        setStockMaster((prev) => [...imported, ...prev]);
+
+      if (logs.length === 0) {
+        logs.push(
+          `[정상 완료] ${imported.length}건의 로우 분해 결합 과정에서 예외 필드가 식별되지 않았습니다.`,
+        );
+      }
+      setUploadLogs(logs);
+      alert(`파일 구조 파싱 완료. 결과는 리포트 창을 확인하십시오.`);
     };
     reader.readAsText(file, "utf-8");
   };
@@ -520,7 +613,7 @@ export default function StockManagerUltimate() {
             Portfolio Ultimate Console
           </h1>
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            STABLE ENGINE V24.0 / {lastUpdate}
+            STABLE ENGINE V24.5 / {lastUpdate}
           </div>
         </div>
 
@@ -610,6 +703,7 @@ export default function StockManagerUltimate() {
                   setActiveTab(tab);
                   resetForms();
                   setSelectedIds([]);
+                  setUploadLogs([]);
                 }}
                 className={`px-6 py-3.5 rounded-2xl text-[12px] font-black transition-all ${activeTab === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
               >
@@ -620,7 +714,7 @@ export default function StockManagerUltimate() {
 
           <div className="p-8">
             {/* 데이터 처리 워크바 */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-4">
               <div>
                 {selectedIds.length > 0 && (
                   <button
@@ -667,6 +761,27 @@ export default function StockManagerUltimate() {
                 </div>
               )}
             </div>
+
+            {/* 조건부 컴포넌트: 오류 및 가상 티커 정보 별도 표시 패널 */}
+            {uploadLogs.length > 0 && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-mono space-y-1 max-h-36 overflow-y-auto">
+                <div className="font-black text-slate-700 text-[12px] mb-1">
+                  📋 데이터 유효성 검증 및 티커 추적 결과 :
+                </div>
+                {uploadLogs.map((log, index) => (
+                  <div
+                    key={index}
+                    className={
+                      log.includes("[업로드 구문 오류]")
+                        ? "text-rose-600 font-bold"
+                        : "text-amber-800"
+                    }
+                  >
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 1. 보유현황 실시간 출력 스크린 */}
             {activeTab === "보유현황" && (
@@ -1008,7 +1123,7 @@ export default function StockManagerUltimate() {
               </div>
             )}
 
-            {/* 6. 거래관리 콘솔 (수수료, 세금 무삭제 적용판) */}
+            {/* 6. 거래관리 콘솔 (수수료, 세금 인풋 및 컬럼 무삭제판) */}
             {activeTab === "거래관리" && (
               <div>
                 <div
@@ -1219,6 +1334,7 @@ export default function StockManagerUltimate() {
                         setNewStock({ ...newStock, 티커: e.target.value })
                       }
                       className="w-full bg-white border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder="미입력시 자동 연산 생성"
                     />
                   </div>
                   <div className="space-y-1">
