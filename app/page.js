@@ -3,12 +3,11 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V26.0]
- * - 국내 상장 ETF(예: 0091P0 TIGER 코리아원자력, 0098F0 KODEX K원자력SMR) KOSPI 정밀 오인식 수정
- * - 티커 숫자 시작 패턴 및 국내 ETF 브랜드 키워드 사전 필터링 커널 탑재
- * - CSV 엑셀 파일 I/O 시 발생하는 한글 깨짐(외계어 오류) 방지 인코딩 보정 레이어 적용
+ * [STOCK-MANAGER ULTIMATE FINAL V27.0]
+ * - 해외 주식(NASDAQ, NYSE 등) 거래단위 달러($) 적용 및 원화 환산 연동 엔진 탑재
+ * - 거래관리 및 보유현황에서 해외 주식은 단가를 달러로 관리, 합계 및 자산 평가는 환율(1,352.50) 반영 원화 계산
+ * - 국내 상장 ETF KOSPI 정밀 오인식 수정 및 CSV 엑셀 I/O 한글 깨짐 방지 레이어 유지
  * - 거래내역 내 [수수료], [세금] 항목 및 자산 평가 손익 연산 로직 무삭제 유지
- * - 데이터 업로드 시 티커 누락 자동 생성 커널 및 에러/업로드 독립 로그 표시창 유지
  * - 8개 전체 탭 실시간 유기적 상호 연산 및 개별/일괄 CRUD 기능 통합
  * - 기존 디자인 토폴로지 및 UI 레이아웃 절대 보존 / localStorage 데이터 방어 적용
  */
@@ -21,24 +20,27 @@ export default function StockManagerUltimate() {
   const [uploadLogs, setUploadLogs] = useState([]);
   const fileInputRef = useRef(null);
 
+  // 현재 시스템 고정 환율 (추후 확장 가능)
+  const EXCHANGE_RATE = 1352.5;
+
   // --- [원천 데이터 저장소] ---
   const [transactions, setTransactions] = useState([]);
   const [cashFlows, setCashFlows] = useState([]);
   const [stockMaster, setStockMaster] = useState([]);
 
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v26_0");
-    const savedCash = localStorage.getItem("cash_v26_0");
-    const savedMaster = localStorage.getItem("master_v26_0");
+    const savedTx = localStorage.getItem("tx_v27_0");
+    const savedCash = localStorage.getItem("cash_v27_0");
+    const savedMaster = localStorage.getItem("master_v27_0");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("tx_v26_0", JSON.stringify(transactions));
-    localStorage.setItem("cash_v26_0", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v26_0", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v27_0", JSON.stringify(transactions));
+    localStorage.setItem("cash_v27_0", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v27_0", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
   const today = new Date().toISOString().split("T")[0];
@@ -69,10 +71,24 @@ export default function StockManagerUltimate() {
 
   // --- [수치 포맷 및 유틸리티] ---
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
+  const formatFloat = (n) =>
+    n
+      ? Number(n).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : "0.00";
+
   const parseCleanNum = (val) => {
     if (typeof val === "number") return val;
     if (!val || val === "") return 0;
     return Number(String(val).replace(/,/g, "")) || 0;
+  };
+
+  // 특정 종목의 시장 구분을 찾아주는 헬퍼 함수
+  const getMarketByStockName = (name) => {
+    const found = stockMaster.find((s) => s.종목명 === name);
+    return found ? found.시장 : "KOSPI";
   };
 
   // --- [지능형 티커 생성 커널] ---
@@ -99,7 +115,7 @@ export default function StockManagerUltimate() {
     return String(num);
   };
 
-  // --- [V26.0 핵심: 정밀 시장 및 섹터 분류 엔진] ---
+  // --- [정밀 시장 및 섹터 분류 엔진] ---
   const analyzeMarketAndSector = (ticker, name) => {
     const tk = String(ticker || "")
       .trim()
@@ -107,8 +123,6 @@ export default function StockManagerUltimate() {
     const nm = String(name || "").toUpperCase();
 
     let market = "KOSPI";
-
-    // 1. 국내 대표 ETF 핵심 키워드 리스트
     const krEtfKeywords = [
       "TIGER",
       "KODEX",
@@ -122,10 +136,9 @@ export default function StockManagerUltimate() {
       "PLUS",
     ];
     const isKrEtfName = krEtfKeywords.some((kw) => nm.includes(kw));
-    const isDigitStart = /^[0-9]/.test(tk); // 티커가 숫자로 시작하는가 (예: 0091P0)
+    const isDigitStart = /^[0-9]/.test(tk);
 
     if (isDigitStart || isKrEtfName) {
-      // 숫자로 시작하거나 국내 ETF 명칭이 들어가면 무조건 국내 시장(KOSPI/KOSDAQ)으로 분류
       if (
         tk.endsWith("0") &&
         Number(tk.replace(/[^0-9]/g, "")) > 50000 &&
@@ -136,7 +149,6 @@ export default function StockManagerUltimate() {
         market = "KOSPI";
       }
     } else {
-      // 숫자로 시작하지 않는 경우 중, 해외 주식/ETF 식별
       if (
         /[A-Z]/.test(tk) ||
         nm.includes("APPLE") ||
@@ -149,7 +161,6 @@ export default function StockManagerUltimate() {
       }
     }
 
-    // 2. 섹터 자동 매핑 확장 딕셔너리
     let sector = "일반제조/서비스";
     if (
       nm.includes("원자력") ||
@@ -232,7 +243,7 @@ export default function StockManagerUltimate() {
     return { market, sector };
   };
 
-  // --- [8개 탭 실시간 상호 연산 코어 엔진] ---
+  // --- [8개 탭 실시간 다중 통화 환산 연산 코어 엔진] ---
   const stats = useMemo(() => {
     let netInvestment = 0;
     let cashBalance = 0;
@@ -257,35 +268,41 @@ export default function StockManagerUltimate() {
     sortedTx.forEach((tx) => {
       const name = tx.종목명;
       const q = Number(tx.수량) || 0;
-      const p = Number(tx.단가) || 0;
-      const f = Number(tx.수수료) || 0;
-      const t = Number(tx.세금) || 0;
-      const total = tx.구분 === "매수" ? q * p + f + t : q * p - f - t;
+      const p = Number(tx.단가) || 0; // 해외 주식일 경우 달러 단가임
+      const f = Number(tx.수수료) || 0; // 원화 수수료 기본값
+      const t = Number(tx.세금) || 0; // 원화 세금 기본값
+
+      const isForeign = tx.시장 === "NASDAQ" || tx.시장 === "NYSE";
+      // 해외 주식 단가 계산 시 환율(EXCHANGE_RATE) 반영하여 원화 총합 산출
+      const principalKrw = isForeign ? q * p * EXCHANGE_RATE : q * p;
+      const totalKrw =
+        tx.구분 === "매수" ? principalKrw + f + t : principalKrw - f - t;
 
       if (!holdingMap[name]) {
         holdingMap[name] = {
           종목명: name,
           티커: tx.티커 || "",
+          시장: tx.시장 || "KOSPI",
           보유량: 0,
-          총매입금액: 0,
+          총매입금액원화: 0,
           최근단가: p,
-          실현손익: 0,
+          실현손익원화: 0,
         };
       }
 
       const h = holdingMap[name];
       if (tx.구분 === "매수") {
-        cashBalance -= total;
+        cashBalance -= totalKrw;
         h.보유량 += q;
-        h.총매입금액 += total;
+        h.총매입금액원화 += totalKrw;
         h.최근단가 = p;
       } else {
-        cashBalance += total;
-        const avgPrice = h.보유량 > 0 ? h.총매입금액 / h.보유량 : 0;
-        const realized = total - q * avgPrice;
-        totalRealizedProfit += realized;
-        h.실현손익 += realized;
-        h.총매입금액 -= q * avgPrice;
+        cashBalance += totalKrw;
+        const avgPriceKrw = h.보유량 > 0 ? h.총매입금액원화 / h.보유량 : 0;
+        const realizedKrw = totalKrw - q * avgPriceKrw;
+        totalRealizedProfit += realizedKrw;
+        h.실현손익원화 += realizedKrw;
+        h.총매입금액원화 -= q * avgPriceKrw;
         h.보유량 -= q;
         h.최근단가 = p;
       }
@@ -294,20 +311,27 @@ export default function StockManagerUltimate() {
     const holdingList = Object.values(holdingMap)
       .filter((h) => h.보유량 > 0)
       .map((h) => {
-        const avg = h.총매입금액 / h.보유량;
-        const evalAmt = h.보유량 * h.최근단가;
-        const profit = evalAmt - h.총매입금액;
+        const isForeign = h.시장 === "NASDAQ" || h.시장 === "NYSE";
+        const avgPrice = h.총매입금액원화 / h.보유량; // 원화 기준 평균단가
+
+        // 평가 금액은 현재가(최근단가) 기반으로 계산 (해외 주식은 달러가 기준이므로 환율 적용)
+        const evalAmtKrw = isForeign
+          ? h.보유량 * h.최근단가 * EXCHANGE_RATE
+          : h.보유량 * h.최근단가;
+        const profitKrw = evalAmtKrw - h.총매입금액원화;
+
         return {
           종목명: h.종목명,
           티커: h.티커,
+          시장: h.시장,
           보유량: h.보유량,
-          평균단가: Math.round(avg),
-          현재가: Math.round(h.최근단가),
-          평가금액: Math.round(evalAmt),
-          손익: Math.round(profit),
+          평균단가: isForeign ? avgPrice / EXCHANGE_RATE : avgPrice, // 해외 주식은 평균 단가도 달러로 환산 표시
+          현재가: h.최근단가,
+          평가금액: Math.round(evalAmtKrw),
+          손익: Math.round(profitKrw),
           수익률:
-            h.총매입금액 > 0
-              ? ((profit / h.총매입금액) * 100).toFixed(2) + "%"
+            h.총매입금액원화 > 0
+              ? ((profitKrw / h.총매입금액원화) * 100).toFixed(2) + "%"
               : "0.00%",
         };
       });
@@ -355,9 +379,13 @@ export default function StockManagerUltimate() {
             p = Number(tx.단가) || 0;
           const f = Number(tx.수수료) || 0,
             t = Number(tx.세금) || 0;
-          const tot = tx.구분 === "매수" ? q * p + f + t : q * p - f - t;
+          const isForeign = tx.시장 === "NASDAQ" || tx.시장 === "NYSE";
+          const principalKrw = isForeign ? q * p * EXCHANGE_RATE : q * p;
+          const tot =
+            tx.구분 === "매수" ? principalKrw + f + t : principalKrw - f - t;
 
-          if (!runHoldings[name]) runHoldings[name] = { qty: 0, price: p };
+          if (!runHoldings[name])
+            runHoldings[name] = { qty: 0, price: p, isForeign };
           if (tx.구분 === "매수") {
             runCash -= tot;
             runHoldings[name].qty += q;
@@ -370,8 +398,11 @@ export default function StockManagerUltimate() {
 
       let dayEval = 0;
       Object.keys(runHoldings).forEach((k) => {
-        if (runHoldings[k].qty > 0)
-          dayEval += runHoldings[k].qty * runHoldings[k].price;
+        if (runHoldings[k].qty > 0) {
+          dayEval += runHoldings[k].isForeign
+            ? runHoldings[k].qty * runHoldings[k].price * EXCHANGE_RATE
+            : runHoldings[k].qty * runHoldings[k].price;
+        }
       });
       const dayAsset = dayEval + runCash;
       const dayProfit = dayAsset - runInvest;
@@ -411,7 +442,12 @@ export default function StockManagerUltimate() {
         .filter((t) => new Date(t.날짜) <= new Date(date))
         .forEach((tx) => {
           if (!snap[tx.종목명])
-            snap[tx.종목명] = { qty: 0, price: 0, ticker: tx.티커 };
+            snap[tx.종목명] = {
+              qty: 0,
+              price: 0,
+              ticker: tx.티커,
+              시장: tx.시장,
+            };
           snap[tx.종목명].qty +=
             tx.구분 === "매수" ? Number(tx.수량) : -Number(tx.수량);
           snap[tx.종목명].price = Number(tx.단가);
@@ -422,6 +458,7 @@ export default function StockManagerUltimate() {
             날짜: date,
             종목명: name,
             티커: snap[name].ticker,
+            시장: snap[name].시장,
             보유량: snap[name].qty,
             현재가: snap[name].price,
             수익률: "0.00%",
@@ -459,17 +496,20 @@ export default function StockManagerUltimate() {
       p = parseCleanNum(newTx.단가),
       f = parseCleanNum(newTx.수수료),
       t = parseCleanNum(newTx.세금);
-    const total = newTx.구분 === "매수" ? q * p + f + t : q * p - f - t;
     let currentTicker = newTx.티커 ? newTx.티커.trim() : "";
     if (!currentTicker && newTx.종목명) {
       currentTicker = generateAutoTicker(newTx.종목명);
     }
 
+    let detectedMarket = getMarketByStockName(newTx.종목명);
+
+    // 신규 종목의 경우 백그라운드 마스터 사전 등록
     if (newTx.종목명 && !stockMaster.some((s) => s.종목명 === newTx.종목명)) {
       const { market, sector } = analyzeMarketAndSector(
         currentTicker,
         newTx.종목명,
       );
+      detectedMarket = market;
       setStockMaster((prev) => [
         {
           id: Date.now() + 1,
@@ -482,10 +522,16 @@ export default function StockManagerUltimate() {
       ]);
     }
 
+    const isForeign = detectedMarket === "NASDAQ" || detectedMarket === "NYSE";
+    const principalKrw = isForeign ? q * p * EXCHANGE_RATE : q * p;
+    const total =
+      newTx.구분 === "매수" ? principalKrw + f + t : principalKrw - f - t;
+
     const data = {
       ...newTx,
       id: editingId || Date.now(),
       티커: currentTicker,
+      시장: detectedMarket,
       수량: q,
       단가: p,
       수수료: f,
@@ -537,6 +583,13 @@ export default function StockManagerUltimate() {
     if (editingId)
       setStockMaster(stockMaster.map((s) => (s.id === editingId ? data : s)));
     else setStockMaster([data, ...stockMaster]);
+
+    // 마스터 변경 사항을 기존 거래 리스트의 시장 정보에도 실시간 전파 업데이트 반영
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.종목명 === newStock.종목명 ? { ...t, 시장: finalMarket } : t,
+      ),
+    );
     resetForms();
   };
 
@@ -579,7 +632,6 @@ export default function StockManagerUltimate() {
 
   // --- [엑셀 고정밀 I/O 및 한글 깨짐 방지 엔진] ---
   const downloadFile = (fileName, content) => {
-    // \ufeff (BOM) 추가하여 Excel에서 한글 깨짐 완전 차단
     const blob = new Blob(["\ufeff" + content], {
       type: "text/csv;charset=utf-8;",
     });
@@ -615,7 +667,7 @@ export default function StockManagerUltimate() {
       row = "";
     if (activeTab === "거래관리") {
       headers = "날짜,구분,종목명,수량,단가,수수료,세금";
-      row = `${today},매수,삼성전자,10,75000,0,0\n${today},매수,0091P0,TIGER 코리아원자력SMR,5,12000,0,0`;
+      row = `${today},매수,삼성전자,10,75000,0,0\n${today},매수,Apple,5,185.50,0,0`;
     } else if (activeTab === "입출금") {
       headers = "날짜,구분,금액,메모";
       row = `${today},입금,1000000,투자금`;
@@ -672,7 +724,7 @@ export default function StockManagerUltimate() {
               if (!ticker) {
                 ticker = generateAutoTicker(name);
                 logs.push(
-                  `[티커 자동 생성] 행 ${idx + 2}: '${name}'의 티커 자동 생성 -> [${ticker}]`,
+                  `[티커 자동 생성] 행 ${idx + 2}: '${name}' -> 티커 [${ticker}]`,
                 );
               }
 
@@ -707,29 +759,36 @@ export default function StockManagerUltimate() {
                 stockMaster.find((s) => s.종목명 === name) ||
                 autoRegisteredStocks.find((s) => s.종목명 === name);
               let ticker = master ? master.티커 : "";
+              let market = master ? master.시장 : "KOSPI";
 
               if (!ticker) {
                 ticker = generateAutoTicker(name);
                 const autoAnalysis = analyzeMarketAndSector(ticker, name);
+                market = autoAnalysis.market;
                 autoRegisteredStocks.push({
                   id: randId + 1000,
                   티커: ticker,
                   종목명: name,
-                  시장: autoAnalysis.market,
+                  시장: market,
                   섹터: autoAnalysis.sector,
                 });
                 logs.push(
-                  `[지능형 자동 마스터 등록] 행 ${idx + 2}: '${name}' 분석 -> 시장 [${autoAnalysis.market}], 섹터 [${autoAnalysis.sector}] 자율 등록 완료.`,
+                  `[자동 마스터 등록] 행 ${idx + 2}: '${name}' -> 시장 [${market}], 섹터 [${autoAnalysis.sector}]`,
                 );
               }
 
-              const total = type === "매수" ? q * p + f + t : q * p - f - t;
+              const isForeign = market === "NASDAQ" || market === "NYSE";
+              const principalKrw = isForeign ? q * p * EXCHANGE_RATE : q * p;
+              const total =
+                type === "매수" ? principalKrw + f + t : principalKrw - f - t;
+
               return {
                 id: randId,
                 날짜: date,
                 구분: type,
                 종목명: name,
                 티커: ticker,
+                시장: market,
                 수량: q,
                 단가: p,
                 수수료: f,
@@ -752,7 +811,7 @@ export default function StockManagerUltimate() {
               };
             }
           } catch (err) {
-            logs.push(`[구문 오류 로그] ${err.message}`);
+            logs.push(`[구문 오류] ${err.message}`);
             return null;
           }
           return null;
@@ -770,16 +829,19 @@ export default function StockManagerUltimate() {
       if (activeTab === "종목마스터")
         setStockMaster((prev) => [...imported, ...prev]);
 
-      if (logs.length === 0) {
-        logs.push(
-          `[정상 완료] V26.0 하이브리드 시장 분석기 연산 프로세스가 에러 없이 종료되었습니다.`,
-        );
-      }
-      setUploadLogs(logs);
+      setUploadLogs(
+        logs.length === 0
+          ? [`[정상 완료] 다중 통화 매칭 시스템 연산 완료.`]
+          : logs,
+      );
       alert(`CSV 통합 연동 처리가 완료되었습니다.`);
     };
     reader.readAsText(file, "utf-8");
   };
+
+  const selectedTxMarket = getMarketByStockName(newTx.종목명);
+  const isSelectedTxForeign =
+    selectedTxMarket === "NASDAQ" || selectedTxMarket === "NYSE";
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
@@ -790,7 +852,7 @@ export default function StockManagerUltimate() {
             Portfolio Ultimate Console
           </h1>
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            STABLE ENGINE V26.0 / {lastUpdate}
+            STABLE ENGINE V27.0 / {lastUpdate}
           </div>
         </div>
 
@@ -801,7 +863,12 @@ export default function StockManagerUltimate() {
             { n: "KOSDAQ", v: "829.82", d: "-0.14%", up: false },
             { n: "S&P 500", v: "5,501.24", d: "+0.77%", up: true },
             { n: "NASDAQ", v: "18,635.22", d: "+0.88%", up: true },
-            { n: "USD/KRW", v: "1,352.50", d: "+0.22%", up: true },
+            {
+              n: "USD/KRW",
+              v: EXCHANGE_RATE.toFixed(2),
+              d: "+0.22%",
+              up: true,
+            },
           ].map((idx, i) => (
             <div
               key={i}
@@ -943,17 +1010,10 @@ export default function StockManagerUltimate() {
             {uploadLogs.length > 0 && (
               <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-mono space-y-1 max-h-36 overflow-y-auto">
                 <div className="font-black text-slate-700 text-[12px] mb-1">
-                  📋 글로벌 마켓 분류 엔진 및 인코딩 보정 로그 센터 :
+                  📋 글로벌 마켓 다중 통화 연동 로그 센터 :
                 </div>
                 {uploadLogs.map((log, index) => (
-                  <div
-                    key={index}
-                    className={
-                      log.includes("[구문 오류 로그]")
-                        ? "text-rose-600 font-bold"
-                        : "text-amber-800"
-                    }
-                  >
+                  <div key={index} className="text-amber-800">
                     {log}
                   </div>
                 ))}
@@ -967,46 +1027,66 @@ export default function StockManagerUltimate() {
                   <tr>
                     <th>종목명</th>
                     <th>티커</th>
+                    <th>시장</th>
                     <th>보유량</th>
                     <th>평균단가</th>
                     <th>현재가</th>
-                    <th>평가금액</th>
-                    <th>손익</th>
+                    <th>평가금액(원화)</th>
+                    <th>손익(원화)</th>
                     <th>수익률</th>
                   </tr>
                 </thead>
                 <tbody className="text-[13px] font-bold">
                   {stats.holdingList.length > 0 ? (
-                    stats.holdingList.map((h, i) => (
-                      <tr key={i} className="h-12 border-b hover:bg-slate-50">
-                        <td className="font-black text-blue-600">{h.종목명}</td>
-                        <td className="italic text-slate-400">{h.티커}</td>
-                        <td>{formatNum(h.보유량)}</td>
-                        <td>₩{formatNum(h.평균단가)}</td>
-                        <td>₩{formatNum(h.현재가)}</td>
-                        <td className="font-black text-slate-800">
-                          ₩{formatNum(h.평가금액)}
-                        </td>
-                        <td
-                          className={
-                            h.손익 >= 0 ? "text-rose-500" : "text-blue-500"
-                          }
-                        >
-                          {h.손익 >= 0 ? "+" : ""}
-                          {formatNum(h.손익)}
-                        </td>
-                        <td
-                          className={
-                            h.손익 >= 0 ? "text-rose-500" : "text-blue-500"
-                          }
-                        >
-                          {h.수익률}
-                        </td>
-                      </tr>
-                    ))
+                    stats.holdingList.map((h, i) => {
+                      const isForeign =
+                        h.시장 === "NASDAQ" || h.시장 === "NYSE";
+                      return (
+                        <tr key={i} className="h-12 border-b hover:bg-slate-50">
+                          <td className="font-black text-blue-600">
+                            {h.종목명}
+                          </td>
+                          <td className="italic text-slate-400">{h.티커}</td>
+                          <td>
+                            <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                              {h.시장}
+                            </span>
+                          </td>
+                          <td>{formatNum(h.보유량)}</td>
+                          <td>
+                            {isForeign
+                              ? `$${formatFloat(h.평균단가)}`
+                              : `₩${formatNum(h.평균단가)}`}
+                          </td>
+                          <td>
+                            {isForeign
+                              ? `$${formatFloat(h.현재가)}`
+                              : `₩${formatNum(h.현재가)}`}
+                          </td>
+                          <td className="font-black text-slate-800">
+                            ₩{formatNum(h.평가금액)}
+                          </td>
+                          <td
+                            className={
+                              h.손익 >= 0 ? "text-rose-500" : "text-blue-500"
+                            }
+                          >
+                            {h.손익 >= 0 ? "+" : ""}
+                            {formatNum(h.손익)}
+                          </td>
+                          <td
+                            className={
+                              h.손익 >= 0 ? "text-rose-500" : "text-blue-500"
+                            }
+                          >
+                            {h.수익률}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="8" className="py-20 text-slate-400 italic">
+                      <td colSpan="9" className="py-20 text-slate-400 italic">
                         연산 대상 거래 내역이 존재하지 않습니다. [거래관리]에서
                         등록하세요.
                       </td>
@@ -1085,20 +1165,28 @@ export default function StockManagerUltimate() {
                 </thead>
                 <tbody className="text-[12px] font-bold">
                   {stats.dailyStockMatrix.length > 0 ? (
-                    stats.dailyStockMatrix.map((m, i) => (
-                      <tr key={i} className="h-11 border-b hover:bg-slate-50">
-                        <td>{m.날짜}</td>
-                        <td className="text-blue-600 italic font-black">
-                          {m.티커}
-                        </td>
-                        <td className="font-black text-slate-700">
-                          {m.종목명}
-                        </td>
-                        <td>{formatNum(m.보유량)}</td>
-                        <td>₩{formatNum(m.현재가)}</td>
-                        <td className="text-slate-400">{m.수익률}</td>
-                      </tr>
-                    ))
+                    stats.dailyStockMatrix.map((m, i) => {
+                      const isForeign =
+                        m.시장 === "NASDAQ" || m.시장 === "NYSE";
+                      return (
+                        <tr key={i} className="h-11 border-b hover:bg-slate-50">
+                          <td>{m.날짜}</td>
+                          <td className="text-blue-600 italic font-black">
+                            {m.티커}
+                          </td>
+                          <td className="font-black text-slate-700">
+                            {m.종목명}
+                          </td>
+                          <td>{formatNum(m.보유량)}</td>
+                          <td>
+                            {isForeign
+                              ? `$${formatFloat(m.현재가)}`
+                              : `₩${formatNum(m.현재가)}`}
+                          </td>
+                          <td className="text-slate-400">{m.수익률}</td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan="6" className="py-20 text-slate-400 italic">
@@ -1361,7 +1449,14 @@ export default function StockManagerUltimate() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      단가
+                      단가{" "}
+                      {isSelectedTxForeign ? (
+                        <span className="text-purple-600 font-extrabold">
+                          (USD $)
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">(KRW ₩)</span>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -1370,11 +1465,12 @@ export default function StockManagerUltimate() {
                         setNewTx({ ...newTx, 단가: e.target.value })
                       }
                       className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+                      placeholder={isSelectedTxForeign ? "0.00" : "0"}
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      수수료
+                      수수료(원화)
                     </label>
                     <input
                       type="text"
@@ -1387,7 +1483,7 @@ export default function StockManagerUltimate() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      세금
+                      세금(원화)
                     </label>
                     <input
                       type="text"
@@ -1427,76 +1523,89 @@ export default function StockManagerUltimate() {
                       <th>단가</th>
                       <th>수수료</th>
                       <th>세금</th>
-                      <th>합계</th>
+                      <th>합계(원화)</th>
                       <th>관리</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px] font-bold">
-                    {transactions.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="h-11 border-b hover:bg-slate-50"
-                      >
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(t.id)}
-                            onChange={(e) =>
-                              setSelectedIds(
-                                e.target.checked
-                                  ? [...selectedIds, t.id]
-                                  : selectedIds.filter((id) => id !== t.id),
-                              )
-                            }
-                          />
-                        </td>
-                        <td>{t.날짜}</td>
-                        <td
-                          className={
-                            t.구분 === "매수"
-                              ? "text-rose-500"
-                              : "text-blue-500"
-                          }
+                    {transactions.map((t) => {
+                      const isForeign =
+                        t.시장 === "NASDAQ" || t.시장 === "NYSE";
+                      return (
+                        <tr
+                          key={t.id}
+                          className="h-11 border-b hover:bg-slate-50"
                         >
-                          {t.구분}
-                        </td>
-                        <td className="font-black text-slate-800">
-                          {t.종목명}
-                        </td>
-                        <td>{formatNum(t.수량)}</td>
-                        <td>₩{formatNum(t.단가)}</td>
-                        <td className="text-slate-400">
-                          ₩{formatNum(t.수수료)}
-                        </td>
-                        <td className="text-slate-400">₩{formatNum(t.세금)}</td>
-                        <td className="italic font-black text-slate-700">
-                          ₩{formatNum(t.합계)}
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => {
-                              setEditingId(t.id);
-                              setNewTx({ ...t });
-                            }}
-                            className="text-blue-500 underline mr-2"
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(t.id)}
+                              onChange={(e) =>
+                                setSelectedIds(
+                                  e.target.checked
+                                    ? [...selectedIds, t.id]
+                                    : selectedIds.filter((id) => id !== t.id),
+                                )
+                              }
+                            />
+                          </td>
+                          <td>{t.날짜}</td>
+                          <td
+                            className={
+                              t.구분 === "매수"
+                                ? "text-rose-500"
+                                : "text-blue-500"
+                            }
                           >
-                            수정
-                          </button>
-                          <button
-                            onClick={() => deleteItem(t.id)}
-                            className="text-rose-500 underline"
-                          >
-                            삭제
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            {t.구분}
+                          </td>
+                          <td className="font-black text-slate-800">
+                            {t.종목명}{" "}
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              ({t.시장})
+                            </span>
+                          </td>
+                          <td>{formatNum(t.수량)}</td>
+                          <td>
+                            {isForeign
+                              ? `$${formatFloat(t.단가)}`
+                              : `₩${formatNum(t.단가)}`}
+                          </td>
+                          <td className="text-slate-400">
+                            ₩{formatNum(t.수수료)}
+                          </td>
+                          <td className="text-slate-400">
+                            ₩{formatNum(t.세금)}
+                          </td>
+                          <td className="italic font-black text-slate-700">
+                            ₩{formatNum(t.합계)}
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => {
+                                setEditingId(t.id);
+                                setNewTx({ ...t });
+                              }}
+                              className="text-blue-500 underline mr-2"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => deleteItem(t.id)}
+                              className="text-rose-500 underline"
+                            >
+                              삭제
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
 
-            {/* 7. 종목마스터 콘솔 (V26.0 하이브리드 시장 분석기 연산 탑재) */}
+            {/* 7. 종목마스터 콘솔 */}
             {activeTab === "종목마스터" && (
               <div>
                 <div className="mb-8 p-6 rounded-2xl bg-blue-50 border border-blue-100 grid grid-cols-5 gap-4 items-end">
@@ -1664,12 +1773,14 @@ export default function StockManagerUltimate() {
                         .filter((t) => t.종목명 === s.종목명)
                         .sort((a, b) => new Date(a.날짜) - new Date(b.날짜));
                       const lastTx = matchedTx.pop();
+                      const isForeign =
+                        s.시장 === "NASDAQ" || s.시장 === "NYSE";
 
                       const closePrice = lastTx
                         ? Number(lastTx.단가)
-                        : (Math.abs(Number(generateAutoTicker(s.종목명)) * 13) %
-                            75000) +
-                          15000;
+                        : isForeign
+                          ? 150.25
+                          : 55000;
                       const mockFluctuation =
                         ((Math.abs(Number(generateAutoTicker(s.종목명)) * 29) %
                           60) -
@@ -1681,9 +1792,16 @@ export default function StockManagerUltimate() {
                         <tr key={i} className="h-11 border-b hover:bg-slate-50">
                           <td>{today}</td>
                           <td className="text-blue-600 font-black">{s.티커}</td>
-                          <td className="font-black">{s.종목명}</td>
+                          <td className="font-black">
+                            {s.종목명}{" "}
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              ({s.시장})
+                            </span>
+                          </td>
                           <td className="text-slate-800">
-                            ₩{formatNum(closePrice)}
+                            {isForeign
+                              ? `$${formatFloat(closePrice)}`
+                              : `₩${formatNum(closePrice)}`}
                           </td>
                           <td>
                             <span
