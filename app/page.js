@@ -3,26 +3,27 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V39.3 - FULL INTEGRATED PRODUCTION]
- * - [복원] 데이터 백업 (JSON 다운로드) 엔진 탑재
- * - [복원] 데이터 복구 (JSON 파일 업로드 및 검증 병합) 엔진 탑재
- * - [복원] 대량 등록용 표준 엑셀/CSV 업로드 가이드 및 파일 다운로드 양식 구현
- * - [복원] CSV 대량 업로드 실시간 데이터 파서 및 로컬 스테이트 병합 엔진 구현
- * - [보존] v39.2 거래관리 수정(Editing) 메커니즘 100% 완전 유지
- * - [보존] 상단 자산 대시보드 전일대비(DoD) 자산 변동 금액 및 변동률 실시간 트래커 유지
- * - [보존] 보유현황 탭 내부 섹터별 자산 비중 컬러풀 스케일 바(Bar) 컴포넌트 유지
- * - [보존] 일별종가 탭 내부 실시간 주가 강제 오버라이드 및 수동 편집 폼 유지
+ * [STOCK-MANAGER ULTIMATE FINAL V39.4 - FULL INTEGRATED PRODUCTION]
+ * - [복원] 각 탭(입출금, 거래관리, 종목마스터) 내부에 개별 예시 양식 가이드 박스 추가
+ * - [복원] 각 탭별 고유 데이터 전용 엑셀(CSV) 다운로드 및 개별 CSV 업로드/파서 기능 완전 구현
+ * - [수정] 입출금, 거래관리, 종목마스터 탭 제목의 '양식/내역' 문구 제거 -> [입출금], [거래관리], [종목마스터]
+ * - [보존] 상단 헤더 통합 컨트롤러(통합 백업, 통합 복구, 통합 CSV 업로드) 및 라이브 틱 시스템 유지
+ * - [보존] v39.2 거래관리 수정(Editing) 메커니즘, DoD 자산 트래커, 섹터별 컬러 바(Bar) 로직 100% 유지
  */
 
-export default function StockManagerUltimateV39_3() {
+export default function StockManagerUltimateV39_4() {
   const [activeTab, setActiveTab] = useState("거래관리");
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
   const [errorMessage, setErrorMessage] = useState("");
 
-  const fileInputRef = useRef(null);
-  const csvUploadRef = useRef(null);
+  // --- [파일 업로드 참조 링크] ---
+  const fileInputRef = useRef(null); // 상단 전체 JSON 백업 복구용
+  const csvUploadRef = useRef(null); // 상단 전체 CSV 업로드용
+  const tabCashCsvRef = useRef(null); // 입출금 탭 전용 CSV
+  const tabTxCsvRef = useRef(null); // 거래관리 탭 전용 CSV
+  const tabMasterCsvRef = useRef(null); // 종목마스터 탭 전용 CSV
 
   // --- [조회 기간 필터 초기 상태값] ---
   const [startDate, setStartDate] = useState("2026-05-01");
@@ -226,7 +227,7 @@ export default function StockManagerUltimateV39_3() {
     },
     {
       id: 14,
-      티커: "010780",
+      티ker: "010780",
       종목명: "아이에스동서",
       시장: "KOSPI",
       섹터: "일반제조/서비스",
@@ -336,7 +337,7 @@ export default function StockManagerUltimateV39_3() {
   };
 
   // ==========================================
-  // [복원] 1. 백업 파일 내보내기 (JSON 다운로드)
+  // [복원/수정] 전체 원천 백업 데이터 핸들러
   // ==========================================
   const handleDownloadBackup = () => {
     const backupData = {
@@ -359,33 +360,25 @@ export default function StockManagerUltimateV39_3() {
     downloadAnchor.remove();
   };
 
-  // ==========================================
-  // [복원] 2. 백업 파일 복구하기 (JSON 업로드)
-  // ==========================================
   const handleUploadBackup = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
         if (!parsed.transactions || !parsed.cashFlows || !parsed.stockMaster) {
-          alert("올바르지 않은 데이터 구조입니다. 원본 백업 파일이 아닙니다.");
+          alert("데이터 구조를 파악할 수 없습니다. 올바른 백업본이 아닙니다.");
           return;
         }
-        if (
-          confirm(
-            "백업 데이터를 확인했습니다. 기존 로컬 스토리지를 덮어쓰시겠습니까?",
-          )
-        ) {
+        if (confirm("기존 내역을 지우고 백업 데이터로 복원하시겠습니까?")) {
           setTransactions(parsed.transactions);
           setCashFlows(parsed.cashFlows);
           setStockMaster(parsed.stockMaster);
-          alert("데이터 백업 복원이 완료되었습니다.");
+          alert("성공적으로 전체 백업 데이터가 적용되었습니다.");
         }
       } catch (err) {
-        alert("파일 처리 중 오류 발생: " + err.message);
+        alert("백업 해석 실패: " + err.message);
       }
     };
     reader.readAsText(file);
@@ -393,154 +386,355 @@ export default function StockManagerUltimateV39_3() {
   };
 
   // ==========================================
-  // [복원] 3. 대량 일괄 등록용 표준 엑셀(CSV) 양식 다운로드
+  // [복원] 상단 전용 통합 매매 내역 CSV 일괄등록 양식 다운로드 (인코딩 우회 해결)
   // ==========================================
   const handleDownloadTemplate = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8,\uFEFF" +
+    const headers = [
+      "구분(매수/매도)",
+      "날짜(YYYY-MM-DD)",
+      "종목명",
+      "티커코드",
+      "수량",
+      "단가",
+      "수수료",
+      "세금",
+    ];
+    const rows = [
+      ["매수", "2026-05-18", "삼성전자", "005930", "10", "73000", "0", "0"],
       [
-        [
-          "구분(매수/매도)",
-          "날짜(YYYY-MM-DD)",
-          "종목명",
-          "티커코드",
-          "수량",
-          "단가",
-          "수수료",
-          "세금",
-        ].join(","),
-        ["매수", "2026-05-18", "삼성전자", "005930", "15", "73000", "0", "0"],
-        [
-          "매수",
-          "2026-05-18",
-          "스타파이터스 스페이스",
-          "AMEX:FJET",
-          "10",
-          "5.2",
-          "0",
-          "0",
-        ],
-      ]
-        .map((e) => e.join(","))
-        .join("\n");
-
-    const encodedUri = encodeURI(csvContent);
+        "매수",
+        "2026-05-18",
+        "스타파이터스 스페이스",
+        "AMEX:FJET",
+        "5",
+        "5.20",
+        "0",
+        "0",
+      ],
+    ];
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "주식매매_일괄등록_양식.csv");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "통합매매내역_일괄등록_양식.csv");
     document.body.appendChild(link);
     link.click();
     link.remove();
   };
 
-  // ==========================================
-  // [복원] 4. 대량 엑셀(CSV) 업로드 분석기 및 로직 결합
-  // ==========================================
+  // 상단 통합 CSV 대량 파일 분석 파서
   const handleUploadCSV = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const text = event.target.result;
         const lines = text
           .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line !== "");
+          .map((l) => l.trim())
+          .filter((l) => l !== "");
         if (lines.length <= 1) {
-          alert("업로드할 유효 데이터 행이 존재하지 않습니다.");
+          alert("파싱할 유효 행 데이터가 존재하지 않습니다.");
           return;
         }
 
-        const importedTxList = [];
-        const newMasterTokens = [];
+        const list = [];
+        const masterTokens = [];
 
-        // 인덱스 1번(헤더 제외)부터 순회 파싱
         for (let i = 1; i < lines.length; i++) {
-          const row = lines[i].split(",").map((cell) => cell.trim());
-          if (row.length < 6) continue;
-
-          const gubun = row[0]; // 매수/매도
-          const date = row[1]; // 날짜
-          const name = row[2]; // 종목명
-          const ticker = row[3]; // 티커
-          const qty = Number(row[4]) || 0;
-          const price = Number(row[5]) || 0;
-          const fee = Number(row[6]) || 0;
-          const tax = Number(row[7]) || 0;
-
+          const r = lines[i].split(",").map((c) => c.trim());
+          if (r.length < 6) continue;
+          const gubun = r[0],
+            date = r[1],
+            name = r[2],
+            ticker = r[3];
+          const qty = Number(r[4]) || 0,
+            price = Number(r[5]) || 0,
+            fee = Number(r[6]) || 0,
+            tax = Number(r[7]) || 0;
           if (!name || !ticker) continue;
 
-          // 종목마스터 동적 자동 등록 트래킹
-          const isExistMaster =
-            stockMaster.some((sm) => sm.티커 === ticker) ||
-            newMasterTokens.some((m) => m.티커 === ticker);
-          if (!isExistMaster) {
-            const isForeign = ticker.includes(":") || ticker === "HCTI";
-            newMasterTokens.push({
-              id: Date.now() + i + 100,
+          if (
+            !stockMaster.some((s) => s.티커 === ticker) &&
+            !masterTokens.some((m) => m.티커 === ticker)
+          ) {
+            masterTokens.push({
+              id: Date.now() + i + 500,
               티커: ticker,
               종목명: name,
-              시장: isForeign ? "NASDAQ" : "KOSPI",
+              시장: ticker.includes(":") ? "NASDAQ" : "KOSPI",
               섹터: "일반제조/서비스",
             });
           }
-
-          let market =
-            ticker.includes(":") || ticker === "HCTI" ? "NASDAQ" : "KOSPI";
-          const isForeign = market === "NASDAQ";
-          const totalAmt =
+          const mkt = ticker.includes(":") ? "NASDAQ" : "KOSPI";
+          const tot =
             gubun === "매수"
-              ? isForeign
+              ? mkt === "NASDAQ"
                 ? qty * price * EXCHANGE_RATE + fee + tax
                 : qty * price + fee + tax
-              : isForeign
+              : mkt === "NASDAQ"
                 ? qty * price * EXCHANGE_RATE - fee - tax
                 : qty * price - fee - tax;
 
-          importedTxList.push({
+          list.push({
             id: Date.now() + i,
             날짜: date,
             구분: gubun,
             종목명: name,
             티커: ticker,
-            시장: market,
+            시장: mkt,
             수량: qty,
             단가: price,
             수수료: fee,
             세금: tax,
-            합계: totalAmt,
+            합계: tot,
           });
         }
-
-        if (importedTxList.length === 0) {
-          alert("파싱된 유효 매매 내역 데이터가 없습니다. 양식을 확인하세요.");
-          return;
-        }
-
         if (
-          confirm(
-            `총 ${importedTxList.length}건의 대량 데이터를 기존 내역에 추가 병합하시겠습니까?`,
-          )
+          confirm(`총 ${list.length}건의 대량 데이터를 추가 로드하시겠습니까?`)
         ) {
-          if (newMasterTokens.length > 0) {
-            setStockMaster((prev) => [...prev, ...newMasterTokens]);
-          }
-          setTransactions((prev) => [...importedTxList, ...prev]);
-          alert(
-            "엑셀(CSV) 일괄 데이터 업로드 및 실시간 종목 맵핑이 완료되었습니다.",
-          );
+          if (masterTokens.length > 0)
+            setStockMaster((p) => [...p, ...masterTokens]);
+          setTransactions((p) => [...list, ...p]);
         }
       } catch (err) {
-        alert("CSV 데이터 해석 오류: " + err.message);
+        alert("파싱 오류: " + err.message);
       }
     };
     reader.readAsText(file, "UTF-8");
     e.target.value = "";
   };
 
-  // --- [핵심 연산 모듈 - v39.2 로직 변경 없음] ---
+  // ==========================================
+  // [복원] 개별 탭별 엑셀(CSV) 양식 및 내역 내보내기/가져오기 기능 그룹
+  // ==========================================
+
+  // 1. 입출금 전용 다운로드/업로드
+  const handleDownloadCashCsv = () => {
+    const headers = [
+      "날짜(YYYY-MM-DD)",
+      "구분(입금/출금)",
+      "금액(원화)",
+      "메모",
+    ];
+    const dataRows =
+      cashFlows.length > 0
+        ? cashFlows.map((c) => [c.날짜, c.구분, c.금액, c.메모 || ""])
+        : [["2026-05-18", "입금", "5000000", "초기투자 자본금"]];
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(","), ...dataRows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `입출금내역_export_${today}.csv`;
+    link.click();
+  };
+
+  const handleUploadCashCsv = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (el) => {
+      try {
+        const lines = el.target.result
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l !== "");
+        const list = [];
+        for (let i = 1; i < lines.length; i++) {
+          const r = lines[i].split(",").map((c) => c.trim());
+          if (r.length < 3) continue;
+          list.push({
+            id: Date.now() + i,
+            날짜: r[0],
+            구분: r[1],
+            금액: Number(r[2]) || 0,
+            메모: r[3] || "",
+          });
+        }
+        if (
+          list.length > 0 &&
+          confirm(`총 ${list.length}건의 현금 흐름을 업로드 병합합니까?`)
+        ) {
+          setCashFlows((p) => [...list, ...p]);
+        }
+      } catch (err) {
+        alert("입출금 파싱 에러: " + err.message);
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
+  // 2. 거래관리 전용 다운로드/업로드
+  const handleDownloadTxCsv = () => {
+    const headers = [
+      "구분",
+      "날짜",
+      "종목명",
+      "티커",
+      "수량",
+      "단가",
+      "수수료",
+      "세금",
+    ];
+    const dataRows =
+      transactions.length > 0
+        ? transactions.map((t) => [
+            t.구분,
+            t.날짜,
+            t.종목명,
+            t.티커,
+            t.수량,
+            t.단가,
+            t.수수료,
+            t.세금,
+          ])
+        : [
+            [
+              "매수",
+              "2026-05-18",
+              "삼성전자",
+              "005930",
+              "5",
+              "73000",
+              "0",
+              "0",
+            ],
+          ];
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(","), ...dataRows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `매매거래내역_export_${today}.csv`;
+    link.click();
+  };
+
+  const handleUploadTxCsv = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (el) => {
+      try {
+        const lines = el.target.result
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l !== "");
+        const list = [];
+        for (let i = 1; i < lines.length; i++) {
+          const r = lines[i].split(",").map((c) => c.trim());
+          if (r.length < 6) continue;
+          const mkt = r[3].includes(":") ? "NASDAQ" : "KOSPI";
+          const qty = Number(r[4]) || 0,
+            price = Number(r[5]) || 0,
+            fee = Number(r[6]) || 0,
+            tax = Number(r[7]) || 0;
+          const tot =
+            r[0] === "매수"
+              ? mkt === "NASDAQ"
+                ? qty * price * EXCHANGE_RATE + fee + tax
+                : qty * price + fee + tax
+              : mkt === "NASDAQ"
+                ? qty * price * EXCHANGE_RATE - fee - tax
+                : qty * price - fee - tax;
+
+          list.push({
+            id: Date.now() + i,
+            구분: r[0],
+            날짜: r[1],
+            종목명: r[2],
+            티커: r[3],
+            시장: mkt,
+            수량: qty,
+            단가: price,
+            수수료: fee,
+            세금: tax,
+            합계: tot,
+          });
+        }
+        if (
+          list.length > 0 &&
+          confirm(`총 ${list.length}건의 거래 내역을 병합합니까?`)
+        ) {
+          setTransactions((p) => [...list, ...p]);
+        }
+      } catch (err) {
+        alert("거래내역 파싱 에러: " + err.message);
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
+  // 3. 종목마스터 전용 다운로드/업로드
+  const handleDownloadMasterCsv = () => {
+    const headers = ["티커코드", "종목명", "시장분류", "섹터분류"];
+    const dataRows = stockMaster.map((s) => [
+      s.티커,
+      s.종목명,
+      s.시장,
+      s.섹터 || "일반제조/서비스",
+    ]);
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(","), ...dataRows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `종목마스터_export_${today}.csv`;
+    link.click();
+  };
+
+  const handleUploadMasterCsv = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (el) => {
+      try {
+        const lines = el.target.result
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l !== "");
+        const tokens = [];
+        for (let i = 1; i < lines.length; i++) {
+          const r = lines[i].split(",").map((c) => c.trim());
+          if (r.length < 2) continue;
+          if (!stockMaster.some((sm) => sm.티커 === r[0])) {
+            tokens.push({
+              id: Date.now() + i,
+              티커: r[0],
+              종목명: r[1],
+              시장: r[2] || "KOSPI",
+              섹터: r[3] || "일반제조/서비스",
+            });
+          }
+        }
+        if (
+          tokens.length > 0 &&
+          confirm(
+            `새로운 종목 마스터 ${tokens.length}개를 사전 등록 리스트에 추가합니까?`,
+          )
+        ) {
+          setStockMaster((p) => [...p, ...tokens]);
+        } else {
+          alert("새로 추가할 고유 티커 종목이 없습니다.");
+        }
+      } catch (err) {
+        alert("종목마스터 파싱 에러: " + err.message);
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
+  // --- [핵심 연산 모듈 - v39.2 로직 완벽 유지] ---
   const stats = useMemo(() => {
     let netInvestment = 0;
     let cashBalance = 0;
@@ -691,7 +885,6 @@ export default function StockManagerUltimateV39_3() {
       const firstDate = new Date(rawDates[0]);
       const lastDate = new Date(today);
       const allDatesArray = [];
-
       let currentLoopDate = new Date(firstDate);
       while (currentLoopDate <= lastDate) {
         allDatesArray.push(currentLoopDate.toISOString().split("T")[0]);
@@ -728,7 +921,6 @@ export default function StockManagerUltimateV39_3() {
               tx.시장 === "NASDAQ" ||
               tx.시장 === "NYSE" ||
               tx.티커?.includes(":");
-
             const tot =
               tx.구분 === "매수"
                 ? isForeign
@@ -747,7 +939,6 @@ export default function StockManagerUltimateV39_3() {
                 ticker: tx.티커,
               };
             }
-
             if (tx.구분 === "매수") {
               runCash -= tot;
               runHoldings[name].qty += q;
@@ -780,7 +971,6 @@ export default function StockManagerUltimateV39_3() {
 
         const dayAsset = dayEval + runCash;
         const dayProfit = dayAsset - runInvest;
-
         dailyList.push({
           날짜: date,
           평가금액: Math.round(dayAsset),
@@ -793,7 +983,6 @@ export default function StockManagerUltimateV39_3() {
         });
       });
 
-      // 대시보드 출력 전일 대비 변동량 수치
       if (dailyList.length >= 2) {
         const todaySnap = dailyList[dailyList.length - 1];
         const yesterdaySnap = dailyList[dailyList.length - 2];
@@ -856,7 +1045,7 @@ export default function StockManagerUltimateV39_3() {
     };
   }, [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster]);
 
-  // 가로 전개 가공 엔진
+  // 가로 전개 피벗 매트릭스 엔진
   const pivotData = useMemo(() => {
     const filteredDates = stats.allDates
       .filter((d) => d >= startDate && d <= endDate)
@@ -865,7 +1054,6 @@ export default function StockManagerUltimateV39_3() {
       a.날짜.localeCompare(b.날짜),
     );
     const matrix = {};
-
     stockMaster.forEach((s) => {
       matrix[s.종목명] = {
         종목명: s.종목명,
@@ -890,7 +1078,6 @@ export default function StockManagerUltimateV39_3() {
             tx.시장 === "NASDAQ" ||
             tx.시장 === "NYSE" ||
             tx.티커?.includes(":");
-
           const txTotalKrw =
             tx.구분 === "매수"
               ? isForeign
@@ -920,7 +1107,6 @@ export default function StockManagerUltimateV39_3() {
           matrix[name].시장 === "NASDAQ" ||
           matrix[name].시장 === "NYSE" ||
           matrix[name].티커?.includes(":");
-
         if (th.qty > 0) {
           const avgPrice = isForeign
             ? th.totalCostUsd / th.qty
@@ -929,28 +1115,23 @@ export default function StockManagerUltimateV39_3() {
           const livePriceKrw = isForeign
             ? livePrice * EXCHANGE_RATE
             : livePrice;
-
           const dailyCostKrw = th.totalCostKrw;
           const dailyEvalKrw = th.qty * livePriceKrw;
           const dailyProfitKrw = dailyEvalKrw - dailyCostKrw;
-          const dailyRate =
-            dailyCostKrw > 0 ? (dailyProfitKrw / dailyCostKrw) * 100 : 0;
-
           matrix[name].역사적내역[date] = {
             qty: th.qty,
-            avgPrice: avgPrice,
+            avgPrice,
             totalCost: dailyCostKrw,
             profit: dailyProfitKrw,
-            rate: dailyRate,
+            rate: dailyCostKrw > 0 ? (dailyProfitKrw / dailyCostKrw) * 100 : 0,
           };
         }
       });
     });
 
-    const finalRows = Object.values(matrix).filter((row) => {
-      return filteredDates.some((d) => row.역사적내역[d] !== undefined);
-    });
-
+    const finalRows = Object.values(matrix).filter((row) =>
+      filteredDates.some((d) => row.역사적내역[d] !== undefined),
+    );
     const dailyColumnTotals = {};
     filteredDates.forEach((d) => {
       let sumProfit = 0,
@@ -967,7 +1148,6 @@ export default function StockManagerUltimateV39_3() {
         rate: sumCost > 0 ? (sumProfit / sumCost) * 100 : 0,
       };
     });
-
     return { finalRows, filteredDates, dailyColumnTotals };
   }, [
     stats.allDates,
@@ -987,7 +1167,6 @@ export default function StockManagerUltimateV39_3() {
     return map;
   }, [stats.holdingList]);
 
-  // 거래 내역 수동 편집 트리거 고유 유지
   const triggerEditTx = (item) => {
     setEditingId(item.id);
     setNewTx({
@@ -1003,35 +1182,30 @@ export default function StockManagerUltimateV39_3() {
     window.scrollTo({ top: 350, behavior: "smooth" });
   };
 
-  // 수동 종가 변경 적용 프로세서 유지
   const handleApplyManualPrice = () => {
     if (!manualPriceForm.티커 || !manualPriceForm.가격) {
-      alert("종목 코드와 입력 가격을 검증하십시오.");
+      alert("종목코드와 가격을 확인하세요.");
       return;
     }
-    const targetPrice = Number(manualPriceForm.가격);
     setLiveStockPrices((prev) => ({
       ...prev,
-      [manualPriceForm.티커]: targetPrice,
+      [manualPriceForm.티커]: Number(manualPriceForm.가격),
     }));
     setManualPriceForm({ 티커: "", 가격: "" });
   };
 
-  // --- [CRUD 인젝션] ---
   const saveTx = () => {
     setErrorMessage("");
     if (!newTx.종목명) {
       setErrorMessage("종목 데이터 식별 불가.");
       return;
     }
-
     const q = parseCleanNum(newTx.수량),
       p = parseCleanNum(newTx.단가),
       f = parseCleanNum(newTx.수수료),
       t = parseCleanNum(newTx.세금);
     let currentTicker = newTx.티커 ? newTx.티커.trim() : "999999";
     let detectedMarket = getMarketByStockName(newTx.종목명);
-
     const isForeign =
       detectedMarket === "NASDAQ" ||
       detectedMarket === "NYSE" ||
@@ -1056,7 +1230,6 @@ export default function StockManagerUltimateV39_3() {
       세금: t,
       합계: totalKrw,
     };
-
     if (editingId)
       setTransactions(
         transactions.map((item) => (item.id === editingId ? data : item)),
@@ -1068,8 +1241,7 @@ export default function StockManagerUltimateV39_3() {
   const saveCash = () => {
     const amt = parseCleanNum(newCash.금액);
     if (amt <= 0) return;
-    const data = { ...newCash, id: Date.now(), 금액: amt };
-    setCashFlows([data, ...cashFlows]);
+    setCashFlows([{ ...newCash, id: Date.now(), 금액: amt }, ...cashFlows]);
     resetForms();
   };
 
@@ -1080,7 +1252,7 @@ export default function StockManagerUltimateV39_3() {
   };
 
   const deleteItem = (id) => {
-    if (!confirm("원천 데이터를 삭제합니까?")) return;
+    if (!confirm("원천 레코드를 파기하시겠습니까?")) return;
     if (activeTab === "거래관리")
       setTransactions(transactions.filter((t) => t.id !== id));
     if (activeTab === "입출금")
@@ -1090,8 +1262,8 @@ export default function StockManagerUltimateV39_3() {
   };
 
   const toggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    setSelectedIds((p) =>
+      p.includes(id) ? p.filter((i) => i !== id) : [...p, id],
     );
   };
 
@@ -1101,9 +1273,9 @@ export default function StockManagerUltimateV39_3() {
         ? transactions.map((t) => t.id)
         : cashFlows.map((c) => c.id);
     if (targets.every((id) => selectedIds.includes(id))) {
-      setSelectedIds((prev) => prev.filter((id) => !targets.includes(id)));
+      setSelectedIds((p) => p.filter((id) => !targets.includes(id)));
     } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...targets])));
+      setSelectedIds((p) => Array.from(new Set([...p, ...targets])));
     }
   };
 
@@ -1137,37 +1309,32 @@ export default function StockManagerUltimateV39_3() {
     });
   };
 
-  const isHeaderChecked =
-    transactions.length > 0 &&
-    transactions.every((t) => selectedIds.includes(t.id));
-
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* 통합 최상위 제어 바 (복원된 일괄 컨트롤러 그룹) */}
+        {/* 상단 통합 제어 대시바 */}
         <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              📊 STOCK-MANAGER ULTIMATE V39.3
+              📊 STOCK-MANAGER ULTIMATE V39.4
             </h1>
             <p className="text-[11px] font-bold text-slate-400 mt-1">
-              데이터 안전성 및 엑셀 대량 로더 복원 완전판
+              탭별 개별 예시양식 / 엑셀업출 기능 원상 복구 및 최적화 완전판
             </p>
           </div>
 
-          {/* [복원] 엑셀 대량 로더 및 원천 백업 제어판 */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadTemplate}
               className="text-[11px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-2 rounded-xl hover:bg-emerald-100 transition-all"
             >
-              📥 일괄등록 양식(.CSV) 받기
+              📥 통합 일괄양식(.CSV) 받기
             </button>
             <button
               onClick={() => csvUploadRef.current.click()}
               className="text-[11px] font-black bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-700 transition-all shadow-sm"
             >
-              🚀 엑셀(.CSV) 대량 업로드
+              🚀 통합 엑셀(.CSV) 대량 업로드
             </button>
             <button
               onClick={handleDownloadBackup}
@@ -1179,7 +1346,7 @@ export default function StockManagerUltimateV39_3() {
               onClick={() => fileInputRef.current.click()}
               className="text-[11px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-3 py-2 rounded-xl hover:bg-amber-100 transition-all"
             >
-              📂 백업 복구하기
+              📂 전체 백업 복구 (JSON)
             </button>
 
             <input
@@ -1197,12 +1364,12 @@ export default function StockManagerUltimateV39_3() {
               className="hidden"
             />
             <span className="text-[11px] font-black bg-slate-100 text-slate-600 px-3 py-2 rounded-xl ml-2">
-              Live Sync: {lastUpdate}
+              Live: {lastUpdate}
             </span>
           </div>
         </div>
 
-        {/* 실시간 주요 지수 현황판 */}
+        {/* 실시간 지수 인덱스 현황 */}
         <div className="grid grid-cols-6 gap-4 mb-4">
           {[
             {
@@ -1261,7 +1428,7 @@ export default function StockManagerUltimateV39_3() {
           ))}
         </div>
 
-        {/* 종합 자산 현황판 */}
+        {/* 대시보드 스펙트럼 */}
         <div className="grid grid-cols-6 gap-4 mb-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
@@ -1271,8 +1438,7 @@ export default function StockManagerUltimateV39_3() {
               ₩ {formatNum(stats.netInvestment)}
             </p>
           </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center relative overflow-hidden">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center relative">
             <p className="text-[10px] font-black text-slate-400 mb-1">
               총자산액 (DoD 트래커)
             </p>
@@ -1287,7 +1453,6 @@ export default function StockManagerUltimateV39_3() {
               {stats.assetChangeRateDoD.toFixed(2)}%)
             </span>
           </div>
-
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
               총가동 수익률
@@ -1298,7 +1463,6 @@ export default function StockManagerUltimateV39_3() {
               {stats.totalProfitRate.toFixed(2)}%
             </p>
           </div>
-
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
               평가금액 합계
@@ -1307,7 +1471,6 @@ export default function StockManagerUltimateV39_3() {
               ₩ {formatNum(stats.totalEvaluation)}
             </p>
           </div>
-
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
               누적 확정실현손익
@@ -1318,7 +1481,6 @@ export default function StockManagerUltimateV39_3() {
               ₩ {formatNum(stats.totalRealizedProfit)}
             </p>
           </div>
-
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
               실시간 예수금 잔고
@@ -1329,7 +1491,7 @@ export default function StockManagerUltimateV39_3() {
           </div>
         </div>
 
-        {/* 탭 인터페이스 영역 */}
+        {/* 메인 컴포넌트 컨테이너 하우징 */}
         <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
           <div className="flex bg-slate-50 p-2 gap-1 border-b border-slate-200">
             {[
@@ -1337,9 +1499,9 @@ export default function StockManagerUltimateV39_3() {
               "일별수익률",
               "보유종목일별",
               "월별수익률",
-              "입출금 양식/내역",
-              "거래관리 양식/내역",
-              "종목마스터 양식/내역",
+              "입출금",
+              "거래관리",
+              "종목마스터",
               "일별종가",
             ].map((tab) => (
               <button
@@ -1357,7 +1519,7 @@ export default function StockManagerUltimateV39_3() {
           </div>
 
           <div className="p-8">
-            {/* Tab 1. 보유현황 */}
+            {/* 탭 1. 보유현황 */}
             {activeTab === "보유현황" && (
               <div>
                 <div className="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200">
@@ -1378,7 +1540,6 @@ export default function StockManagerUltimateV39_3() {
                           key={idx}
                           style={{ width: `${sw.percentage}%` }}
                           className={`${colors[idx % colors.length]} h-full relative group transition-all hover:opacity-90`}
-                          title={`${sw.name}: ${sw.percentage}%`}
                         >
                           <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white truncate px-1">
                             {sw.percentage > 7
@@ -1414,7 +1575,7 @@ export default function StockManagerUltimateV39_3() {
                       <th>티커</th>
                       <th>시장구분</th>
                       <th>보유량</th>
-                      <th>평균단가 (달러/원화)</th>
+                      <th>평균단가</th>
                       <th>현재 장중가격</th>
                       <th>평가금액</th>
                       <th>손익(원화)</th>
@@ -1475,7 +1636,7 @@ export default function StockManagerUltimateV39_3() {
               </div>
             )}
 
-            {/* Tab 2. 일별수익률 */}
+            {/* 탭 2. 일별수익률 */}
             {activeTab === "일별수익률" && (
               <table className="w-full text-center border-collapse">
                 <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
@@ -1518,7 +1679,7 @@ export default function StockManagerUltimateV39_3() {
               </table>
             )}
 
-            {/* Tab 3. 보유종목일별 */}
+            {/* 탭 3. 보유종목일별 */}
             {activeTab === "보유종목일별" && (
               <div>
                 <div className="mb-6 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -1601,7 +1762,7 @@ export default function StockManagerUltimateV39_3() {
                           row.티커?.includes(":");
                         const curQty = currentH ? currentH.보유량 : 0;
                         const curAvg = currentH ? currentH.평균단가 : 0;
-                        const curPrice = liveStockPrices[row.티커] || curAvg;
+                        const curPrice = liveStockPrices[row.티ker] || curAvg;
                         return (
                           <tr
                             key={idx}
@@ -1662,7 +1823,7 @@ export default function StockManagerUltimateV39_3() {
               </div>
             )}
 
-            {/* Tab 4. 월별수익률 */}
+            {/* 탭 4. 월별수익률 */}
             {activeTab === "월별수익률" && (
               <table className="w-full text-center border-collapse">
                 <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
@@ -1701,10 +1862,44 @@ export default function StockManagerUltimateV39_3() {
               </table>
             )}
 
-            {/* Tab 5. 입출금 양식/내역 */}
-            {activeTab === "입출금 양식/내역" && (
+            {/* 탭 5. 입출금 */}
+            {activeTab === "입출금" && (
               <div>
-                <div className="mb-8 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-5 gap-4 items-end">
+                {/* [복원] 입출금 전용 예시 양식 가이드 및 액션 바 */}
+                <div className="mb-4 p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center justify-between text-[12px]">
+                  <div>
+                    <span className="font-black text-blue-800">
+                      💡 입출금 CSV 데이터 가이드라인 :
+                    </span>
+                    <span className="text-slate-600 ml-2">
+                      헤더 포맷 <code>[날짜,구분,금액,메모]</code> / 예시:{" "}
+                      <code>2026-05-18,입금,5000000,초기자금</code>
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDownloadCashCsv}
+                      className="bg-white text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg font-black hover:bg-blue-100/50 transition-all"
+                    >
+                      📥 입출금 양식/내역 다운로드
+                    </button>
+                    <button
+                      onClick={() => tabCashCsvRef.current.click()}
+                      className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-blue-700 transition-all"
+                    >
+                      📤 입출금 CSV 업로드
+                    </button>
+                    <input
+                      type="file"
+                      ref={tabCashCsvRef}
+                      onChange={handleUploadCashCsv}
+                      accept=".csv"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-6 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-5 gap-4 items-end">
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
                       날짜
@@ -1838,24 +2033,60 @@ export default function StockManagerUltimateV39_3() {
               </div>
             )}
 
-            {/* Tab 6. 거래관리 양식/내역 */}
-            {activeTab === "거래관리 양식/내역" && (
+            {/* 탭 6. 거래관리 */}
+            {activeTab === "거래관리" && (
               <div>
+                {/* [복원] 거래관리 전용 예시 양식 가이드 및 액션 바 */}
+                <div className="mb-4 p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 flex items-center justify-between text-[12px]">
+                  <div>
+                    <span className="font-black text-emerald-800">
+                      💡 매매거래 CSV 데이터 가이드라인 :
+                    </span>
+                    <span className="text-slate-600 ml-2">
+                      포맷{" "}
+                      <code>[구분,날짜,종목명,티커,수량,단가,수수료,세금]</code>{" "}
+                      / 예시:{" "}
+                      <code>매수,2026-05-18,삼성전자,005930,10,73000,0,0</code>
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDownloadTxCsv}
+                      className="bg-white text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg font-black hover:bg-emerald-100/50 transition-all"
+                    >
+                      📥 거래관리 양식/내역 다운로드
+                    </button>
+                    <button
+                      onClick={() => tabTxCsvRef.current.click()}
+                      className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-emerald-700 transition-all"
+                    >
+                      📤 거래내역 CSV 업로드
+                    </button>
+                    <input
+                      type="file"
+                      ref={tabTxCsvRef}
+                      onChange={handleUploadTxCsv}
+                      accept=".csv"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
                 <div
                   className={`mb-8 p-6 rounded-2xl border transition-all ${editingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-4 gap-4 items-end`}
                 >
                   <div className="col-span-4 font-black text-[14px] text-slate-700 flex justify-between">
                     <span>
                       {editingId
-                        ? "⚠️ [편집 모드 활성화] 선택 내역 실시간 수정 프로세스"
-                        : "✍️ 신규 거래 내역 수동 등록 양식"}
+                        ? "⚠️ [편집 모드] 선택 매매 건 상세 수동 수정 오버라이드"
+                        : "✍️ 매매 거래 내역 수동 신규 기입 양식"}
                     </span>
                     {editingId && (
                       <button
                         onClick={resetForms}
                         className="text-slate-400 underline text-[11px] font-normal"
                       >
-                        편집 해제
+                        편집 모드 나가기
                       </button>
                     )}
                   </div>
@@ -1889,7 +2120,7 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      종목선택
+                      종목 매핑선택
                     </label>
                     <select
                       value={newTx.종목명}
@@ -1928,7 +2159,7 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      거래 단가 (해외=달러)
+                      거래 단가 (해외주식=달러단가)
                     </label>
                     <input
                       type="text"
@@ -1941,7 +2172,7 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      수수료 (KRW)
+                      제수수료 (KRW)
                     </label>
                     <input
                       type="text"
@@ -1954,7 +2185,7 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      세금 (KRW)
+                      거래세 등 제세금 (KRW)
                     </label>
                     <input
                       type="text"
@@ -1967,11 +2198,11 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <button
                     onClick={saveTx}
-                    className={`w-full py-3.5 rounded-xl text-[12px] font-black shadow-md text-white ${editingId ? "bg-amber-600" : "bg-slate-900"}`}
+                    className={`w-full py-3.5 rounded-xl text-[12px] font-black shadow-md text-white ${editingId ? "bg-amber-600 animate-pulse" : "bg-slate-900"}`}
                   >
                     {editingId
-                      ? "수정 완료 및 레코드 업데이트"
-                      : "거래 내역 추가"}
+                      ? "수정사항 확정 및 레코드 반영"
+                      : "거래 레코드 추가"}
                   </button>
                 </div>
                 <div className="mb-2 flex justify-end">
@@ -1988,7 +2219,12 @@ export default function StockManagerUltimateV39_3() {
                       <th className="w-12">
                         <input
                           type="checkbox"
-                          checked={isHeaderChecked}
+                          checked={
+                            transactions.length > 0 &&
+                            transactions.every((t) =>
+                              selectedIds.includes(t.id),
+                            )
+                          }
                           onChange={handleSelectAllToggle}
                         />
                       </th>
@@ -1998,7 +2234,7 @@ export default function StockManagerUltimateV39_3() {
                       <th>티커</th>
                       <th>수량</th>
                       <th>거래단가</th>
-                      <th>원화 환산합계</th>
+                      <th>원화 계산총액</th>
                       <th>관리</th>
                     </tr>
                   </thead>
@@ -2065,9 +2301,43 @@ export default function StockManagerUltimateV39_3() {
               </div>
             )}
 
-            {/* Tab 7. 종목마스터 양식/내역 */}
-            {activeTab === "종목마스터 양식/내역" && (
+            {/* 탭 7. 종목마스터 */}
+            {activeTab === "종목마스터" && (
               <div>
+                {/* [복원] 종목마스터 전용 예시 양식 가이드 및 액션 바 */}
+                <div className="mb-4 p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex items-center justify-between text-[12px]">
+                  <div>
+                    <span className="font-black text-purple-800">
+                      💡 종목 마스터 CSV 가이드라인 :
+                    </span>
+                    <span className="text-slate-600 ml-2">
+                      포맷 <code>[티커코드,종목명,시장분류,섹터분류]</code> /
+                      예시: <code>005930,삼성전자,KOSPI,일반제조/서비스</code>
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDownloadMasterCsv}
+                      className="bg-white text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg font-black hover:bg-purple-100/50 transition-all"
+                    >
+                      📥 종목마스터 양식/내역 다운로드
+                    </button>
+                    <button
+                      onClick={() => tabMasterCsvRef.current.click()}
+                      className="bg-purple-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-purple-700 transition-all"
+                    >
+                      📤 종목마스터 CSV 업로드
+                    </button>
+                    <input
+                      type="file"
+                      ref={tabMasterCsvRef}
+                      onChange={handleUploadMasterCsv}
+                      accept=".csv"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-8 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-5 gap-4 items-end">
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
@@ -2135,7 +2405,7 @@ export default function StockManagerUltimateV39_3() {
                     onClick={saveMaster}
                     className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md hover:bg-slate-800 transition-all"
                   >
-                    마스터 등록
+                    마스터 사전등록
                   </button>
                 </div>
                 <table className="w-full text-center border-collapse">
@@ -2183,12 +2453,12 @@ export default function StockManagerUltimateV39_3() {
               </div>
             )}
 
-            {/* Tab 8. 일별종가 */}
+            {/* 탭 8. 일별종가 */}
             {activeTab === "일별종가" && (
               <div>
                 <div className="mb-6 p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex items-end gap-4">
                   <div className="text-[13px] font-black text-amber-800">
-                    🛠️ 주가 강제 오버라이드 고정 수동 제어
+                    🛠️ 주가 오버라이드 실시간 고정 수동 제어
                   </div>
                   <div className="space-y-1 ml-auto">
                     <label className="block text-[10px] text-slate-400 font-bold">
@@ -2214,11 +2484,11 @@ export default function StockManagerUltimateV39_3() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] text-slate-400 font-bold">
-                      지정 고정 주가(해외=달러)
+                      수동 지정가(해외=달러)
                     </label>
                     <input
                       type="number"
-                      placeholder="수치 입력"
+                      placeholder="가격 입력"
                       value={manualPriceForm.가격}
                       onChange={(e) =>
                         setManualPriceForm({
@@ -2233,7 +2503,7 @@ export default function StockManagerUltimateV39_3() {
                     onClick={handleApplyManualPrice}
                     className="bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-amber-700 transition-all"
                   >
-                    시세 오버라이드 고정
+                    시세 오버라이드 적용
                   </button>
                 </div>
 
@@ -2245,8 +2515,8 @@ export default function StockManagerUltimateV39_3() {
                       <th>종목명</th>
                       <th>시장구분</th>
                       <th>현재 보유수량</th>
-                      <th>장중 가격 (Live 싱크)</th>
-                      <th>변동추이</th>
+                      <th>장중 현재가 (Live)</th>
+                      <th>기준대비 변동추이</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px] font-bold">
@@ -2264,7 +2534,6 @@ export default function StockManagerUltimateV39_3() {
                       const originPrice =
                         defaultStockPrices[s.티커] ||
                         (isForeign ? 10.0 : 10000);
-
                       const diff = currentPrice - originPrice;
                       const pct = ((diff / originPrice) * 100).toFixed(2);
                       const hQty = activeHoldingQuantities[s.종목명] || 0;
