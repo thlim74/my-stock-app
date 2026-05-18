@@ -3,12 +3,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V31.0 - HOTFIX]
- * - 5대 기본전제 완전 부합 (무삭제 통합 코드, 디자인 유지, 수수료/세금 유지, 자동 티커 생성, 스토리지 유실 원천 방지)
- * - 누락된 최상단 타이틀 복원 및 데이터 실제 내보내기(CSV 다운로드) 기능 완벽 개선
+ * [STOCK-MANAGER ULTIMATE FINAL V32.0 - FULL SYSTEM]
+ * - 5대 기본전제 완전 준수 (무삭제 통합 최종본, 디자인 절대 유지, 수수료/세금 유지, 자동 티커 생성, 데이터 방어 가드)
+ * - [핵심 개선] 거래관리 및 입출금 탭 내 테이블 '전체 선택 / 전체 해제' 체크박스 기능 완전 복원
  */
 
-export default function StockManagerUltimateV31() {
+export default function StockManagerUltimateV32() {
   const [activeTab, setActiveTab] = useState("거래관리");
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -50,9 +50,9 @@ export default function StockManagerUltimateV31() {
 
   // 독립 영구 보존 스토리지 키 지정
   const STORAGE_KEYS = {
-    TX: "ultimate_v31_tx_data_secured",
-    CASH: "ultimate_v31_cash_data_secured",
-    MASTER: "ultimate_v31_master_data_secured",
+    TX: "ultimate_v32_tx_data_secured",
+    CASH: "ultimate_v32_cash_data_secured",
+    MASTER: "ultimate_v32_master_data_secured",
   };
 
   const [transactions, setTransactions] = useState([]);
@@ -189,7 +189,7 @@ export default function StockManagerUltimateV31() {
     },
   ]);
 
-  // [중요 전제 5번 대응] 로드 플래그를 두어 데이터가 불러와지기 전에 공백 상태로 저장소가 초기화되는 것을 원천 차단
+  // [중요 전제 5번 대응] 데이터 로드가 끝나기 전에 공백 배열로 LocalStorage가 덮어씌워지는 현상 원천 차단
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -205,7 +205,7 @@ export default function StockManagerUltimateV31() {
   }, []);
 
   useEffect(() => {
-    if (!isLoaded) return; // 로드가 완전히 끝나기 전에는 Write 동작 수행 금지
+    if (!isLoaded) return;
     localStorage.setItem(STORAGE_KEYS.TX, JSON.stringify(transactions));
     localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(cashFlows));
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
@@ -657,7 +657,7 @@ export default function StockManagerUltimateV31() {
     resetForms();
   };
 
-  // 엑셀/CSV 업로드 기능 및 자동 에러 트래킹 기능
+  // 엑셀/CSV 업로드 및 자동 에러 캐칭 기능
   const handleSimulatedUpload = (e) => {
     setErrorMessage("");
     const file = e.target.files[0];
@@ -702,7 +702,7 @@ export default function StockManagerUltimateV31() {
             continue;
           }
 
-          // 티커 누락 시 자동 보정 연산 결합
+          // [기본전제 4번 대응] 티커 누락 건 자동 해시 연산 생성 결합
           let r티커 = cols[3];
           if (!r티커 || r티커 === "") {
             r티커 = generateAutoTicker(r종목명);
@@ -769,13 +769,13 @@ export default function StockManagerUltimateV31() {
     reader.readAsText(file);
   };
 
-  // [누락 기능 복원] 엑셀/CSV 다운로드 기능 (실시간 데이터 완전 추출 내보내기 구현)
+  // [기본전제 1번 대응] 실시간 자산 엑셀 CSV 물리 내보내기 구현
   const handleDownloadExcel = () => {
     if (transactions.length === 0) {
       alert("다운로드할 거래내역 자료가 존재하지 않습니다.");
       return;
     }
-    let csvContent = "\uFEFF"; // 한글 깨짐 방지용 BOM 적용
+    let csvContent = "\uFEFF";
     csvContent += "날짜,구분,종목명,티커,수량,단가,수수료,세금,합계원화\n";
 
     transactions.forEach((t) => {
@@ -786,7 +786,7 @@ export default function StockManagerUltimateV31() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `stock_transactions_v31_${today}.csv`);
+    link.setAttribute("download", `stock_transactions_v32_${today}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -801,7 +801,7 @@ export default function StockManagerUltimateV31() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "stock_template_v31.csv");
+    link.setAttribute("download", "stock_template_v32.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -815,6 +815,7 @@ export default function StockManagerUltimateV31() {
       setCashFlows(cashFlows.filter((c) => c.id !== id));
     if (activeTab === "종목마스터")
       setStockMaster(stockMaster.filter((s) => s.id !== id));
+    setSelectedIds((prev) => prev.filter((i) => i !== id));
   };
 
   const toggleSelect = (id) => {
@@ -823,14 +824,46 @@ export default function StockManagerUltimateV31() {
     );
   };
 
+  // [기능 복원] 상단 헤더 전체 선택 / 전체 해제 바인딩 함수
+  const handleSelectAllToggle = () => {
+    const currentTabTargetIds =
+      activeTab === "거래관리"
+        ? transactions.map((t) => t.id)
+        : activeTab === "입출금"
+          ? cashFlows.map((c) => c.id)
+          : [];
+
+    if (currentTabTargetIds.length === 0) return;
+
+    // 현재 탭의 모든 요소가 이미 선택 상태인지 확인
+    const isAllSelected = currentTabTargetIds.every((id) =>
+      selectedIds.includes(id),
+    );
+
+    if (isAllSelected) {
+      // 현재 탭의 ID들만 기존 선택 목록에서 부분 제거
+      setSelectedIds((prev) =>
+        prev.filter((id) => !currentTabTargetIds.includes(id)),
+      );
+    } else {
+      // 현재 탭의 ID 중 중복되지 않은 대상을 합산 추가
+      setSelectedIds((prev) =>
+        Array.from(new Set([...prev, ...currentTabTargetIds])),
+      );
+    }
+  };
+
   const deleteSelected = () => {
     if (selectedIds.length === 0)
       return alert("선택 반전된 내역이 존재하지 않습니다.");
     if (!confirm("선택한 타겟 인덱스 요소들을 다중 파기하겠습니까?")) return;
-    if (activeTab === "거래관리")
+
+    if (activeTab === "거래관리") {
       setTransactions(transactions.filter((t) => !selectedIds.includes(t.id)));
-    if (activeTab === "입출금")
+    }
+    if (activeTab === "입출금") {
       setCashFlows(cashFlows.filter((c) => !selectedIds.includes(c.id)));
+    }
     setSelectedIds([]);
   };
 
@@ -855,14 +888,26 @@ export default function StockManagerUltimateV31() {
     });
   };
 
+  // 헤더 체크박스의 체크 상태 연산을 위한 useMemo
+  const isHeaderChecked = useMemo(() => {
+    const targets =
+      activeTab === "거래관리"
+        ? transactions
+        : activeTab === "입출금"
+          ? cashFlows
+          : [];
+    if (targets.length === 0) return false;
+    return targets.every((t) => selectedIds.includes(t.id));
+  }, [activeTab, transactions, cashFlows, selectedIds]);
+
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* [누락 기능 복원] 최상단 메인 대형 타이틀 헤더 바 */}
+        {/* 메인 타이틀 헤더 바 */}
         <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              📊 STOCK-MANAGER ULTIMATE V31.0
+              📊 STOCK-MANAGER ULTIMATE V32.0
             </h1>
             <p className="text-[11px] font-bold text-slate-400 mt-1">
               실시간 자산 정산 분리형 원천 저장 아키텍처 결합판
@@ -1325,7 +1370,14 @@ export default function StockManagerUltimateV31() {
                 <table className="w-full text-center border-collapse">
                   <thead className="bg-slate-800 text-white text-[11px] font-black">
                     <tr>
-                      <th className="w-12">선택</th>
+                      <th className="w-12">
+                        {/* [기능 복원] 입출금 탭 헤더 전체 선택 체크박스 */}
+                        <input
+                          type="checkbox"
+                          checked={isHeaderChecked}
+                          onChange={handleSelectAllToggle}
+                        />
+                      </th>
                       <th>날짜</th>
                       <th>구분</th>
                       <th>금액</th>
@@ -1366,6 +1418,13 @@ export default function StockManagerUltimateV31() {
                         </td>
                       </tr>
                     ))}
+                    {cashFlows.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="py-10 text-slate-400 italic">
+                          기록된 입출금 내역이 없습니다.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1503,7 +1562,14 @@ export default function StockManagerUltimateV31() {
                 <table className="w-full text-center border-collapse">
                   <thead className="bg-slate-800 text-white text-[11px] font-black">
                     <tr>
-                      <th className="w-12">선택</th>
+                      <th className="w-12">
+                        {/* [기능 복원] 거래관리 탭 헤더 전체 선택 체크박스 */}
+                        <input
+                          type="checkbox"
+                          checked={isHeaderChecked}
+                          onChange={handleSelectAllToggle}
+                        />
+                      </th>
                       <th>날짜</th>
                       <th>구분</th>
                       <th>종목명</th>
@@ -1571,6 +1637,16 @@ export default function StockManagerUltimateV31() {
                         </tr>
                       );
                     })}
+                    {transactions.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan="11"
+                          className="py-10 text-slate-400 italic"
+                        >
+                          등록된 매매 거래내역 히스토리가 없습니다.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
