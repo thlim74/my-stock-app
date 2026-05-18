@@ -3,12 +3,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V32.0 - FULL SYSTEM]
+ * [STOCK-MANAGER ULTIMATE FINAL V33.0 - FULL SYSTEM]
  * - 5대 기본전제 완전 준수 (무삭제 통합 최종본, 디자인 절대 유지, 수수료/세금 유지, 자동 티커 생성, 데이터 방어 가드)
- * - [핵심 개선] 거래관리 및 입출금 탭 내 테이블 '전체 선택 / 전체 해제' 체크박스 기능 완전 복원
+ * - [핵심 개선] 엑셀/CSV 데이터 업로드 시 '입금/출금' 내역이 누락되지 않고 입출금 탭에 정상 반영되도록 로직 보정
  */
 
-export default function StockManagerUltimateV32() {
+export default function StockManagerUltimateV33() {
   const [activeTab, setActiveTab] = useState("거래관리");
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -50,9 +50,9 @@ export default function StockManagerUltimateV32() {
 
   // 독립 영구 보존 스토리지 키 지정
   const STORAGE_KEYS = {
-    TX: "ultimate_v32_tx_data_secured",
-    CASH: "ultimate_v32_cash_data_secured",
-    MASTER: "ultimate_v32_master_data_secured",
+    TX: "ultimate_v33_tx_data_secured",
+    CASH: "ultimate_v33_cash_data_secured",
+    MASTER: "ultimate_v33_master_data_secured",
   };
 
   const [transactions, setTransactions] = useState([]);
@@ -121,7 +121,7 @@ export default function StockManagerUltimateV32() {
       티커: "003310",
       종목명: "대주산업",
       시장: "KOSPI",
-      섹터: "일반제조/서비스",
+      font: "일반제조/서비스",
     },
     {
       id: 10,
@@ -657,7 +657,7 @@ export default function StockManagerUltimateV32() {
     resetForms();
   };
 
-  // 엑셀/CSV 업로드 및 자동 에러 캐칭 기능
+  // [기능 개선 및 복원] 엑셀/CSV 업로드 처리 함수 (입출금 감지 분기 보정)
   const handleSimulatedUpload = (e) => {
     setErrorMessage("");
     const file = e.target.files[0];
@@ -680,11 +680,12 @@ export default function StockManagerUltimateV32() {
         }
 
         const parsedTxs = [];
+        const parsedCashFlows = [];
         const addedMasters = [];
 
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(",").map((c) => c.trim());
-          if (cols.length < 3) {
+          if (cols.length < 2) {
             setErrorMessage(
               `오류 표시: 업로드 파일의 [${i + 1}번째 행] 구조가 데이터 레이아웃에 규합되지 않습니다.`,
             );
@@ -692,72 +693,107 @@ export default function StockManagerUltimateV32() {
           }
 
           const r날짜 = cols[0] || today;
-          const r구분 = cols[1] === "매도" ? "매도" : "매수";
-          const r종목명 = cols[2];
+          const r구분 = cols[1];
 
-          if (!r종목명 || r종목명 === "") {
-            setErrorMessage(
-              `오류 표시: [${i + 1}번째 행]의 종목 데이터명이 공란으로 파싱되어 등록에서 누락처리 되었습니다.`,
-            );
-            continue;
-          }
+          // [보정] 입출금(입금/출금) 데이터 타입 감지 파싱 처리부
+          if (r구분 === "입금" || r구분 === "출금") {
+            // 수량 위치(4번째 열) 혹은 종목명 위치(2번째 열)에 저장된 금액 파싱 규칙 생성
+            const r금액 = parseCleanNum(cols[4]) || parseCleanNum(cols[2]) || 0;
+            if (r금액 <= 0) {
+              setErrorMessage(
+                `오류 표시: [${i + 1}번째 행]의 입출금 데이터 금액이 누락되었거나 부적합합니다.`,
+              );
+              continue;
+            }
+            const r메모 =
+              cols[2] && isNaN(parseCleanNum(cols[2]))
+                ? cols[2]
+                : cols[3] || "엑셀업로드 인입";
 
-          // [기본전제 4번 대응] 티커 누락 건 자동 해시 연산 생성 결합
-          let r티커 = cols[3];
-          if (!r티커 || r티커 === "") {
-            r티커 = generateAutoTicker(r종목명);
-          }
-
-          const r수량 = parseCleanNum(cols[4] || 0);
-          const r단가 = parseCleanNum(cols[5] || 0);
-          const r수수료 = parseCleanNum(cols[6] || 0);
-          const r세금 = parseCleanNum(cols[7] || 0);
-
-          let market = getMarketByStockName(r종목명);
-          const isForeign = market === "NASDAQ" || market === "NYSE";
-          const totalKrw =
-            r구분 === "매수"
-              ? r수량 * r단가 * (isForeign ? EXCHANGE_RATE : 1) +
-                r수수료 +
-                r세금
-              : r수량 * r단가 * (isForeign ? EXCHANGE_RATE : 1) -
-                r수수료 -
-                r세금;
-
-          parsedTxs.push({
-            id: Date.now() + i,
-            날짜: r날짜,
-            구분: r구분,
-            종목명: r종목명,
-            티커: r티커,
-            수량: r수량,
-            단가: r단가,
-            수수료: r수수료,
-            세금: r세금,
-            합계: totalKrw,
-            시장: market,
-          });
-
-          if (
-            !stockMaster.some((s) => s.종목명 === r종목명) &&
-            !addedMasters.some((m) => m.종목명 === r종목명)
-          ) {
-            addedMasters.push({
-              id: Date.now() + i + 900,
-              티커: r티커,
-              종목명: r종목명,
-              시장: "KOSPI",
-              섹터: "자동생성매핑",
+            parsedCashFlows.push({
+              id: Date.now() + i * 10,
+              날짜: r날짜,
+              구분: r구분,
+              금액: r금액,
+              메모: r메모,
             });
+          }
+          // 기존 매수/매도 거래내역 데이터 타입 처리부
+          else if (r구분 === "매수" || r구분 === "매도") {
+            const r종목명 = cols[2];
+            if (!r종목명 || r종목명 === "") {
+              setErrorMessage(
+                `오류 표시: [${i + 1}번째 행]의 종목 데이터명이 공란으로 파싱되어 등록에서 누락처리 되었습니다.`,
+              );
+              continue;
+            }
+
+            // [기본전제 4번 대응] 티커 누락 건 자동 해시 연산 생성 결합
+            let r티커 = cols[3];
+            if (!r티커 || r티커 === "") {
+              r티커 = generateAutoTicker(r종목명);
+            }
+
+            const r수량 = parseCleanNum(cols[4] || 0);
+            const r단가 = parseCleanNum(cols[5] || 0);
+            const r수수료 = parseCleanNum(cols[6] || 0);
+            const r세금 = parseCleanNum(cols[7] || 0);
+
+            let market = getMarketByStockName(r종목명);
+            const isForeign = market === "NASDAQ" || market === "NYSE";
+            const totalKrw =
+              r구분 === "매수"
+                ? r수량 * r단가 * (isForeign ? EXCHANGE_RATE : 1) +
+                  r수수료 +
+                  r세금
+                : r수량 * r단가 * (isForeign ? EXCHANGE_RATE : 1) -
+                  r수수료 -
+                  r세금;
+
+            parsedTxs.push({
+              id: Date.now() + i,
+              날짜: r날짜,
+              구분: r구분,
+              종목명: r종목명,
+              티커: r티커,
+              수량: r수량,
+              단가: r단가,
+              수수료: r수수료,
+              세금: r세금,
+              합계: totalKrw,
+              시장: market,
+            });
+
+            if (
+              !stockMaster.some((s) => s.종목명 === r종목명) &&
+              !addedMasters.some((m) => m.종목명 === r종목명)
+            ) {
+              addedMasters.push({
+                id: Date.now() + i + 900,
+                티커: r티커,
+                종목명: r종목명,
+                시장: "KOSPI",
+                섹터: "자동생성매핑",
+              });
+            }
+          } else {
+            setErrorMessage(
+              `오류 표시: [${i + 1}번째 행]의 구분값('${r구분}') 식별 정보가 유효하지 않습니다.`,
+            );
           }
         }
 
-        if (parsedTxs.length > 0) {
+        // 각 상태 배열에 순차적 병합
+        if (parsedTxs.length > 0)
           setTransactions((prev) => [...parsedTxs, ...prev]);
-          if (addedMasters.length > 0)
-            setStockMaster((prev) => [...prev, ...addedMasters]);
+        if (parsedCashFlows.length > 0)
+          setCashFlows((prev) => [...parsedCashFlows, ...prev]);
+        if (addedMasters.length > 0)
+          setStockMaster((prev) => [...prev, ...addedMasters]);
+
+        if (parsedTxs.length > 0 || parsedCashFlows.length > 0) {
           alert(
-            `동기화 피드백: ${parsedTxs.length}건의 자료 배치가 성공적으로 병합 완료되었습니다.`,
+            `동기화 피드백: 거래내역 ${parsedTxs.length}건, 입출금 내역 ${parsedCashFlows.length}건의 자료 배치가 성공적으로 병합 완료되었습니다.`,
           );
         }
       } catch (err) {
@@ -771,37 +807,40 @@ export default function StockManagerUltimateV32() {
 
   // [기본전제 1번 대응] 실시간 자산 엑셀 CSV 물리 내보내기 구현
   const handleDownloadExcel = () => {
-    if (transactions.length === 0) {
-      alert("다운로드할 거래내역 자료가 존재하지 않습니다.");
+    if (transactions.length === 0 && cashFlows.length === 0) {
+      alert("다운로드할 데이터가 존재하지 않습니다.");
       return;
     }
     let csvContent = "\uFEFF";
-    csvContent += "날짜,구분,종목명,티커,수량,단가,수수료,세금,합계원화\n";
+    csvContent += "날짜,구분,종목명(메모),티커,수량/금액,단가,수수료,세금\n";
 
     transactions.forEach((t) => {
-      csvContent += `${t.날짜},${t.구분},${t.종목명},${t.티커},${t.수량},${t.단가},${t.수수료},${t.세금},${Math.round(t.합계)}\n`;
+      csvContent += `${t.날짜},${t.구분},${t.종목명},${t.티커},${t.수량},${t.단가},${t.수수료},${t.세금}\n`;
+    });
+    cashFlows.forEach((c) => {
+      csvContent += `${c.날짜},${c.구분},${c.메모 || ""},,${c.금액},,,\n`;
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `stock_transactions_v32_${today}.csv`);
+    link.setAttribute("download", `stock_system_data_v33_${today}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const handleDownloadTemplate = () => {
-    const headers = "날짜,구분,종목명,티커,수량,단가,수수료,세금\n";
-    const sample = `${today},매수,TIGER 코리아원자력,,100,2400,10,0\n${today},매수,KODEX K원자력SMR,,50,3100,20,0`;
+    const headers = "날짜,구분,종목명(메모),티커,수량/금액,단가,수수료,세금\n";
+    const sample = `${today},매수,TIGER 코리아원자력,,100,2400,10,0\n${today},입금,초기투자금원금,,5000000,,,\n${today},매도,스타파이터스 스페이스,AMEX:FJET,20,15.5,15,5`;
     const blob = new Blob([headers + sample], {
       type: "text/csv;charset=utf-8;",
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "stock_template_v32.csv");
+    link.setAttribute("download", "stock_template_v33.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -824,7 +863,6 @@ export default function StockManagerUltimateV32() {
     );
   };
 
-  // [기능 복원] 상단 헤더 전체 선택 / 전체 해제 바인딩 함수
   const handleSelectAllToggle = () => {
     const currentTabTargetIds =
       activeTab === "거래관리"
@@ -835,18 +873,15 @@ export default function StockManagerUltimateV32() {
 
     if (currentTabTargetIds.length === 0) return;
 
-    // 현재 탭의 모든 요소가 이미 선택 상태인지 확인
     const isAllSelected = currentTabTargetIds.every((id) =>
       selectedIds.includes(id),
     );
 
     if (isAllSelected) {
-      // 현재 탭의 ID들만 기존 선택 목록에서 부분 제거
       setSelectedIds((prev) =>
         prev.filter((id) => !currentTabTargetIds.includes(id)),
       );
     } else {
-      // 현재 탭의 ID 중 중복되지 않은 대상을 합산 추가
       setSelectedIds((prev) =>
         Array.from(new Set([...prev, ...currentTabTargetIds])),
       );
@@ -888,7 +923,6 @@ export default function StockManagerUltimateV32() {
     });
   };
 
-  // 헤더 체크박스의 체크 상태 연산을 위한 useMemo
   const isHeaderChecked = useMemo(() => {
     const targets =
       activeTab === "거래관리"
@@ -907,7 +941,7 @@ export default function StockManagerUltimateV32() {
         <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              📊 STOCK-MANAGER ULTIMATE V32.0
+              📊 STOCK-MANAGER ULTIMATE V33.0
             </h1>
             <p className="text-[11px] font-bold text-slate-400 mt-1">
               실시간 자산 정산 분리형 원천 저장 아키텍처 결합판
@@ -1067,10 +1101,10 @@ export default function StockManagerUltimateV32() {
                 onClick={handleDownloadExcel}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[11px] font-black transition-all"
               >
-                엑셀 다운로드 (CSV 내보내기)
+                전체 백업 다운로드
               </button>
               <label className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-[11px] font-black cursor-pointer transition-all">
-                엑셀/CSV 데이터 업로드
+                엑셀/CSV 통합 업로드
                 <input
                   type="file"
                   accept=".csv, .txt"
@@ -1371,7 +1405,6 @@ export default function StockManagerUltimateV32() {
                   <thead className="bg-slate-800 text-white text-[11px] font-black">
                     <tr>
                       <th className="w-12">
-                        {/* [기능 복원] 입출금 탭 헤더 전체 선택 체크박스 */}
                         <input
                           type="checkbox"
                           checked={isHeaderChecked}
@@ -1563,7 +1596,6 @@ export default function StockManagerUltimateV32() {
                   <thead className="bg-slate-800 text-white text-[11px] font-black">
                     <tr>
                       <th className="w-12">
-                        {/* [기능 복원] 거래관리 탭 헤더 전체 선택 체크박스 */}
                         <input
                           type="checkbox"
                           checked={isHeaderChecked}
