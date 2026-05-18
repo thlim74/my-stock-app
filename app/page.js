@@ -3,20 +3,22 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V39.8 - EMERGENCY PATCHED]
- * - [해결] 'includes' of undefined 파싱 에러 완전 격리 (티커 Null-Safe 방어 코드 전면 도입)
+ * [STOCK-MANAGER ULTIMATE FINAL V39.9 - MASTER PATCHED]
+ * - [해결] 종목마스터 티커 연동 실패 완벽 해결
+ * - [해결] 일별종가 장중현재가 liveStockPrices 매핑 에러 수정
+ * - [반영] 해외주식 수수료 및 세금에 환율(달러->원화) 연동 적용
+ * - [기능] 보유종목일별 탭 진입 시 기본 최근 5일 실적 표시 + 기간 필터 연동
  * - [준수] 5대 기본 전제 완벽 준수 및 단 한 줄의 생략도 없는 무삭제 완전체 코드
  */
 
-export default function StockManagerUltimateV39_8() {
+export default function StockManagerUltimateV39_9() {
   const [activeTab, setActiveTab] = useState("거래관리");
-  const [editingId, setEditingId] = useState(null); // 거래관리 편집용
-  const [masterEditingId, setMasterEditingId] = useState(null); // 종목마스터 편집용
+  const [editingId, setEditingId] = useState(null);
+  const [masterEditingId, setMasterEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
   const [errorMessage, setErrorMessage] = useState("");
 
-  // --- [파일 업로드 및 입출력 참조 링크] ---
   const fileInputRef = useRef(null);
   const csvUploadRef = useRef(null);
   const tabCashCsvRef = useRef(null);
@@ -24,8 +26,8 @@ export default function StockManagerUltimateV39_8() {
   const tabMasterCsvRef = useRef(null);
 
   // --- [조회 기간 필터] ---
-  const [startDate, setStartDate] = useState("2020-01-01");
-  const [endDate, setEndDate] = useState("2026-12-31");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // --- [기준 가격 및 실시간 틱 데이터] ---
   const baseTicks = {
@@ -55,7 +57,7 @@ export default function StockManagerUltimateV39_8() {
     "000720": 32000,
     "011430": 21000,
     "002710": 55000,
-    "003310 text": 2150,
+    "003310": 2150,
     "005380": 240000,
     "0091P0": 14000,
     "009830": 26000,
@@ -72,62 +74,11 @@ export default function StockManagerUltimateV39_8() {
     ...defaultStockPrices,
   });
 
-  // 4초 주기 실시간 지수/시세 변동 모듈
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveTicks((prev) => {
-        const delta = (Math.random() - 0.5) * 10.0;
-        return {
-          kospi: +(prev.kospi + delta * 1.2).toFixed(2),
-          kosdaq: +(prev.kosdaq + delta * 0.3).toFixed(2),
-          dow: +(prev.dow + delta * 2.0).toFixed(2),
-          nasdaq: +(prev.nasdaq + delta * 1.8).toFixed(2),
-          sp500: +(prev.sp500 + delta * 0.6).toFixed(2),
-          exchangeRate: +(
-            prev.exchangeRate +
-            (Math.random() - 0.5) * 1.0
-          ).toFixed(2),
-        };
-      });
-
-      setLiveStockPrices((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((ticker) => {
-          const isForeign =
-            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"));
-          if (isForeign) {
-            updated[ticker] = +(
-              prev[ticker] +
-              (Math.random() - 0.5) * 0.03
-            ).toFixed(2);
-          } else {
-            updated[ticker] = Math.max(
-              100,
-              Math.round(prev[ticker] + (Math.random() - 0.5) * 150),
-            );
-          }
-        });
-        return updated;
-      });
-      setLastUpdate(new Date().toLocaleTimeString());
-    }, 4000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const EXCHANGE_RATE = liveTicks.exchangeRate;
-
-  const getDiffStr = (curr, base) => {
-    const diff = curr - base;
-    const pct = ((diff / base) * 100).toFixed(2);
-    return diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(pct)}%`;
-  };
-  const isUp = (curr, base) => curr >= base;
-
   // 로컬 스토리지 키 관리 명세
   const STORAGE_KEYS = {
-    TX: "ultimate_v39_8_tx_secured",
-    CASH: "ultimate_v39_8_cash_secured",
-    MASTER: "ultimate_v39_8_master_secured",
+    TX: "ultimate_v39_9_tx_secured",
+    CASH: "ultimate_v39_9_cash_secured",
+    MASTER: "ultimate_v39_9_master_secured",
   };
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
@@ -258,6 +209,7 @@ export default function StockManagerUltimateV39_8() {
       티커: "005930",
       종목명: "삼성전자",
       시장: "KOSPI",
+      Sector: "일반제조/서비스",
       섹터: "일반제조/서비스",
     },
     {
@@ -300,6 +252,69 @@ export default function StockManagerUltimateV39_8() {
     가격: "",
   });
 
+  // 4초 주기 실시간 지수/시세 변동 모듈 (장중현재가 오류 완벽 개선)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTicks((prev) => {
+        const delta = (Math.random() - 0.5) * 10.0;
+        return {
+          kospi: +(prev.kospi + delta * 1.2).toFixed(2),
+          kosdaq: +(prev.kosdaq + delta * 0.3).toFixed(2),
+          dow: +(prev.dow + delta * 2.0).toFixed(2),
+          nasdaq: +(prev.nasdaq + delta * 1.8).toFixed(2),
+          sp500: +(prev.sp500 + delta * 0.6).toFixed(2),
+          exchangeRate: +(
+            prev.exchangeRate +
+            (Math.random() - 0.5) * 1.0
+          ).toFixed(2),
+        };
+      });
+
+      setLiveStockPrices((prev) => {
+        const updated = { ...prev };
+        // 현재 등록되어 있는 모든 마스터 종목의 시세 유실 방지 동적 인입
+        stockMaster.forEach((sm) => {
+          if (updated[sm.티커] === undefined) {
+            const isForeign =
+              sm.시장 === "NASDAQ" ||
+              sm.시장 === "NYSE" ||
+              (sm.티커 &&
+                (sm.티커.includes(":") || sm.티커.startsWith("AUTO")));
+            updated[sm.티커] = isForeign ? 10.0 : 10000;
+          }
+        });
+
+        Object.keys(updated).forEach((ticker) => {
+          const isForeign =
+            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"));
+          if (isForeign) {
+            updated[ticker] = Math.max(
+              0.1,
+              +(updated[ticker] + (Math.random() - 0.5) * 0.05).toFixed(2),
+            );
+          } else {
+            updated[ticker] = Math.max(
+              100,
+              Math.round(updated[ticker] + (Math.random() - 0.5) * 200),
+            );
+          }
+        });
+        return updated;
+      });
+      setLastUpdate(new Date().toLocaleTimeString());
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [stockMaster]);
+
+  const EXCHANGE_RATE = liveTicks.exchangeRate;
+
+  const getDiffStr = (curr, base) => {
+    const diff = curr - base;
+    const pct = ((diff / base) * 100).toFixed(2);
+    return diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(pct)}%`;
+  };
+  const isUp = (curr, base) => curr >= base;
+
   // [전제 5 완전 보존] 마운트 시점에만 로컬 스토리지 데이터 인입 복구
   useEffect(() => {
     const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
@@ -321,7 +336,6 @@ export default function StockManagerUltimateV39_8() {
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster, isLoaded]);
 
-  // 포맷팅 함수 정의
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
   const formatFloat = (n) =>
     n
@@ -331,7 +345,6 @@ export default function StockManagerUltimateV39_8() {
         })
       : "0.00";
 
-  // 문자열 정제 파서
   const parseCleanNum = (val) => {
     if (typeof val === "number") return val;
     if (!val || val === "") return 0;
@@ -401,12 +414,21 @@ export default function StockManagerUltimateV39_8() {
       "티커코드",
       "수량",
       "단가",
-      "수수료",
-      "세금",
+      "수수료(달러/원)",
+      "세금(달러/원)",
     ];
     const rows = [
-      ["매수", "2026-05-18", "삼성전자", "005930", "10", "73000", "0", "0"],
-      ["매수", "2026-05-18", "구글", "", "5", "175.50", "15", "5"],
+      ["매수", "2026-05-18", "삼성전자", "005930", "10", "73000", "50", "0"],
+      [
+        "매수",
+        "2026-05-18",
+        "스타파이터스 스페이스",
+        "AMEX:FJET",
+        "5",
+        "5.20",
+        "1.5",
+        "0.5",
+      ],
     ];
     const csvContent =
       "\uFEFF" +
@@ -422,7 +444,7 @@ export default function StockManagerUltimateV39_8() {
   };
 
   // ==========================================
-  // [전제 4 규격 구현 + undefined 오류 완전 해결] 통합 대량 CSV 업로드
+  // [전제 4 규격 구현] 통합 대량 CSV 업로드
   // ==========================================
   const handleUploadCSV = (e) => {
     const file = e.target.files[0];
@@ -477,11 +499,12 @@ export default function StockManagerUltimateV39_8() {
           const masterExists =
             stockMaster.some((s) => s.티커 === ticker) ||
             masterTokens.some((m) => m.티커 === ticker);
+
+          let calculatedMarket =
+            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
+              ? "NASDAQ"
+              : "KOSPI";
           if (!masterExists) {
-            const calculatedMarket =
-              ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
-                ? "NASDAQ"
-                : "KOSPI";
             masterTokens.push({
               id: Date.now() + i + 800,
               티커: ticker,
@@ -491,17 +514,18 @@ export default function StockManagerUltimateV39_8() {
             });
           }
 
-          const mkt =
-            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
-              ? "NASDAQ"
-              : "KOSPI";
-          const tot =
+          // 외국주식은 수수료, 세금도 달러 적용 계산식 반영
+          const isForeign =
+            calculatedMarket === "NASDAQ" ||
+            calculatedMarket === "NYSE" ||
+            (ticker && (ticker.includes(":") || ticker.startsWith("AUTO")));
+          const totalKrw =
             gubun === "매수"
-              ? mkt === "NASDAQ"
-                ? qty * price * EXCHANGE_RATE + fee + tax
+              ? isForeign
+                ? (qty * price + fee + tax) * EXCHANGE_RATE
                 : qty * price + fee + tax
-              : mkt === "NASDAQ"
-                ? qty * price * EXCHANGE_RATE - fee - tax
+              : isForeign
+                ? (qty * price - fee - tax) * EXCHANGE_RATE
                 : qty * price - fee - tax;
 
           list.push({
@@ -510,12 +534,12 @@ export default function StockManagerUltimateV39_8() {
             구분: gubun,
             종목명: name,
             티커: ticker,
-            시장: mkt,
+            시장: calculatedMarket,
             수량: qty,
             단가: price,
             수수료: fee,
             세금: tax,
-            합계: tot,
+            합계: totalKrw,
           });
         }
 
@@ -649,7 +673,6 @@ export default function StockManagerUltimateV39_8() {
     link.click();
   };
 
-  // [오류 완전 수정 완료] 개별 거래내역 업로드 시에도 undefined 방어구 장착
   const handleUploadTxCsv = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -680,6 +703,10 @@ export default function StockManagerUltimateV39_8() {
               ? existing.티커
               : `AUTO_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
           }
+          let mkt =
+            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
+              ? "NASDAQ"
+              : "KOSPI";
           if (
             !stockMaster.some((sm) => sm.티커 === ticker) &&
             !masterTokens.some((mt) => mt.티커 === ticker)
@@ -688,24 +715,22 @@ export default function StockManagerUltimateV39_8() {
               id: Date.now() + i + 950,
               티커: ticker,
               종목명: name,
-              시장:
-                ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
-                  ? "NASDAQ"
-                  : "KOSPI",
+              시장: mkt,
               섹터: "일반제조/서비스",
             });
           }
-          const mkt =
-            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"))
-              ? "NASDAQ"
-              : "KOSPI";
-          const tot =
+
+          const isForeign =
+            mkt === "NASDAQ" ||
+            mkt === "NYSE" ||
+            (ticker && (ticker.includes(":") || ticker.startsWith("AUTO")));
+          const totalKrw =
             gubun === "매수"
-              ? mkt === "NASDAQ"
-                ? qty * price * EXCHANGE_RATE + fee + tax
+              ? isForeign
+                ? (qty * price + fee + tax) * EXCHANGE_RATE
                 : qty * price + fee + tax
-              : mkt === "NASDAQ"
-                ? qty * price * EXCHANGE_RATE - fee - tax
+              : isForeign
+                ? (qty * price - fee - tax) * EXCHANGE_RATE
                 : qty * price - fee - tax;
 
           list.push({
@@ -719,7 +744,7 @@ export default function StockManagerUltimateV39_8() {
             단가: price,
             수수료: fee,
             세금: tax,
-            합계: tot,
+            합계: totalKrw,
           });
         }
         if (
@@ -808,7 +833,6 @@ export default function StockManagerUltimateV39_8() {
     let netInvestment = 0;
     let cashBalance = 0;
 
-    // 1. 투자 원금 집계 완전화
     cashFlows.forEach((c) => {
       const amt = parseCleanNum(c.금액);
       if (c.구분 === "입금") {
@@ -826,7 +850,6 @@ export default function StockManagerUltimateV39_8() {
     const holdingMap = {};
     let totalRealizedProfit = 0;
 
-    // 2. 거래 내역 타임라인 순차 순회
     sortedTx.forEach((tx) => {
       const name = tx.종목명;
       const q = Number(tx.수량) || 0;
@@ -838,19 +861,28 @@ export default function StockManagerUltimateV39_8() {
         tx.시장 === "NASDAQ" ||
         tx.시장 === "NYSE" ||
         (tx.티커 && (tx.티커.includes(":") || tx.티커.startsWith("AUTO")));
+
+      // 수수료, 세금 달러/원화 환율 연동 공식 적용
       const totalKrw =
         tx.구분 === "매수"
           ? isForeign
-            ? q * p * EXCHANGE_RATE + f + t
+            ? (q * p + f + t) * EXCHANGE_RATE
             : q * p + f + t
           : isForeign
-            ? q * p * EXCHANGE_RATE - f - t
+            ? (q * p - f - t) * EXCHANGE_RATE
             : q * p - f - t;
+
+      // 종목마스터 티커 역연동 보정
+      let targetTicker = tx.티커;
+      if (!targetTicker || targetTicker === "") {
+        const matched = stockMaster.find((sm) => sm.종목명 === name);
+        targetTicker = matched ? matched.티커 : "999999";
+      }
 
       if (!holdingMap[name]) {
         holdingMap[name] = {
           종목명: name,
-          티커: tx.티커 || "999999",
+          티커: targetTicker,
           시장: tx.시장 || "KOSPI",
           보유량: 0,
           총매입금액달러: 0,
@@ -864,7 +896,9 @@ export default function StockManagerUltimateV39_8() {
       if (tx.구분 === "매수") {
         cashBalance -= totalKrw;
         h.보유량 += q;
-        if (isForeign) h.총매입금액달러 += q * p;
+        if (isForeign) {
+          h.총매입금액달러 += q * p + f + t;
+        }
         h.총매입금액원화 += totalKrw;
       } else {
         cashBalance += totalKrw;
@@ -885,7 +919,6 @@ export default function StockManagerUltimateV39_8() {
 
     const sectorWeightsMap = {};
 
-    // 3. 현재 보유 잔고 종목 리스팅 구성
     const holdingList = Object.values(holdingMap)
       .filter((h) => h.보유량 > 0)
       .map((h) => {
@@ -898,20 +931,19 @@ export default function StockManagerUltimateV39_8() {
             ? liveStockPrices[h.티커]
             : h.최근단가;
 
-        let avgPrice = 0;
         let evalAmtKrw = 0;
         let profitKrw = 0;
 
         if (isForeign) {
-          avgPrice = h.총매입금액달러 / h.보유량;
           evalAmtKrw = h.보유량 * currentPrice * EXCHANGE_RATE;
         } else {
-          avgPrice = h.총매입금액원화 / h.보유량;
           evalAmtKrw = h.보유량 * currentPrice;
         }
         profitKrw = evalAmtKrw - h.총매입금액원화;
 
-        const mMatch = stockMaster.find((sm) => sm.티커 === h.티커);
+        const mMatch = stockMaster.find(
+          (sm) => sm.티커 === h.티커 || sm.종목명 === h.종목명,
+        );
         const sectorName = mMatch ? mMatch.섹터 : "일반제조/서비스";
         sectorWeightsMap[sectorName] =
           (sectorWeightsMap[sectorName] || 0) + evalAmtKrw;
@@ -922,7 +954,8 @@ export default function StockManagerUltimateV39_8() {
           시장: h.시장,
           보유량: h.보유량,
           섹터: sectorName,
-          평균단가: avgPrice,
+          평균단가: h.보유량 > 0 ? h.총매입금액원화 / h.보유량 : 0,
+          평균단가외국: h.보유량 > 0 ? h.총매입금액달러 / h.보유량 : 0,
           현재가: currentPrice,
           평가금액: Math.round(evalAmtKrw),
           손익: Math.round(profitKrw),
@@ -943,7 +976,6 @@ export default function StockManagerUltimateV39_8() {
         ? ((totalAsset - netInvestment) / netInvestment) * 100
         : 0;
 
-    // 4. 무삭제 시계열 전체 추적 연산 바인딩
     const rawDates = Array.from(
       new Set([
         ...transactions.map((t) => t.날짜),
@@ -1001,10 +1033,10 @@ export default function StockManagerUltimateV39_8() {
             const tot =
               tx.구분 === "매수"
                 ? isForeign
-                  ? q * p * EXCHANGE_RATE + f + t
+                  ? (q * p + f + t) * EXCHANGE_RATE
                   : q * p + f + t
                 : isForeign
-                  ? q * p * EXCHANGE_RATE - f - t
+                  ? (q * p - f - t) * EXCHANGE_RATE
                   : q * p - f - t;
 
             if (!runHoldings[name]) {
@@ -1122,11 +1154,25 @@ export default function StockManagerUltimateV39_8() {
     };
   }, [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster]);
 
-  // 가로 전개형 일별 자산 추적 피벗 매트릭스 엔진
+  // 보유종목일별 - 보유종목 조건 필터링 및 최근 5일 실적 디폴트 제한 기믹
   const pivotData = useMemo(() => {
-    const filteredDates = stats.allDates
-      .filter((d) => d >= startDate && d <= endDate)
-      .sort((a, b) => b.localeCompare(a));
+    // 1. 전체 날짜 정렬 후 역순 배치
+    const baseDatesSorted = [...stats.allDates].sort((a, b) =>
+      b.localeCompare(a),
+    );
+
+    // 2. 만약 시작일 및 종료일 필터가 비어 있다면 "기본 최근 5일" 지정 세팅
+    let filteredDates = [];
+    if (!startDate && !endDate) {
+      filteredDates = baseDatesSorted.slice(0, 5);
+    } else {
+      filteredDates = baseDatesSorted.filter((d) => {
+        const condStart = startDate ? d >= startDate : true;
+        const condEnd = endDate ? d <= endDate : true;
+        return condStart && condEnd;
+      });
+    }
+
     const sortedTx = [...transactions].sort((a, b) =>
       a.날짜.localeCompare(b.날짜),
     );
@@ -1155,18 +1201,20 @@ export default function StockManagerUltimateV39_8() {
             tx.시장 === "NASDAQ" ||
             tx.시장 === "NYSE" ||
             (tx.티커 && (tx.티커.includes(":") || tx.티커.startsWith("AUTO")));
+
           const txTotalKrw =
             tx.구분 === "매수"
               ? isForeign
-                ? tx.수량 * tx.단가 * EXCHANGE_RATE + tx.수수료 + tx.세금
+                ? (tx.수량 * tx.단가 + tx.수수료 + tx.세금) * EXCHANGE_RATE
                 : tx.수량 * tx.단가 + tx.수수료 + tx.세금
               : isForeign
-                ? tx.수량 * tx.단가 * EXCHANGE_RATE - tx.수수료 - tx.세금
+                ? (tx.수량 * tx.단가 - tx.수수료 - tx.세금) * EXCHANGE_RATE
                 : tx.수량 * tx.단가 - tx.수수료 - tx.세금;
 
           if (tx.구분 === "매수") {
             th.qty += tx.수량;
-            if (isForeign) th.totalCostUsd += tx.수량 * tx.단가;
+            if (isForeign)
+              th.totalCostUsd += tx.수량 * tx.단가 + tx.수수료 + tx.세금;
             th.totalCostKrw += txTotalKrw;
           } else {
             const avgUsd = th.qty > 0 ? th.totalCostUsd / th.qty : 0;
@@ -1208,9 +1256,14 @@ export default function StockManagerUltimateV39_8() {
       });
     });
 
-    const finalRows = Object.values(matrix).filter((row) =>
-      filteredDates.some((d) => row.역사적내역[d] !== undefined),
+    // 오직 [현재 보유 비중이 남은 보유 종목에 한해서]만 행을 전개 노출
+    const activeHoldingNames = stats.holdingList.map((h) => h.종목명);
+    const finalRows = Object.values(matrix).filter(
+      (row) =>
+        activeHoldingNames.includes(row.종목명) &&
+        filteredDates.some((d) => row.역사적내역[d] !== undefined),
     );
+
     const dailyColumnTotals = {};
     filteredDates.forEach((d) => {
       let sumProfit = 0,
@@ -1230,6 +1283,7 @@ export default function StockManagerUltimateV39_8() {
     return { finalRows, filteredDates, dailyColumnTotals };
   }, [
     stats.allDates,
+    stats.holdingList,
     transactions,
     stockMaster,
     liveStockPrices,
@@ -1282,7 +1336,7 @@ export default function StockManagerUltimateV39_8() {
       ...prev,
       [manualPriceForm.티커]: Number(manualPriceForm.가격),
     }));
-    setManualPriceForm({ 티커: "", 가격: "" });
+    setManualPriceForm({ ...manualPriceForm, 가격: "" });
   };
 
   const saveTx = () => {
@@ -1295,8 +1349,17 @@ export default function StockManagerUltimateV39_8() {
       p = parseCleanNum(newTx.단가),
       f = parseCleanNum(newTx.수수료),
       t = parseCleanNum(newTx.세금);
-    let currentTicker = newTx.티커 ? newTx.티커.trim() : "999999";
-    let detectedMarket = getMarketByStockName(newTx.종목명);
+
+    // 마스터 동적 연동 바인딩
+    let masterMatch = stockMaster.find((sm) => sm.종목명 === newTx.종목명);
+    let currentTicker = masterMatch
+      ? masterMatch.티커
+      : newTx.티커
+        ? newTx.티커.trim()
+        : "999999";
+    let detectedMarket = masterMatch
+      ? masterMatch.시장
+      : getMarketByStockName(newTx.종목명);
 
     const isForeign =
       detectedMarket === "NASDAQ" ||
@@ -1306,10 +1369,10 @@ export default function StockManagerUltimateV39_8() {
     const totalKrw =
       newTx.구분 === "매수"
         ? isForeign
-          ? q * p * EXCHANGE_RATE + f + t
+          ? (q * p + f + t) * EXCHANGE_RATE
           : q * p + f + t
         : isForeign
-          ? q * p * EXCHANGE_RATE - f - t
+          ? (q * p - f - t) * EXCHANGE_RATE
           : q * p - f - t;
 
     const data = {
@@ -1434,10 +1497,10 @@ export default function StockManagerUltimateV39_8() {
         <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              📊 STOCK-MANAGER ULTIMATE V39.8
+              📊 STOCK-MANAGER ULTIMATE V39.9
             </h1>
             <p className="text-[11px] font-bold text-slate-400 mt-1">
-              티커 공백 에러 방어코드 장착 및 통합 데이터 관리 시스템
+              티커 완전 연동 보정판 (외국주식 수수료 달러환산 기믹 통합)
             </p>
           </div>
 
@@ -1686,7 +1749,7 @@ export default function StockManagerUltimateV39_8() {
                       <th>시장구분</th>
                       <th>보유량</th>
                       <th>평균단가</th>
-                      <th>현재 장중가격</th>
+                      <th>장중 현재가 (Live)</th>
                       <th>평가금액</th>
                       <th>손익(원화)</th>
                       <th>수익률</th>
@@ -1713,7 +1776,7 @@ export default function StockManagerUltimateV39_8() {
                           <td>{formatNum(h.보유량)}</td>
                           <td className="font-mono text-amber-700">
                             {isForeign
-                              ? `$ ${formatFloat(h.평균단가)}`
+                              ? `$ ${formatFloat(h.평균단가외국)}`
                               : `₩ ${formatNum(h.평균단가)}`}
                           </td>
                           <td className="font-mono text-blue-600">
@@ -1794,8 +1857,14 @@ export default function StockManagerUltimateV39_8() {
             {activeTab === "보유종목일별" && (
               <div>
                 <div className="mb-6 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="text-[13px] font-black text-slate-700">
-                    보유종목일별 가로전개 피вут
+                  <div>
+                    <span className="text-[13px] font-black text-slate-700 block">
+                      📊 보유 종목별 가로 전개 피벗 매트릭스
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-bold block mt-0.5">
+                      (!조회 필터 공란 진입 시 기본 최근 5일 실적이
+                      스코어링됩니다.)
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 ml-auto">
                     <span className="text-[11px] font-black text-slate-500">
@@ -1816,6 +1885,17 @@ export default function StockManagerUltimateV39_8() {
                       onChange={(e) => setEndDate(e.target.value)}
                       className="border rounded-xl px-3 py-1.5 text-[12px] font-bold"
                     />
+                    {(startDate || endDate) && (
+                      <button
+                        onClick={() => {
+                          setStartDate("");
+                          setEndDate("");
+                        }}
+                        className="text-[11px] font-black bg-slate-100 text-slate-500 px-2 py-1.5 rounded-lg border"
+                      >
+                        초기화
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="w-full overflow-x-auto border rounded-2xl border-slate-200">
@@ -1826,7 +1906,7 @@ export default function StockManagerUltimateV39_8() {
                           종목명
                         </th>
                         <th>현재보유량</th>
-                        <th>평단가(원천)</th>
+                        <th>평단가</th>
                         <th className="text-blue-600 bg-blue-50/30">
                           실시간주가
                         </th>
@@ -1842,8 +1922,8 @@ export default function StockManagerUltimateV39_8() {
                     </thead>
                     <tbody className="text-[12px] font-bold text-slate-800">
                       <tr className="bg-slate-50 font-black text-slate-900 border-b border-slate-300 h-12">
-                        <td className="sticky left-0 bg-slate-100 font-black z-10 text-slate-700">
-                          일별 손익합산
+                        <td className="sticky left-0 bg-slate-100 font-black z-10 text-slate-700 text-left px-4">
+                          일별 보유종목 손익합산
                         </td>
                         <td>-</td>
                         <td>-</td>
@@ -1874,7 +1954,11 @@ export default function StockManagerUltimateV39_8() {
                             (row.티커.includes(":") ||
                               row.티커.startsWith("AUTO")));
                         const curQty = currentH ? currentH.보유량 : 0;
-                        const curAvg = currentH ? currentH.평균단가 : 0;
+                        const curAvg = currentH
+                          ? isForeign
+                            ? currentH.평균단가외국
+                            : currentH.평균단가
+                          : 0;
                         const curPrice = liveStockPrices[row.티커] || curAvg;
                         return (
                           <tr
@@ -2274,7 +2358,7 @@ export default function StockManagerUltimateV39_8() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      수수료 (원화)
+                      수수료 (해외=달러/국내=원)
                     </label>
                     <input
                       type="text"
@@ -2287,7 +2371,7 @@ export default function StockManagerUltimateV39_8() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      세금 (원화)
+                      세금 (해외=달러/국내=원)
                     </label>
                     <input
                       type="text"
@@ -2380,10 +2464,14 @@ export default function StockManagerUltimateV39_8() {
                               : `₩ ${formatNum(t.단가)}`}
                           </td>
                           <td className="text-slate-500">
-                            ₩{formatNum(t.수수료)}
+                            {isForeign
+                              ? `$ ${formatFloat(t.수수료)}`
+                              : `₩ ${formatNum(t.수수료)}`}
                           </td>
                           <td className="text-slate-500">
-                            ₩{formatNum(t.세금)}
+                            {isForeign
+                              ? `$ ${formatFloat(t.세금)}`
+                              : `₩ ${formatNum(t.세금)}`}
                           </td>
                           <td className="font-black text-slate-700">
                             ₩ {formatNum(t.합계)}
@@ -2580,7 +2668,7 @@ export default function StockManagerUltimateV39_8() {
                           </span>
                         </td>
                         <td className="text-emerald-600 text-[12px]">
-                          {s.섹터 || "일반제조/서비스"}
+                          {s.text || s.섹터 || "일반제조/서비스"}
                         </td>
                         <td className="space-x-2">
                           <button
@@ -2616,7 +2704,7 @@ export default function StockManagerUltimateV39_8() {
                       onChange={(e) =>
                         setManualPriceForm({
                           ...manualPriceForm,
-                          티커: e.target.value,
+                          ...{ 티커: e.target.value },
                         })
                       }
                       className="border rounded-xl px-3 py-1.5 text-[12px] font-bold bg-white"
@@ -2637,7 +2725,7 @@ export default function StockManagerUltimateV39_8() {
                       onChange={(e) =>
                         setManualPriceForm({
                           ...manualPriceForm,
-                          가격: e.target.value,
+                          ...{ 가격: e.target.value },
                         })
                       }
                       className="border rounded-xl px-3 py-1.5 text-[12px] font-bold"
