@@ -1,29 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V39.2 - PRODUCTION]
- * - [복원] 거래관리 내역 수정(Editing) 기능 완전 복원
- * - [복원] 상단 자산 대시보드 전일대비(DoD) 변동 금액/변동률 트래커 복원
- * - [복원] 보유현황 탭 내부 섹터별 자산 비중 스케일 바(Bar) 시각화 복원
- * - [복원] 일별종가 데이터 수동 편집 및 저장 메커니즘 복원
- * - [유지] 일별수익률 내림차순 및 캘린더 기반 공백 누락 방지 엔진
- * - [유지] 해외주식 순수 달러화 원가 격리 분석 시스템
+ * [STOCK-MANAGER ULTIMATE FINAL V39.3 - FULL INTEGRATED PRODUCTION]
+ * - [복원] 데이터 백업 (JSON 다운로드) 엔진 탑재
+ * - [복원] 데이터 복구 (JSON 파일 업로드 및 검증 병합) 엔진 탑재
+ * - [복원] 대량 등록 가이드용 표준 엑셀/CSV 업로드 양식 파일 생성 가이드 복원
+ * - [보존] v39.2 거래관리 수정(Editing) 메커니즘 100% 완전 유지
+ * - [보존] 상단 자산 대시보드 전일대비(DoD) 자산 변동 금액 및 변동률 실시간 트래커 유지
+ * - [보존] 보유현황 탭 내부 섹터별 자산 비중 컬러풀 스케일 바(Bar) 컴포넌트 유지
+ * - [보존] 일별종가 탭 내부 실시간 주가 강제 오버라이드 및 수동 편집 폼 유지
  */
 
-export default function StockManagerUltimateV39_2() {
+export default function StockManagerUltimateV39_3() {
   const [activeTab, setActiveTab] = useState("거래관리");
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
   const [errorMessage, setErrorMessage] = useState("");
+  const fileInputRef = useRef(null);
 
-  // --- [보유종목일별 탭 조회 기간 필터] ---
+  // --- [조회 기간 필터 초기 상태값] ---
   const [startDate, setStartDate] = useState("2026-05-01");
   const [endDate, setEndDate] = useState("2026-05-18");
 
-  // --- [기준 팩트 데이터 스케일] ---
+  // --- [기준 가격 및 실시간 틱 데이터] ---
   const baseTicks = {
     kospi: 7490.0,
     kosdaq: 1120.0,
@@ -33,7 +35,6 @@ export default function StockManagerUltimateV39_2() {
     exchangeRate: 1500.0,
   };
 
-  // 실시간 가격 원천 상태 객체
   const [liveTicks, setLiveTicks] = useState({
     kospi: 7492.49,
     kosdaq: 1122.57,
@@ -69,7 +70,7 @@ export default function StockManagerUltimateV39_2() {
     ...defaultStockPrices,
   });
 
-  // 4초 주기 실시간 가격 틱 변동 발생기
+  // 4초 주기 실시간 난수 발생기
   useEffect(() => {
     const timer = setInterval(() => {
       setLiveTicks((prev) => {
@@ -119,6 +120,7 @@ export default function StockManagerUltimateV39_2() {
   };
   const isUp = (curr, base) => curr >= base;
 
+  // 로컬 스토리지 키 바인딩 수정 없음
   const STORAGE_KEYS = {
     TX: "ultimate_v39_2_tx_secured",
     CASH: "ultimate_v39_2_cash_secured",
@@ -221,7 +223,7 @@ export default function StockManagerUltimateV39_2() {
     },
     {
       id: 14,
-      티ker: "010780",
+      티커: "010780",
       종목명: "아이에스동서",
       시장: "KOSPI",
       섹터: "일반제조/서비스",
@@ -242,7 +244,7 @@ export default function StockManagerUltimateV39_2() {
     },
     {
       id: 17,
-      티커: "015760",
+      티ker: "015760",
       종목명: "한국전력",
       시장: "KOSPI",
       섹터: "일반제조/서비스",
@@ -266,7 +268,7 @@ export default function StockManagerUltimateV39_2() {
   const [isLoaded, setIsLoaded] = useState(false);
   const today = "2026-05-18";
 
-  // --- [폼 입력용 로컬 상태값] ---
+  // --- [폼 데이터 관리 상태 객체] ---
   const [newTx, setNewTx] = useState({
     날짜: today,
     구분: "매수",
@@ -289,8 +291,6 @@ export default function StockManagerUltimateV39_2() {
     시장: "KOSPI",
     섹터: "일반제조/서비스",
   });
-
-  // [복원] 일별종가 탭 전용 수동 가격 조정 폼 상태값
   const [manualPriceForm, setManualPriceForm] = useState({
     티커: "",
     가격: "",
@@ -332,7 +332,105 @@ export default function StockManagerUltimateV39_2() {
     return found ? found.시장 : "KOSPI";
   };
 
-  // --- [엔진 핵심 연산 블록] ---
+  // ==========================================
+  // [복원 기능] 1. 백업 파일 내보내기 (JSON 다운로드)
+  // ==========================================
+  const handleDownloadBackup = () => {
+    const backupData = {
+      transactions,
+      cashFlows,
+      stockMaster,
+      exportedAt: new Date().toISOString(),
+    };
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute(
+      "download",
+      `stock_manager_backup_${today}.json`,
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // ==========================================
+  // [복원 기능] 2. 백업 파일 복구하기 (JSON 업로드)
+  // ==========================================
+  const handleUploadBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (!parsed.transactions || !parsed.cashFlows || !parsed.stockMaster) {
+          alert("올바르지 않은 데이터 구조입니다. 원본 백업 파일이 아닙니다.");
+          return;
+        }
+        if (
+          confirm(
+            "백업 파일을 감지했습니다. 기존 로컬 데이터를 삭제하고 덮어쓰시겠습니까?",
+          )
+        ) {
+          setTransactions(parsed.transactions);
+          setCashFlows(parsed.cashFlows);
+          setStockMaster(parsed.stockMaster);
+          alert("데이터 저장소 복원이 완료되었습니다.");
+        }
+      } catch (err) {
+        alert("파일 처리 에러 발생: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  // ==========================================
+  // [복원 기능] 3. 엑셀 업로드 표준 가이드 양식 다운로드
+  // ==========================================
+  const handleDownloadTemplate = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8,\uFEFF" +
+      [
+        [
+          "구분(매수/매도)",
+          "날짜(YYYY-MM-DD)",
+          "종목명",
+          "티커코드",
+          "수량",
+          "단가(원화/해외달러)",
+          "수수료",
+          "세금",
+        ].join(","),
+        ["매수", "2026-05-18", "삼성전자", "005930", "10", "73000", "0", "0"],
+        [
+          "매수",
+          "2026-05-18",
+          "스타파이터스 스페이스",
+          "AMEX:FJET",
+          "5",
+          "5.2",
+          "0",
+          "0",
+        ],
+      ]
+        .map((e) => e.join(","))
+        .join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "stock_manager_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  // --- [핵심 연산 모듈 고유 로직 변경 없음] ---
   const stats = useMemo(() => {
     let netInvestment = 0;
     let cashBalance = 0;
@@ -389,9 +487,7 @@ export default function StockManagerUltimateV39_2() {
       if (tx.구분 === "매수") {
         cashBalance -= totalKrw;
         h.보유량 += q;
-        if (isForeign) {
-          h.총매입금액달러 += q * p;
-        }
+        if (isForeign) h.총매입금액달러 += q * p;
         h.총매입금액원화 += totalKrw;
       } else {
         cashBalance += totalKrw;
@@ -435,7 +531,6 @@ export default function StockManagerUltimateV39_2() {
         }
         profitKrw = evalAmtKrw - h.총매입금액원화;
 
-        // [복원 연산용]: 마스터에서 섹터 속성 조회
         const mMatch = stockMaster.find((sm) => sm.티커 === h.티커);
         const sectorName = mMatch ? mMatch.섹터 : "일반제조/서비스";
         sectorWeightsMap[sectorName] =
@@ -468,7 +563,7 @@ export default function StockManagerUltimateV39_2() {
         ? ((totalAsset - netInvestment) / netInvestment) * 100
         : 0;
 
-    // --- [시계열 캘린더 일별 연속 데이터 생성 엔진] ---
+    // 시계열 트래킹 연산
     const rawDates = Array.from(
       new Set([
         ...transactions.map((t) => t.날짜),
@@ -588,7 +683,7 @@ export default function StockManagerUltimateV39_2() {
         });
       });
 
-      // [복원 계산]: 대시보드 출력용 전일 대비 변동량 산출식 추출
+      // 대시보드 출력 전일 대비 변동량 수치
       if (dailyList.length >= 2) {
         const todaySnap = dailyList[dailyList.length - 1];
         const yesterdaySnap = dailyList[dailyList.length - 2];
@@ -620,7 +715,6 @@ export default function StockManagerUltimateV39_2() {
         };
       });
 
-    // [복원 계산]: 섹터 데이터 퍼센티지 변환 포맷팅
     const sectorWeights = Object.keys(sectorWeightsMap)
       .map((sName) => {
         const amt = sectorWeightsMap[sName];
@@ -652,7 +746,7 @@ export default function StockManagerUltimateV39_2() {
     };
   }, [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster]);
 
-  // --- [보유종목일별 탭 피벗 매트릭스 전용 가공 엔진] ---
+  // 가로 전개 가공 엔진
   const pivotData = useMemo(() => {
     const filteredDates = stats.allDates
       .filter((d) => d >= startDate && d <= endDate)
@@ -783,7 +877,7 @@ export default function StockManagerUltimateV39_2() {
     return map;
   }, [stats.holdingList]);
 
-  // --- [복원 완료된 거래 내역 수정 트리거] ---
+  // 거래 내역 수동 편집 트리거 고유 유지
   const triggerEditTx = (item) => {
     setEditingId(item.id);
     setNewTx({
@@ -799,7 +893,7 @@ export default function StockManagerUltimateV39_2() {
     window.scrollTo({ top: 350, behavior: "smooth" });
   };
 
-  // --- [복원 완료된 수동 주가 변경 프로세서] ---
+  // 수동 종가 변경 적용 프로세서 유지
   const handleApplyManualPrice = () => {
     if (!manualPriceForm.티커 || !manualPriceForm.가격) {
       alert("종목 코드와 입력 가격을 검증하십시오.");
@@ -813,11 +907,11 @@ export default function StockManagerUltimateV39_2() {
     setManualPriceForm({ 티커: "", 가격: "" });
   };
 
-  // --- [CRUD 핵심 액션 블록] ---
+  // --- [CRUD 인젝션] ---
   const saveTx = () => {
     setErrorMessage("");
     if (!newTx.종목명) {
-      setErrorMessage("종목명 데이터 식별 불가.");
+      setErrorMessage("종목 데이터 식별 불가.");
       return;
     }
 
@@ -876,7 +970,7 @@ export default function StockManagerUltimateV39_2() {
   };
 
   const deleteItem = (id) => {
-    if (!confirm("원천 데이터를 삭제하시겠습니까?")) return;
+    if (!confirm("원천 데이터를 파기합니까?")) return;
     if (activeTab === "거래관리")
       setTransactions(transactions.filter((t) => t.id !== id));
     if (activeTab === "입출금")
@@ -940,19 +1034,49 @@ export default function StockManagerUltimateV39_2() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
-        {/* 상단 통합 헤더 */}
+        {/* 통합 최상위 제어 바 (복원된 업/다운 및 샘플 양식 연동) */}
         <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              📊 STOCK-MANAGER ULTIMATE V39.2
+              📊 STOCK-MANAGER ULTIMATE V39.3
             </h1>
             <p className="text-[11px] font-bold text-slate-400 mt-1">
-              거래 내역 수정 및 전일대비 자산 변동량 추적 기능 완전 복원 완료
+              데이터 안전성 강화 버전 - 백업 업로드/다운로드 및 엑셀 수동 양식
+              제공 가이드 포함
             </p>
           </div>
-          <span className="text-[11px] font-black bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl">
-            Live Sync: {lastUpdate}
-          </span>
+
+          {/* [복원] 데이터 상단 제어 패널 */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadTemplate}
+              className="text-[11px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-2 rounded-xl hover:bg-emerald-100 transition-all"
+            >
+              📥 XLS/CSV 양식 다운로드
+            </button>
+            <button
+              onClick={handleDownloadBackup}
+              className="text-[11px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-3 py-2 rounded-xl hover:bg-blue-100 transition-all"
+            >
+              💾 전체 데이터 백업 (JSON)
+            </button>
+            <button
+              onClick={() => fileInputRef.current.click()}
+              className="text-[11px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-3 py-2 rounded-xl hover:bg-amber-100 transition-all"
+            >
+              📂 백업 가져오기
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleUploadBackup}
+              accept=".json"
+              className="hidden"
+            />
+            <span className="text-[11px] font-black bg-slate-100 text-slate-600 px-3 py-2 rounded-xl ml-2">
+              Live Sync: {lastUpdate}
+            </span>
+          </div>
         </div>
 
         {/* 실시간 주요 지수 현황판 */}
@@ -1014,7 +1138,7 @@ export default function StockManagerUltimateV39_2() {
           ))}
         </div>
 
-        {/* 종합 자산 현황판 ([복원] 전일대비 변동 트래커 장착) */}
+        {/* 종합 자산 현황판 */}
         <div className="grid grid-cols-6 gap-4 mb-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
             <p className="text-[10px] font-black text-slate-400 mb-1">
@@ -1032,7 +1156,6 @@ export default function StockManagerUltimateV39_2() {
             <p className="text-xl font-black text-slate-800">
               ₩ {formatNum(stats.totalAsset)}
             </p>
-            {/* [복원 기능]: 전일 자산 대비 변동 마크 */}
             <span
               className={`text-[10px] font-black block mt-0.5 ${stats.assetChangeDoD >= 0 ? "text-rose-500" : "text-blue-500"}`}
             >
@@ -1083,7 +1206,7 @@ export default function StockManagerUltimateV39_2() {
           </div>
         </div>
 
-        {/* 메인 컴포넌트 탭 가이드 스위치 */}
+        {/* 탭 인터페이스 가이드 영역 */}
         <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
           <div className="flex bg-slate-50 p-2 gap-1 border-b border-slate-200">
             {[
@@ -1111,10 +1234,9 @@ export default function StockManagerUltimateV39_2() {
           </div>
 
           <div className="p-8">
-            {/* Tab 1. 보유현황 ([복원] 섹터별 비중 분석 바 차트 추가) */}
+            {/* Tab 1. 보유현황 */}
             {activeTab === "보유현황" && (
               <div>
-                {/* [복원]: 포트폴리오 다각화 지표 바 차트 레이아웃 */}
                 <div className="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200">
                   <h3 className="text-[12px] font-black text-slate-600 mb-3 uppercase">
                     📂 포트폴리오 섹터 분산 비중 (복원)
@@ -1209,7 +1331,7 @@ export default function StockManagerUltimateV39_2() {
                           </td>
                           <td
                             className={
-                              h.Camp >= 0 ? "text-rose-500" : "text-blue-500"
+                              h.손익 >= 0 ? "text-rose-500" : "text-blue-500"
                             }
                           >
                             {h.손익 >= 0 ? "+" : ""}
@@ -1273,12 +1395,12 @@ export default function StockManagerUltimateV39_2() {
               </table>
             )}
 
-            {/* Tab 3. 보유종목일별 */}
+            {/* Tab 3. 보유종목일별 피벗 가로 그리드 */}
             {activeTab === "보유종목일별" && (
               <div>
                 <div className="mb-6 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                   <div className="text-[13px] font-black text-slate-700">
-                    보유종목일별 가로전개 매트릭스
+                    보유종목일별 가로전개 매트릭스 피벗
                   </div>
                   <div className="flex items-center gap-2 ml-auto">
                     <span className="text-[11px] font-black text-slate-500">
@@ -1456,7 +1578,7 @@ export default function StockManagerUltimateV39_2() {
               </table>
             )}
 
-            {/* Tab 5. 입출금 관리 */}
+            {/* Tab 5. 입출금 */}
             {activeTab === "입출금" && (
               <div>
                 <div className="mb-8 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-5 gap-4 items-end">
@@ -1566,7 +1688,7 @@ export default function StockManagerUltimateV39_2() {
               </div>
             )}
 
-            {/* Tab 6. 거래관리 ([복원] 수정(Editing) 기능 완전 탑재 완료) */}
+            {/* Tab 6. 거래관리 */}
             {activeTab === "거래관리" && (
               <div>
                 <div
@@ -1575,7 +1697,7 @@ export default function StockManagerUltimateV39_2() {
                   <div className="col-span-4 font-black text-[14px] text-slate-700 flex justify-between">
                     <span>
                       {editingId
-                        ? "⚠️ [기억 편집 상태] 기존 내역을 수정하고 있습니다"
+                        ? "⚠️ [편집 모드 가동] 선택 내역 실시간 수정 프로세스"
                         : "✍️ 신규 거래 내역 수동 등록"}
                     </span>
                     {editingId && (
@@ -1583,7 +1705,7 @@ export default function StockManagerUltimateV39_2() {
                         onClick={resetForms}
                         className="text-slate-400 underline text-[11px] font-normal"
                       >
-                        편집 취소
+                        편집 모드 해제
                       </button>
                     )}
                   </div>
@@ -1656,7 +1778,7 @@ export default function StockManagerUltimateV39_2() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-black text-slate-500">
-                      거래 단가 (※해외주식은 달러)
+                      거래 단가 (해외=달러)
                     </label>
                     <input
                       type="text"
@@ -1697,7 +1819,9 @@ export default function StockManagerUltimateV39_2() {
                     onClick={saveTx}
                     className={`w-full py-3.5 rounded-xl text-[12px] font-black shadow-md text-white ${editingId ? "bg-amber-600" : "bg-slate-900"}`}
                   >
-                    {editingId ? "수정사항 갱신 적용" : "거래내역 추가"}
+                    {editingId
+                      ? "수정 완료 및 레코드 업데이트"
+                      : "거래 내역 추가"}
                   </button>
                 </div>
                 <div className="mb-2 flex justify-end">
@@ -1770,7 +1894,6 @@ export default function StockManagerUltimateV39_2() {
                             ₩ {formatNum(t.합계)}
                           </td>
                           <td className="space-x-2">
-                            {/* [복원]: 수정 제어 핸들러 연결 완료 */}
                             <button
                               onClick={() => triggerEditTx(t)}
                               className="text-amber-600 underline font-black"
@@ -1860,7 +1983,7 @@ export default function StockManagerUltimateV39_2() {
                     onClick={saveMaster}
                     className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md"
                   >
-                    종목 등록
+                    종목 마스터 추가
                   </button>
                 </div>
                 <table className="w-full text-center border-collapse">
@@ -1908,18 +2031,16 @@ export default function StockManagerUltimateV39_2() {
               </div>
             )}
 
-            {/* Tab 8. 일별종가 ([복원] 수동 종가 조작 폼 컴포넌트 추가 탑재 완료) */}
+            {/* Tab 8. 일별종가 */}
             {activeTab === "일별종가" && (
               <div>
-                {/* [복원된 과거 데이터 수동 덮어쓰기 창] */}
                 <div className="mb-6 p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex items-end gap-4">
                   <div className="text-[13px] font-black text-amber-800">
-                    🛠️ 실시간 변동가 강제 오버라이드 / 수동 종가 조작 고정
-                    (복원)
+                    🛠️ 주가 강제 오버라이드 고정 수동 제어
                   </div>
                   <div className="space-y-1 ml-auto">
                     <label className="block text-[10px] text-slate-400 font-bold">
-                      타겟 종목 선택
+                      대상 종목 지정
                     </label>
                     <select
                       value={manualPriceForm.티커}
@@ -1941,7 +2062,7 @@ export default function StockManagerUltimateV39_2() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] text-slate-400 font-bold">
-                      고정 가격 입력 (해외는 달러)
+                      지정 고정 주가(해외=달러)
                     </label>
                     <input
                       type="number"
@@ -1960,7 +2081,7 @@ export default function StockManagerUltimateV39_2() {
                     onClick={handleApplyManualPrice}
                     className="bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow"
                   >
-                    강제 시세 고정
+                    강제 시세 오버라이드
                   </button>
                 </div>
 
@@ -1971,7 +2092,7 @@ export default function StockManagerUltimateV39_2() {
                       <th>티커</th>
                       <th>종목명</th>
                       <th>시장구분</th>
-                      <th>현재 잔고 수량</th>
+                      <th>현재 보유수량</th>
                       <th>장중 가격 (Live 싱크)</th>
                       <th>변동추이</th>
                     </tr>
