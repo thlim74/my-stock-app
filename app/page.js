@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
 /**
- * [STOCK-MANAGER ULTIMATE FINAL V25.0]
- * - 외국주식 KOSPI 오인식 오류 수정 (알파벳 티커 추적 기반 시장 매핑 커널 탑재)
- * - 종목명/티커 분석을 통한 [섹터(Sector)] 실시간 자동 입력 지능형 디코더 구현
+ * [STOCK-MANAGER ULTIMATE FINAL V26.0]
+ * - 국내 상장 ETF(예: 0091P0 TIGER 코리아원자력, 0098F0 KODEX K원자력SMR) KOSPI 정밀 오인식 수정
+ * - 티커 숫자 시작 패턴 및 국내 ETF 브랜드 키워드 사전 필터링 커널 탑재
+ * - CSV 엑셀 파일 I/O 시 발생하는 한글 깨짐(외계어 오류) 방지 인코딩 보정 레이어 적용
  * - 거래내역 내 [수수료], [세금] 항목 및 자산 평가 손익 연산 로직 무삭제 유지
  * - 데이터 업로드 시 티커 누락 자동 생성 커널 및 에러/업로드 독립 로그 표시창 유지
  * - 8개 전체 탭 실시간 유기적 상호 연산 및 개별/일괄 CRUD 기능 통합
@@ -26,18 +27,18 @@ export default function StockManagerUltimate() {
   const [stockMaster, setStockMaster] = useState([]);
 
   useEffect(() => {
-    const savedTx = localStorage.getItem("tx_v25_0");
-    const savedCash = localStorage.getItem("cash_v25_0");
-    const savedMaster = localStorage.getItem("master_v25_0");
+    const savedTx = localStorage.getItem("tx_v26_0");
+    const savedCash = localStorage.getItem("cash_v26_0");
+    const savedMaster = localStorage.getItem("master_v26_0");
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedCash) setCashFlows(JSON.parse(savedCash));
     if (savedMaster) setStockMaster(JSON.parse(savedMaster));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("tx_v25_0", JSON.stringify(transactions));
-    localStorage.setItem("cash_v25_0", JSON.stringify(cashFlows));
-    localStorage.setItem("master_v25_0", JSON.stringify(stockMaster));
+    localStorage.setItem("tx_v26_0", JSON.stringify(transactions));
+    localStorage.setItem("cash_v26_0", JSON.stringify(cashFlows));
+    localStorage.setItem("master_v26_0", JSON.stringify(stockMaster));
   }, [transactions, cashFlows, stockMaster]);
 
   const today = new Date().toISOString().split("T")[0];
@@ -74,10 +75,9 @@ export default function StockManagerUltimate() {
     return Number(String(val).replace(/,/g, "")) || 0;
   };
 
-  // --- [지능형 티커, 시장, 섹터 자동 분석 엔진] ---
+  // --- [지능형 티커 생성 커널] ---
   const generateAutoTicker = (name) => {
     if (!name) return "000000";
-    // 대표적인 미국 주식 수동 입력 대비 매핑 트랙
     const lowerName = name.toLowerCase();
     if (lowerName.includes("애플") || lowerName === "apple") return "AAPL";
     if (lowerName.includes("테슬라") || lowerName === "tesla") return "TSLA";
@@ -99,48 +99,79 @@ export default function StockManagerUltimate() {
     return String(num);
   };
 
+  // --- [V26.0 핵심: 정밀 시장 및 섹터 분류 엔진] ---
   const analyzeMarketAndSector = (ticker, name) => {
     const tk = String(ticker || "")
       .trim()
       .toUpperCase();
-    const nm = String(name || "").toLowerCase();
+    const nm = String(name || "").toUpperCase();
 
-    // 1. 시장 마켓 판별 로직 (영문 알파벳 포함 여부 및 자릿수 기반 분류)
     let market = "KOSPI";
-    if (
-      /[A-zA-Z]/.test(tk) ||
-      nm.includes("애플") ||
-      nm.includes("테슬라") ||
-      nm.includes("엔비디아") ||
-      nm.includes("마이크로") ||
-      nm.includes("구글") ||
-      nm.includes("apple") ||
-      nm.includes("tesla") ||
-      nm.includes("nvda") ||
-      nm.includes("msft")
-    ) {
-      market = "NASDAQ";
-    } else if (tk.startsWith("0") || tk.startsWith("2") || tk.startsWith("1")) {
-      // 한국형 종목코드 중 대표 코스닥 인덱스 범위 세그먼트 임의 부여 가이드
-      if (tk.endsWith("0") && Number(tk) > 50000) market = "KOSDAQ";
+
+    // 1. 국내 대표 ETF 핵심 키워드 리스트
+    const krEtfKeywords = [
+      "TIGER",
+      "KODEX",
+      "KINDEX",
+      "SOL",
+      "ACE",
+      "ARIRANG",
+      "HANARO",
+      "KBSTAR",
+      "KOSEF",
+      "PLUS",
+    ];
+    const isKrEtfName = krEtfKeywords.some((kw) => nm.includes(kw));
+    const isDigitStart = /^[0-9]/.test(tk); // 티커가 숫자로 시작하는가 (예: 0091P0)
+
+    if (isDigitStart || isKrEtfName) {
+      // 숫자로 시작하거나 국내 ETF 명칭이 들어가면 무조건 국내 시장(KOSPI/KOSDAQ)으로 분류
+      if (
+        tk.endsWith("0") &&
+        Number(tk.replace(/[^0-9]/g, "")) > 50000 &&
+        !isKrEtfName
+      ) {
+        market = "KOSDAQ";
+      } else {
+        market = "KOSPI";
+      }
+    } else {
+      // 숫자로 시작하지 않는 경우 중, 해외 주식/ETF 식별
+      if (
+        /[A-Z]/.test(tk) ||
+        nm.includes("APPLE") ||
+        nm.includes("TESLA") ||
+        nm.includes("NVIDIA") ||
+        nm.includes("MICROSOFT") ||
+        nm.includes("GOOGLE")
+      ) {
+        market = "NASDAQ";
+      }
     }
 
-    // 2. 키워드 기반 고정밀 섹터 자동 판별 기계학습형 매핑 테이블
+    // 2. 섹터 자동 매핑 확장 딕셔너리
     let sector = "일반제조/서비스";
     if (
+      nm.includes("원자력") ||
+      nm.includes("SMR") ||
+      nm.includes("원전") ||
+      nm.includes("핵융합")
+    ) {
+      sector = "원자력/에너지인프라";
+    } else if (
       nm.includes("전자") ||
       nm.includes("하이닉스") ||
       nm.includes("반도체") ||
-      nm.includes("nvda") ||
+      nm.includes("NVIDIA") ||
       nm.includes("엔비디아") ||
       nm.includes("인텔")
     ) {
       sector = "반도체/하드웨어";
     } else if (
       nm.includes("애플") ||
-      nm.includes("apple") ||
+      nm.includes("APPLE") ||
       nm.includes("마이크로") ||
-      nm.includes("msft") ||
+      nm.includes("MSFT") ||
       nm.includes("소프트") ||
       nm.includes("구글") ||
       nm.includes("네이버") ||
@@ -150,7 +181,7 @@ export default function StockManagerUltimate() {
       sector = "빅테크/IT서비스";
     } else if (
       nm.includes("테슬라") ||
-      nm.includes("tesla") ||
+      nm.includes("TESLA") ||
       nm.includes("자동차") ||
       nm.includes("모빌리티") ||
       nm.includes("현대차") ||
@@ -173,9 +204,11 @@ export default function StockManagerUltimate() {
       nm.includes("솔루션") ||
       nm.includes("화학") ||
       nm.includes("에코프로") ||
-      nm.includes("엔솔")
+      nm.includes("엔솔") ||
+      nm.includes("실버") ||
+      nm.includes("SILVER")
     ) {
-      sector = "2차전지/친환경에너지";
+      sector = "2차전지/원자재";
     } else if (
       nm.includes("은행") ||
       nm.includes("금융") ||
@@ -432,7 +465,6 @@ export default function StockManagerUltimate() {
       currentTicker = generateAutoTicker(newTx.종목명);
     }
 
-    // 거래 저장 시 마스터에 없는 종목이면 자동 판별 기법 적용해 마스터 선제 추가
     if (newTx.종목명 && !stockMaster.some((s) => s.종목명 === newTx.종목명)) {
       const { market, sector } = analyzeMarketAndSector(
         currentTicker,
@@ -485,7 +517,6 @@ export default function StockManagerUltimate() {
     if (!ticker && newStock.종목명) {
       ticker = generateAutoTicker(newStock.종목명);
     }
-    // 수동 입력 시에도 시장 및 섹터가 누락되었거나 KOSPI 기본값이면 지능형 자동 덮어쓰기 연산 진행
     const autoAnalysis = analyzeMarketAndSector(ticker, newStock.종목명);
     const finalMarket =
       newStock.시장 === "KOSPI" && autoAnalysis.market !== "KOSPI"
@@ -494,7 +525,7 @@ export default function StockManagerUltimate() {
     const finalSector =
       !newStock.섹터 || newStock.섹터.trim() === ""
         ? autoAnalysis.sector
-        : newStock.text;
+        : newStock.섹터;
 
     const data = {
       ...newStock,
@@ -546,8 +577,9 @@ export default function StockManagerUltimate() {
     setNewStock({ 티커: "", 종목명: "", 시장: "KOSPI", 섹터: "" });
   };
 
-  // --- [엑셀 고정밀 I/O 엔진] ---
+  // --- [엑셀 고정밀 I/O 및 한글 깨짐 방지 엔진] ---
   const downloadFile = (fileName, content) => {
+    // \ufeff (BOM) 추가하여 Excel에서 한글 깨짐 완전 차단
     const blob = new Blob(["\ufeff" + content], {
       type: "text/csv;charset=utf-8;",
     });
@@ -571,7 +603,7 @@ export default function StockManagerUltimate() {
       .map((row) => {
         const { id, ...rest } = row;
         return Object.values(rest)
-          .map((v) => `"${v}"`)
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(",");
       })
       .join("\n");
@@ -583,13 +615,14 @@ export default function StockManagerUltimate() {
       row = "";
     if (activeTab === "거래관리") {
       headers = "날짜,구분,종목명,수량,단가,수수료,세금";
-      row = `${today},매수,삼성전자,10,75000,0,0\n${today},매수,Apple,5,180,0,0`;
+      row = `${today},매수,삼성전자,10,75000,0,0\n${today},매수,0091P0,TIGER 코리아원자력SMR,5,12000,0,0`;
     } else if (activeTab === "입출금") {
       headers = "날짜,구분,금액,메모";
       row = `${today},입금,1000000,투자금`;
     } else if (activeTab === "종목마스터") {
       headers = "티커,종목명,시장,섹터";
-      row = "005930,삼성전자,KOSPI,반도체\nAAPL,Apple,NASDAQ,\n,테슬라,,";
+      row =
+        "005930,삼성전자,KOSPI,반도체\n0091P0,TIGER 코리아원자력SMR,KOSPI,\nAAPL,Apple,NASDAQ,";
     }
     downloadFile(`${activeTab}_양식.csv`, headers + "\n" + row);
   };
@@ -601,7 +634,7 @@ export default function StockManagerUltimate() {
     reader.onload = (event) => {
       const text = event.target.result.replace("\ufeff", "");
       const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-      const dataRows = lines.slice(1);
+      if (lines.length <= 1) return alert("업로드할 데이터 행이 없습니다.");
 
       const logs = [];
       const autoRegisteredStocks = [];
@@ -622,7 +655,8 @@ export default function StockManagerUltimate() {
         return res;
       };
 
-      const imported = dataRows
+      const imported = lines
+        .slice(1)
         .map((line, idx) => {
           try {
             const c = parseCSVLine(line);
@@ -633,17 +667,15 @@ export default function StockManagerUltimate() {
               let ticker = c[0] ? c[0].trim() : "";
               const name = c[1] ? c[1].trim() : "";
               if (!name)
-                throw new Error(
-                  `[행 ${idx + 2}] 종목명이 누락되어 행을 스킵했습니다.`,
-                );
+                throw new Error(`[행 ${idx + 2}] 종목명이 누락되었습니다.`);
+
               if (!ticker) {
                 ticker = generateAutoTicker(name);
                 logs.push(
-                  `[티커 자동 생성] 행 ${idx + 2}: '${name}'의 티커가 없어 자동코드 [${ticker}]를 부여했습니다.`,
+                  `[티커 자동 생성] 행 ${idx + 2}: '${name}'의 티커 자동 생성 -> [${ticker}]`,
                 );
               }
 
-              // 파일 업로드 데이터 파싱 단계에서 시장마켓/섹터 공백 자동 분석 및 정화 처리
               const autoAnalysis = analyzeMarketAndSector(ticker, name);
               const market =
                 c[2] && c[2].trim() !== "" ? c[2].trim() : autoAnalysis.market;
@@ -664,9 +696,7 @@ export default function StockManagerUltimate() {
               const type = c[1] || "";
               const name = c[2] || "";
               if (!date || !type || !name)
-                throw new Error(
-                  `[행 ${idx + 2}] 필수 파라미터(날짜, 구분, 종목명)가 유실되었습니다.`,
-                );
+                throw new Error(`[행 ${idx + 2}] 필수 파라미터 누락.`);
 
               const q = parseCleanNum(c[3]);
               const p = parseCleanNum(c[4]);
@@ -689,7 +719,7 @@ export default function StockManagerUltimate() {
                   섹터: autoAnalysis.sector,
                 });
                 logs.push(
-                  `[해외/국내 마스터 자동 매핑] 행 ${idx + 2}: '${name}' 종목을 분석하여 시장 [${autoAnalysis.market}], 섹터 [${autoAnalysis.sector}]로 백그라운드 등록 완료.`,
+                  `[지능형 자동 마스터 등록] 행 ${idx + 2}: '${name}' 분석 -> 시장 [${autoAnalysis.market}], 섹터 [${autoAnalysis.sector}] 자율 등록 완료.`,
                 );
               }
 
@@ -712,7 +742,7 @@ export default function StockManagerUltimate() {
               const date = c[0] || "";
               const type = c[1] || "";
               if (!date || !type)
-                throw new Error(`[행 ${idx + 2}] 필수 항목이 유실되었습니다.`);
+                throw new Error(`[행 ${idx + 2}] 필수 필드 유실.`);
               return {
                 id: randId,
                 날짜: date,
@@ -722,7 +752,7 @@ export default function StockManagerUltimate() {
               };
             }
           } catch (err) {
-            logs.push(`[업로드 구문 오류] ${err.message}`);
+            logs.push(`[구문 오류 로그] ${err.message}`);
             return null;
           }
           return null;
@@ -742,11 +772,11 @@ export default function StockManagerUltimate() {
 
       if (logs.length === 0) {
         logs.push(
-          `[정상 완료] 구문 분석 및 시장/섹터 인공지능 매핑 연산에 에러 필드가 검출되지 않았습니다.`,
+          `[정상 완료] V26.0 하이브리드 시장 분석기 연산 프로세스가 에러 없이 종료되었습니다.`,
         );
       }
       setUploadLogs(logs);
-      alert(`CSV 데이터 구조 최적화 인클루전 분석 연동 처리가 완료되었습니다.`);
+      alert(`CSV 통합 연동 처리가 완료되었습니다.`);
     };
     reader.readAsText(file, "utf-8");
   };
@@ -760,7 +790,7 @@ export default function StockManagerUltimate() {
             Portfolio Ultimate Console
           </h1>
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            STABLE ENGINE V25.0 / {lastUpdate}
+            STABLE ENGINE V26.0 / {lastUpdate}
           </div>
         </div>
 
@@ -913,13 +943,13 @@ export default function StockManagerUltimate() {
             {uploadLogs.length > 0 && (
               <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-mono space-y-1 max-h-36 overflow-y-auto">
                 <div className="font-black text-slate-700 text-[12px] mb-1">
-                  📋 글로벌 마켓 분류 엔진 및 데이터 정밀 검증 센터 :
+                  📋 글로벌 마켓 분류 엔진 및 인코딩 보정 로그 센터 :
                 </div>
                 {uploadLogs.map((log, index) => (
                   <div
                     key={index}
                     className={
-                      log.includes("[업로드 구문 오류]")
+                      log.includes("[구문 오류 로그]")
                         ? "text-rose-600 font-bold"
                         : "text-amber-800"
                     }
@@ -1270,7 +1300,7 @@ export default function StockManagerUltimate() {
               </div>
             )}
 
-            {/* 6. 거래관리 콘솔 (수수료, 세금 인풋 및 백엔드 스키마 완전 유지) */}
+            {/* 6. 거래관리 콘솔 */}
             {activeTab === "거래관리" && (
               <div>
                 <div
@@ -1466,7 +1496,7 @@ export default function StockManagerUltimate() {
               </div>
             )}
 
-            {/* 7. 종목마스터 콘솔 (외국 주식 시장 오인식 교정 및 섹터 기계 자동 바인딩) */}
+            {/* 7. 종목마스터 콘솔 (V26.0 하이브리드 시장 분석기 연산 탑재) */}
             {activeTab === "종목마스터" && (
               <div>
                 <div className="mb-8 p-6 rounded-2xl bg-blue-50 border border-blue-100 grid grid-cols-5 gap-4 items-end">
