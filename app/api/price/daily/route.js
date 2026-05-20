@@ -374,6 +374,7 @@ export async function POST(request) {
       return Response.json({
         success: true,
         updated: 0,
+        targets: 0,
         message: "매수 거래 기준 수집 대상이 없습니다.",
       });
     }
@@ -417,6 +418,7 @@ export async function POST(request) {
       return Response.json({
         success: true,
         updated: 0,
+        targets: targets.length,
         message: "백필된 종가 데이터가 없습니다.",
         skipped,
       });
