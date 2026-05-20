@@ -1,0 +1,5 @@
+cd C:\Users\USER\Desktop\개발\my-stock-app_V3
+git status
+git add .
+git commit -m "Refactor V3 app structure and split tabs/components"
+git push
