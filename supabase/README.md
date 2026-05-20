@@ -5,6 +5,8 @@ Run [schema.sql](C:\Users\USER\Desktop\개발\my-stock-app\supabase\schema.sql) 
 - `assets`
 - `daily_prices`
 
+Then run [seed-assets.sql](C:\Users\USER\Desktop\개발\my-stock-app\supabase\seed-assets.sql) to insert example holdings that `/api/price/daily` can collect from immediately.
+
 ## Why these tables exist
 
 - `assets` is used by `/api/price/daily` to find held stock codes with `quantity > 0`.
