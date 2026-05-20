@@ -1,50 +1,64 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const symbols = [
-    { name: "코스피", code: "KOSPI" },
-    { name: "코스닥", code: "KOSDAQ" },
-    { name: "S&P 500", code: "SPI@SPX" },
-    { name: "나스닥", code: "NAS@IXIC" },
-    { name: "다우존스", code: "DJI@DJI" },
-  ];
+const SYMBOLS = [
+  { key: "kospi", name: "KOSPI", code: "KOSPI" },
+  { key: "kosdaq", name: "KOSDAQ", code: "KOSDAQ" },
+  { key: "sp500", name: "S&P 500", code: "SPI@SPX" },
+  { key: "nasdaq", name: "NASDAQ", code: "NAS@IXIC" },
+  { key: "dow", name: "DOW JONES", code: "DJI@DJI" },
+];
 
+export async function GET() {
   try {
     const results = await Promise.all(
-      symbols.map(async (item) => {
-        // 해외 지수와 국내 지수 API 경로 대응
-        const isGlobal = item.code.includes("@");
-        const url = isGlobal
-          ? `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${item.code}`
-          : `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${item.code}`;
-
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            Referer: "https://finance.naver.com/",
+      SYMBOLS.map(async (item) => {
+        const response = await fetch(
+          `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${item.code}`,
+          {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+              Referer: "https://finance.naver.com/",
+            },
+            cache: "no-store",
           },
-          next: { revalidate: 0 },
-        });
+        );
 
-        const data = await res.json();
-        const dataSource = data?.result?.areas?.[0]?.datas?.[0];
+        if (!response.ok) {
+          return {
+            key: item.key,
+            name: item.name,
+            value: null,
+            rate: null,
+            isUp: null,
+          };
+        }
 
-        if (!dataSource) {
-          return { name: item.name, value: "N/A", rate: "0%", isUp: true };
+        const data = await response.json();
+        const source = data?.result?.areas?.[0]?.datas?.[0];
+
+        if (!source) {
+          return {
+            key: item.key,
+            name: item.name,
+            value: null,
+            rate: null,
+            isUp: null,
+          };
         }
 
         return {
+          key: item.key,
           name: item.name,
-          value: dataSource.nv.toLocaleString(),
-          rate: (dataSource.cr > 0 ? "+" : "") + dataSource.cr + "%",
-          isUp: dataSource.cr > 0,
+          value: Number(source.nv),
+          rate: Number(source.cr),
+          isUp: Number(source.cr) >= 0,
         };
       }),
     );
 
     return NextResponse.json(results);
   } catch (error) {
-    return NextResponse.json({ error: "지수 연결 실패" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch indices" }, { status: 500 });
   }
 }

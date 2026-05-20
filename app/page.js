@@ -108,58 +108,65 @@ export default function StockManagerUltimateV39_11() {
     createInitialManualPriceForm,
   );
 
-  // 4초 주기 실시간 지수/시세 변동 모듈
+  // 종목 현재가 기본값만 유지하고, 난수 시뮬레이션은 제거
   useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveTicks((prev) => {
-        const delta = (Math.random() - 0.5) * 10.0;
-        return {
-          kospi: +(prev.kospi + delta * 1.2).toFixed(2),
-          kosdaq: +(prev.kosdaq + delta * 0.3).toFixed(2),
-          dow: +(prev.dow + delta * 2.0).toFixed(2),
-          nasdaq: +(prev.nasdaq + delta * 1.8).toFixed(2),
-          sp500: +(prev.sp500 + delta * 0.6).toFixed(2),
-          exchangeRate: +(
-            prev.exchangeRate +
-            (Math.random() - 0.5) * 1.0
-          ).toFixed(2),
-        };
-      });
-
-      setLiveStockPrices((prev) => {
-        const updated = { ...prev };
-        stockMaster.forEach((sm) => {
-          if (updated[sm.티커] === undefined) {
-            const isForeign =
-              sm.시장 === "NASDAQ" ||
-              sm.시장 === "NYSE" ||
-              (sm.티커 &&
-                (sm.티커.includes(":") || sm.티커.startsWith("AUTO")));
-            updated[sm.티커] = isForeign ? 10.0 : 10000;
-          }
-        });
-
-        Object.keys(updated).forEach((ticker) => {
+    setLiveStockPrices((prev) => {
+      const updated = { ...prev };
+      stockMaster.forEach((sm) => {
+        if (updated[sm.티커] === undefined) {
           const isForeign =
-            ticker && (ticker.includes(":") || ticker.startsWith("AUTO"));
-          if (isForeign) {
-            updated[ticker] = Math.max(
-              0.1,
-              +(updated[ticker] + (Math.random() - 0.5) * 0.05).toFixed(2),
-            );
-          } else {
-            updated[ticker] = Math.max(
-              100,
-              Math.round(updated[ticker] + (Math.random() - 0.5) * 200),
-            );
-          }
-        });
-        return updated;
+            sm.시장 === "NASDAQ" ||
+            sm.시장 === "NYSE" ||
+            (sm.티커 &&
+              (sm.티커.includes(":") || sm.티커.startsWith("AUTO")));
+          updated[sm.티커] = isForeign ? 10.0 : 10000;
+        }
       });
-      setLastUpdate(new Date().toLocaleTimeString());
-    }, 4000);
-    return () => clearInterval(timer);
+      return updated;
+    });
   }, [stockMaster]);
+
+  // 지수 카드는 실제 API 응답을 주기적으로 반영
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchIndices = async () => {
+      try {
+        const response = await fetch("/api/indices", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const items = await response.json();
+        if (cancelled || !Array.isArray(items)) {
+          return;
+        }
+
+        setLiveTicks((prev) => {
+          const next = { ...prev };
+
+          items.forEach((item) => {
+            if (item?.key && typeof item.value === "number") {
+              next[item.key] = item.value;
+            }
+          });
+
+          return next;
+        });
+        setLastUpdate(new Date().toLocaleTimeString());
+      } catch (_error) {
+        // Keep the previous values on transient fetch failures.
+      }
+    };
+
+    fetchIndices();
+    const timer = setInterval(fetchIndices, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
