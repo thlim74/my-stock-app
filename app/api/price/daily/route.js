@@ -176,9 +176,11 @@ const extractDomesticRows = (html) => {
       return;
     }
 
-    const nums = [...tr.matchAll(/<td class="num">([\d,]+)<\/td>/g)].map((match) =>
-      Number(match[1].replace(/,/g, "")),
-    );
+    const nums = [
+      ...tr.matchAll(
+        /<td class="num">\s*(?:<span[^>]*>)?\s*([\d,]+)\s*(?:<\/span>)?\s*<\/td>/g,
+      ),
+    ].map((match) => Number(match[1].replace(/,/g, "")));
 
     if (nums.length === 0) {
       return;
