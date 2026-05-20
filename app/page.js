@@ -235,15 +235,63 @@ export default function StockManagerUltimateV39_11() {
 
   // [전제 5 보존] 마운트 시점에 로컬 스토리지 복구
   useEffect(() => {
-    const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
-    const savedCash = localStorage.getItem(STORAGE_KEYS.CASH);
-    const savedMaster = localStorage.getItem(STORAGE_KEYS.MASTER);
+    let cancelled = false;
 
-    if (savedTx) setTransactions(JSON.parse(savedTx));
-    if (savedCash) setCashFlows(JSON.parse(savedCash));
-    if (savedMaster) setStockMaster(JSON.parse(savedMaster));
+    const bootstrapState = async () => {
+      const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
+      const savedCash = localStorage.getItem(STORAGE_KEYS.CASH);
+      const savedMaster = localStorage.getItem(STORAGE_KEYS.MASTER);
 
-    setIsLoaded(true);
+      try {
+        const response = await fetch("/api/app-state", { cache: "no-store" });
+
+        if (response.ok) {
+          const remoteState = await response.json();
+
+          if (cancelled) {
+            return;
+          }
+
+          if (Array.isArray(remoteState.transactions)) {
+            setTransactions(remoteState.transactions);
+          } else if (savedTx) {
+            setTransactions(JSON.parse(savedTx));
+          }
+
+          if (Array.isArray(remoteState.cashFlows)) {
+            setCashFlows(remoteState.cashFlows);
+          } else if (savedCash) {
+            setCashFlows(JSON.parse(savedCash));
+          }
+
+          if (Array.isArray(remoteState.stockMaster) && remoteState.stockMaster.length > 0) {
+            setStockMaster(remoteState.stockMaster);
+          } else if (savedMaster) {
+            setStockMaster(JSON.parse(savedMaster));
+          }
+
+          setIsLoaded(true);
+          return;
+        }
+      } catch (_error) {
+        // Fall back to local storage if remote state is unavailable.
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (savedTx) setTransactions(JSON.parse(savedTx));
+      if (savedCash) setCashFlows(JSON.parse(savedCash));
+      if (savedMaster) setStockMaster(JSON.parse(savedMaster));
+      setIsLoaded(true);
+    };
+
+    bootstrapState();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // [전제 5 보존] 상태 변경 시 안전하게 스토리지 업데이트
@@ -252,6 +300,18 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(STORAGE_KEYS.TX, JSON.stringify(transactions));
     localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(cashFlows));
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
+
+    fetch("/api/app-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transactions,
+        cashFlows,
+        stockMaster,
+      }),
+    }).catch(() => {
+      // Keep local storage as a fallback even if remote save fails.
+    });
   }, [transactions, cashFlows, stockMaster, isLoaded]);
 
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
