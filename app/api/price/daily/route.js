@@ -30,6 +30,66 @@ const buildTickerCandidates = (code, market) => {
   return [...new Set(candidates.filter(Boolean))];
 };
 
+const getPartsInTimeZone = (date, timeZone) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+};
+
+const getTradingWindow = (market, code) => {
+  if (isForeignTicker(market, code)) {
+    return {
+      label: "US",
+      timeZone: "America/New_York",
+      closeHour: 16,
+      closeMinute: 10,
+    };
+  }
+
+  return {
+    label: "KR",
+    timeZone: "Asia/Seoul",
+    closeHour: 15,
+    closeMinute: 40,
+  };
+};
+
+const isMarketClosed = (market, code, now = new Date()) => {
+  const window = getTradingWindow(market, code);
+  const parts = getPartsInTimeZone(now, window.timeZone);
+  const weekday = parts.weekday;
+
+  if (weekday === "Sat" || weekday === "Sun") {
+    return {
+      closed: false,
+      reason: "Weekend",
+      tradingDate: `${parts.year}-${parts.month}-${parts.day}`,
+    };
+  }
+
+  const minutesNow = Number(parts.hour) * 60 + Number(parts.minute);
+  const closeMinutes = window.closeHour * 60 + window.closeMinute;
+
+  return {
+    closed: minutesNow >= closeMinutes,
+    reason:
+      minutesNow >= closeMinutes
+        ? null
+        : `${window.label} market has not closed yet`,
+    tradingDate: `${parts.year}-${parts.month}-${parts.day}`,
+  };
+};
+
 const tryFetchNaverPrice = async (code, market) => {
   const candidates = buildTickerCandidates(code, market);
 
@@ -88,11 +148,21 @@ export async function GET() {
       return Response.json({ success: true, updated: 0, message: "No holdings" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
     const results = [];
     const skipped = [];
 
     for (const holding of activeHoldings) {
+      const marketStatus = isMarketClosed(holding.market, holding.code);
+
+      if (!marketStatus.closed) {
+        skipped.push({
+          code: holding.code,
+          market: holding.market || null,
+          reason: marketStatus.reason,
+        });
+        continue;
+      }
+
       try {
         const fetched = await tryFetchNaverPrice(holding.code, holding.market);
 
@@ -108,7 +178,7 @@ export async function GET() {
         results.push({
           code: holding.code,
           price: fetched.price,
-          date: today,
+          date: marketStatus.tradingDate,
         });
       } catch (error) {
         skipped.push({

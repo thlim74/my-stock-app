@@ -1,6 +1,7 @@
 const isForeignMarket = (market, ticker) =>
   market === "NASDAQ" ||
   market === "NYSE" ||
+  market === "AMEX" ||
   (ticker && (ticker.includes(":") || ticker.startsWith("AUTO")));
 
 export default function DailyPricesTab({
@@ -10,7 +11,8 @@ export default function DailyPricesTab({
   handleApplyManualPrice,
   activeHoldingQuantities,
   liveStockPrices,
-  defaultStockPrices,
+  dailyPriceSnapshots,
+  livePriceStatus,
   today,
   formatNum,
   formatFloat,
@@ -19,7 +21,7 @@ export default function DailyPricesTab({
     <div>
       <div className="mb-6 p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex items-end gap-4">
         <div className="text-[13px] font-black text-amber-800">
-          🛠️ 가상 주가 강제 수동 제어
+          현재가 수동 보정
         </div>
         <div className="space-y-1 ml-auto">
           <select
@@ -43,7 +45,7 @@ export default function DailyPricesTab({
         <div className="space-y-1">
           <input
             type="number"
-            placeholder="단가 지정(해외=달러)"
+            placeholder="현재가 입력"
             value={manualPriceForm.가격}
             onChange={(e) =>
               setManualPriceForm({
@@ -58,20 +60,22 @@ export default function DailyPricesTab({
           onClick={handleApplyManualPrice}
           className="bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-amber-700 transition-all"
         >
-          시세 오버라이드 고정
+          현재가 반영
         </button>
       </div>
 
       <table className="w-full text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
           <tr>
-            <th>기준일자</th>
+            <th>기준일</th>
             <th>티커</th>
             <th>종목명</th>
             <th>시장구분</th>
-            <th>현재 보유수량</th>
-            <th>장중 현재가 (Live)</th>
-            <th>기준대비 변동추이</th>
+            <th>보유수량</th>
+            <th>최근 종가</th>
+            <th>직전 종가</th>
+            <th>장중 현재가</th>
+            <th>종가 대비 변동</th>
           </tr>
         </thead>
         <tbody className="text-[12px] font-bold">
@@ -83,24 +87,31 @@ export default function DailyPricesTab({
             })
             .map((stock, index) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
+              const snapshot = dailyPriceSnapshots[stock.티커];
+              const priceStatus = livePriceStatus[stock.티커];
+              const latestClose = snapshot?.latestPrice ?? null;
+              const previousClose = snapshot?.previousPrice ?? null;
               const currentPrice =
                 liveStockPrices[stock.티커] !== undefined
                   ? liveStockPrices[stock.티커]
-                  : isForeign
-                    ? 10.0
-                    : 10000;
-              const originPrice =
-                defaultStockPrices[stock.티커] || (isForeign ? 10.0 : 10000);
-              const diff = currentPrice - originPrice;
-              const pct = ((diff / originPrice) * 100).toFixed(2);
+                  : latestClose ?? null;
               const holdingQty = activeHoldingQuantities[stock.종목명] || 0;
+              const compareBase = latestClose ?? previousClose;
+              const diff =
+                currentPrice !== null && compareBase !== null
+                  ? currentPrice - compareBase
+                  : null;
+              const pct =
+                diff !== null && compareBase
+                  ? ((diff / compareBase) * 100).toFixed(2)
+                  : null;
 
               return (
                 <tr
                   key={index}
                   className={`h-11 border-b hover:bg-slate-50 ${holdingQty > 0 ? "bg-blue-50/50" : ""}`}
                 >
-                  <td>{today}</td>
+                  <td>{snapshot?.latestDate || today}</td>
                   <td className="text-blue-600 font-black">{stock.티커}</td>
                   <td className="font-black text-slate-800">{stock.종목명}</td>
                   <td>
@@ -117,17 +128,44 @@ export default function DailyPricesTab({
                   >
                     {formatNum(holdingQty)}
                   </td>
+                  <td className="font-mono text-slate-900">
+                    {latestClose === null
+                      ? "-"
+                      : isForeign
+                        ? `$ ${formatFloat(latestClose)}`
+                        : `₩${formatNum(latestClose)}`}
+                  </td>
+                  <td className="font-mono text-slate-500">
+                    {previousClose === null
+                      ? "-"
+                      : isForeign
+                        ? `$ ${formatFloat(previousClose)}`
+                        : `₩${formatNum(previousClose)}`}
+                  </td>
                   <td className="font-mono font-black text-slate-900">
-                    {isForeign
-                      ? `$ ${formatFloat(currentPrice)}`
-                      : `₩ ${formatNum(currentPrice)}`}
+                    {currentPrice === null
+                      ? "-"
+                      : isForeign
+                        ? `$ ${formatFloat(currentPrice)}`
+                        : `₩${formatNum(currentPrice)}`}
+                    {priceStatus && (
+                      <div
+                        className={`mt-1 text-[10px] font-bold ${priceStatus.ok ? "text-emerald-600" : "text-amber-600"}`}
+                      >
+                        {priceStatus.message}
+                      </div>
+                    )}
                   </td>
                   <td>
-                    <span
-                      className={`text-[11px] font-black ${diff >= 0 ? "text-rose-500" : "text-blue-500"}`}
-                    >
-                      {diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(pct)}%`}
-                    </span>
+                    {pct === null ? (
+                      <span className="text-slate-400">-</span>
+                    ) : (
+                      <span
+                        className={`text-[11px] font-black ${diff >= 0 ? "text-rose-500" : "text-blue-500"}`}
+                      >
+                        {diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(Number(pct)).toFixed(2)}%`}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );

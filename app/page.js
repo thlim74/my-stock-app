@@ -91,6 +91,8 @@ export default function StockManagerUltimateV39_11() {
   const [liveTicks, setLiveTicks] = useState(INITIAL_LIVE_TICKS);
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
+  const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
+  const [livePriceStatus, setLivePriceStatus] = useState({});
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
   const [transactions, setTransactions] = useState([]);
@@ -161,6 +163,41 @@ export default function StockManagerUltimateV39_11() {
 
     fetchIndices();
     const timer = setInterval(fetchIndices, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDailyPrices = async () => {
+      try {
+        const response = await fetch("/api/daily-prices", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const rows = await response.json();
+        if (cancelled || !Array.isArray(rows)) {
+          return;
+        }
+
+        const snapshotMap = rows.reduce((acc, row) => {
+          acc[row.code] = row;
+          return acc;
+        }, {});
+
+        setDailyPriceSnapshots(snapshotMap);
+      } catch (_error) {
+        // Ignore transient fetch errors and keep the last snapshot.
+      }
+    };
+
+    fetchDailyPrices();
+    const timer = setInterval(fetchDailyPrices, 60000);
 
     return () => {
       cancelled = true;
@@ -418,6 +455,94 @@ export default function StockManagerUltimateV39_11() {
     () => buildActiveHoldingQuantities(stats.holdingList),
     [stats.holdingList],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLivePrices = async () => {
+      const targetStocks = stockMaster.filter(
+        (stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0,
+      );
+
+      if (targetStocks.length === 0) {
+        return;
+      }
+
+      const settled = await Promise.allSettled(
+        targetStocks.map(async (stock) => {
+          const response = await fetch(
+            `/api/price?code=${encodeURIComponent(stock.티커)}`,
+            { cache: "no-store" },
+          );
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `Failed to fetch ${stock.티커}`);
+          }
+
+          const data = await response.json();
+          return {
+            ticker: stock.티커,
+            price: Number(data.price),
+            sourceCode: data.sourceCode || stock.티커,
+          };
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setLiveStockPrices((prev) => {
+        const next = { ...prev };
+
+        settled.forEach((result) => {
+          if (result.status === "fulfilled" && Number.isFinite(result.value.price)) {
+            next[result.value.ticker] = result.value.price;
+          }
+        });
+
+        return next;
+      });
+      setLivePriceStatus(() => {
+        const next = {};
+
+        targetStocks.forEach((stock, index) => {
+          const result = settled[index];
+
+          if (
+            result?.status === "fulfilled" &&
+            Number.isFinite(result.value.price)
+          ) {
+            next[stock.티커] = {
+              ok: true,
+              message: `실시간 수신 (${result.value.sourceCode})`,
+            };
+            return;
+          }
+
+          next[stock.티커] = {
+            ok: false,
+            message:
+              result?.status === "rejected"
+                ? result.reason?.message || "실시간 수신 실패"
+                : "실시간 수신 실패",
+          };
+        });
+
+        return next;
+      });
+      setLastUpdate(new Date().toLocaleTimeString());
+    };
+
+    fetchLivePrices();
+    const timer = setInterval(fetchLivePrices, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [stockMaster, activeHoldingQuantities]);
 
   const marketIndexItems = useMemo(
     () => [
@@ -729,6 +854,8 @@ export default function StockManagerUltimateV39_11() {
                 handleApplyManualPrice={handleApplyManualPrice}
                 activeHoldingQuantities={activeHoldingQuantities}
                 liveStockPrices={liveStockPrices}
+                dailyPriceSnapshots={dailyPriceSnapshots}
+                livePriceStatus={livePriceStatus}
                 defaultStockPrices={defaultStockPrices}
                 today={today}
                 formatNum={formatNum}

@@ -1,0 +1,65 @@
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+const getSupabaseClient = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error("Supabase environment variables are missing.");
+  }
+
+  return createClient(url, anonKey);
+};
+
+export async function GET() {
+  try {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("daily_prices")
+      .select("code, date, price")
+      .order("date", { ascending: false });
+
+    if (error) {
+      const missingDailyPricesTable =
+        error.message?.includes("Could not find the table") &&
+        error.message?.includes("daily_prices");
+
+      if (missingDailyPricesTable) {
+        return NextResponse.json([]);
+      }
+
+      throw new Error(`Failed to load daily prices: ${error.message}`);
+    }
+
+    const latestByCode = new Map();
+    const previousByCode = new Map();
+
+    for (const row of data || []) {
+      if (!latestByCode.has(row.code)) {
+        latestByCode.set(row.code, row);
+        continue;
+      }
+
+      if (!previousByCode.has(row.code)) {
+        previousByCode.set(row.code, row);
+      }
+    }
+
+    const result = Array.from(latestByCode.entries()).map(([code, latest]) => ({
+      code,
+      latestDate: latest.date,
+      latestPrice: latest.price,
+      previousDate: previousByCode.get(code)?.date || null,
+      previousPrice: previousByCode.get(code)?.price || null,
+    }));
+
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message || "Unknown server error" },
+      { status: 500 },
+    );
+  }
+}
