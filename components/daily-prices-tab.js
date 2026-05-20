@@ -9,6 +9,7 @@ export default function DailyPricesTab({
   setManualPriceForm,
   stockMaster,
   handleApplyManualPrice,
+  handleCollectDailyPriceHistory,
   activeHoldingQuantities,
   liveStockPrices,
   dailyPriceSnapshots,
@@ -45,6 +46,12 @@ export default function DailyPricesTab({
         <div className="text-[13px] font-black text-amber-800">
           현재가 수동 보정
         </div>
+        <button
+          onClick={handleCollectDailyPriceHistory}
+          className="ml-4 bg-slate-800 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-slate-700 transition-all"
+        >
+          최초 매수일 이후 종가 수집
+        </button>
         <div className="space-y-1 ml-auto">
           <select
             value={manualPriceForm.티커}

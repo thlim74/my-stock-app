@@ -626,6 +626,33 @@ export default function StockManagerUltimateV39_11() {
     setManualPriceForm({ ...manualPriceForm, 가격: "" });
   };
 
+  const handleCollectDailyPriceHistory = async () => {
+    try {
+      const response = await fetch("/api/price/daily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions, stockMaster }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "종가 이력 수집에 실패했습니다.");
+      }
+
+      const skippedText =
+        Array.isArray(result.skipped) && result.skipped.length > 0
+          ? `\n제외 종목: ${result.skipped.map((item) => `${item.code}(${item.reason})`).join(", ")}`
+          : "";
+
+      alert(
+        `종가 이력 수집 완료\n저장 건수: ${result.updated || 0}${skippedText}`,
+      );
+    } catch (error) {
+      alert(error.message || "종가 이력 수집에 실패했습니다.");
+    }
+  };
+
   const saveTx = () => {
     setErrorMessage("");
     if (!newTx.종목명) {
@@ -867,6 +894,7 @@ export default function StockManagerUltimateV39_11() {
                 setManualPriceForm={setManualPriceForm}
                 stockMaster={stockMaster}
                 handleApplyManualPrice={handleApplyManualPrice}
+                handleCollectDailyPriceHistory={handleCollectDailyPriceHistory}
                 activeHoldingQuantities={activeHoldingQuantities}
                 liveStockPrices={liveStockPrices}
                 dailyPriceSnapshots={dailyPriceSnapshots}
