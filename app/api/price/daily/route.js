@@ -11,13 +11,59 @@ const getSupabaseClient = () => {
   return createClient(url, anonKey);
 };
 
+const isForeignTicker = (market, code) =>
+  market === "NASDAQ" ||
+  market === "NYSE" ||
+  market === "AMEX" ||
+  (code && (code.includes(":") || /^[A-Z]+$/.test(code)));
+
+const buildTickerCandidates = (code, market) => {
+  const raw = String(code || "").trim();
+  const dotNormalized = raw.split(".")[0];
+  const colonNormalized = raw.includes(":") ? raw.split(":").pop() : raw;
+  const isForeign = isForeignTicker(market, raw);
+
+  const candidates = isForeign
+    ? [raw, colonNormalized, dotNormalized]
+    : [dotNormalized, raw];
+
+  return [...new Set(candidates.filter(Boolean))];
+};
+
+const tryFetchNaverPrice = async (code, market) => {
+  const candidates = buildTickerCandidates(code, market);
+
+  for (const candidate of candidates) {
+    const response = await fetch(
+      `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${candidate}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const data = await response.json();
+    const price = data?.result?.areas?.[0]?.datas?.[0]?.nv;
+
+    if (price !== undefined && price !== null) {
+      return { price, sourceCode: candidate };
+    }
+  }
+
+  return null;
+};
+
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
 
     const { data: holdings, error: holdingsError } = await supabase
       .from("assets")
-      .select("code")
+      .select("code, market, name")
       .gt("quantity", 0);
 
     if (holdingsError) {
@@ -36,42 +82,41 @@ export async function GET() {
       throw new Error(`Failed to load holdings: ${holdingsError.message}`);
     }
 
-    const codes = (holdings || [])
-      .map((holding) => holding.code)
-      .filter(Boolean);
+    const activeHoldings = (holdings || []).filter((holding) => holding.code);
 
-    if (codes.length === 0) {
+    if (activeHoldings.length === 0) {
       return Response.json({ success: true, updated: 0, message: "No holdings" });
     }
 
     const today = new Date().toISOString().split("T")[0];
     const results = [];
+    const skipped = [];
 
-    for (const code of codes) {
-      const res = await fetch(
-        `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${code}`,
-        {
-          headers: { "User-Agent": "Mozilla/5.0" },
-          cache: "no-store",
-        },
-      );
+    for (const holding of activeHoldings) {
+      try {
+        const fetched = await tryFetchNaverPrice(holding.code, holding.market);
 
-      if (!res.ok) {
-        continue;
+        if (!fetched) {
+          skipped.push({
+            code: holding.code,
+            market: holding.market || null,
+            reason: "No price found",
+          });
+          continue;
+        }
+
+        results.push({
+          code: holding.code,
+          price: fetched.price,
+          date: today,
+        });
+      } catch (error) {
+        skipped.push({
+          code: holding.code,
+          market: holding.market || null,
+          reason: error.message || "Fetch failed",
+        });
       }
-
-      const data = await res.json();
-      const price = data?.result?.areas?.[0]?.datas?.[0]?.nv;
-
-      if (price === undefined || price === null) {
-        continue;
-      }
-
-      results.push({
-        code,
-        price,
-        date: today,
-      });
     }
 
     if (results.length === 0) {
@@ -79,6 +124,7 @@ export async function GET() {
         success: true,
         updated: 0,
         message: "No price records fetched",
+        skipped,
       });
     }
 
@@ -96,13 +142,18 @@ export async function GET() {
           success: true,
           updated: 0,
           message: "daily_prices 테이블이 없어 저장을 건너뜁니다.",
+          skipped,
         });
       }
 
       throw new Error(`Failed to upsert daily prices: ${upsertError.message}`);
     }
 
-    return Response.json({ success: true, updated: results.length });
+    return Response.json({
+      success: true,
+      updated: results.length,
+      skipped,
+    });
   } catch (error) {
     return Response.json(
       { error: error.message || "Unknown server error" },
