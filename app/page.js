@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import AppHeader from "@/components/app-header";
 import AssetSummaryGrid from "@/components/asset-summary-grid";
 import CashFlowsTab from "@/components/cash-flows-tab";
@@ -41,10 +41,7 @@ import {
   readTextFile,
 } from "@/lib/csv-utils";
 import { buildPortfolioStats } from "@/lib/portfolio-stats";
-import {
-  buildActiveHoldingQuantities,
-  buildPivotData,
-} from "@/lib/pivot-data";
+import { buildActiveHoldingQuantities, buildPivotData } from "@/lib/pivot-data";
 import {
   createInitialCash,
   createInitialManualPriceForm,
@@ -116,6 +113,25 @@ export default function StockManagerUltimateV39_11() {
   const [manualPriceForm, setManualPriceForm] = useState(
     createInitialManualPriceForm,
   );
+
+  const refreshDailyPrices = useCallback(async () => {
+    const response = await fetch("/api/daily-prices", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("일별 종가 데이터를 불러오지 못했습니다.");
+    }
+
+    const rows = await response.json();
+    if (!Array.isArray(rows)) {
+      return;
+    }
+
+    const snapshotMap = rows.reduce((acc, row) => {
+      acc[row.code] = row;
+      return acc;
+    }, {});
+
+    setDailyPriceSnapshots(snapshotMap);
+  }, []);
 
   // 종목 현재가 기본값만 유지하고, 난수 시뮬레이션은 제거
   useEffect(() => {
@@ -194,22 +210,10 @@ export default function StockManagerUltimateV39_11() {
 
     const fetchDailyPrices = async () => {
       try {
-        const response = await fetch("/api/daily-prices", { cache: "no-store" });
-        if (!response.ok) {
+        await refreshDailyPrices();
+        if (cancelled) {
           return;
         }
-
-        const rows = await response.json();
-        if (cancelled || !Array.isArray(rows)) {
-          return;
-        }
-
-        const snapshotMap = rows.reduce((acc, row) => {
-          acc[row.code] = row;
-          return acc;
-        }, {});
-
-        setDailyPriceSnapshots(snapshotMap);
       } catch (_error) {
         // Ignore transient fetch errors and keep the last snapshot.
       }
@@ -222,7 +226,7 @@ export default function StockManagerUltimateV39_11() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [refreshDailyPrices]);
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
@@ -639,6 +643,8 @@ export default function StockManagerUltimateV39_11() {
       if (!response.ok) {
         throw new Error(result.error || "종가 이력 수집에 실패했습니다.");
       }
+
+      await refreshDailyPrices();
 
       const skippedText =
         Array.isArray(result.skipped) && result.skipped.length > 0
