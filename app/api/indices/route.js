@@ -50,8 +50,8 @@ export async function GET() {
         return {
           key: item.key,
           name: item.name,
-          value: Number(source.nv),
-          rate: Number(source.cr),
+          value: Number(source.nv) / 100,
+          changePercent: Number(source.cr),
           isUp: Number(source.cr) >= 0,
         };
       }),

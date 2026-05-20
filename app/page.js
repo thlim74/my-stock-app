@@ -46,7 +46,6 @@ import {
   buildPivotData,
 } from "@/lib/pivot-data";
 import {
-  BASE_TICKS as baseTicks,
   createInitialCash,
   createInitialManualPriceForm,
   createInitialStock,
@@ -89,6 +88,14 @@ export default function StockManagerUltimateV39_11() {
 
   // --- [기준 가격 및 실시간 틱 데이터] ---
   const [liveTicks, setLiveTicks] = useState(INITIAL_LIVE_TICKS);
+  const [indexChangePercents, setIndexChangePercents] = useState({
+    kospi: 0,
+    kosdaq: 0,
+    dow: 0,
+    nasdaq: 0,
+    sp500: 0,
+    exchangeRate: 0,
+  });
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
@@ -155,6 +162,18 @@ export default function StockManagerUltimateV39_11() {
 
           return next;
         });
+
+        setIndexChangePercents((prev) => {
+          const next = { ...prev };
+
+          items.forEach((item) => {
+            if (item?.key && typeof item.changePercent === "number") {
+              next[item.key] = item.changePercent;
+            }
+          });
+
+          return next;
+        });
         setLastUpdate(new Date().toLocaleTimeString());
       } catch (_error) {
         // Keep the previous values on transient fetch failures.
@@ -207,12 +226,8 @@ export default function StockManagerUltimateV39_11() {
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
-  const getDiffStr = (curr, base) => {
-    const diff = curr - base;
-    const pct = ((diff / base) * 100).toFixed(2);
-    return diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(pct)}%`;
-  };
-  const isUp = (curr, base) => curr >= base;
+  const getChangeStr = (pct) =>
+    pct >= 0 ? `▲ ${pct.toFixed(2)}%` : `▼ ${Math.abs(pct).toFixed(2)}%`;
 
   // [전제 5 보존] 마운트 시점에 로컬 스토리지 복구
   useEffect(() => {
@@ -549,41 +564,41 @@ export default function StockManagerUltimateV39_11() {
       {
         n: "KOSPI 지수",
         v: liveTicks.kospi.toLocaleString(),
-        d: getDiffStr(liveTicks.kospi, baseTicks.kospi),
-        up: isUp(liveTicks.kospi, baseTicks.kospi),
+        d: getChangeStr(indexChangePercents.kospi),
+        up: indexChangePercents.kospi >= 0,
       },
       {
         n: "KOSDAQ 지수",
         v: liveTicks.kosdaq.toLocaleString(),
-        d: getDiffStr(liveTicks.kosdaq, baseTicks.kosdaq),
-        up: isUp(liveTicks.kosdaq, baseTicks.kosdaq),
+        d: getChangeStr(indexChangePercents.kosdaq),
+        up: indexChangePercents.kosdaq >= 0,
       },
       {
         n: "다우존스 지수",
         v: liveTicks.dow.toLocaleString(),
-        d: getDiffStr(liveTicks.dow, baseTicks.dow),
-        up: isUp(liveTicks.dow, baseTicks.dow),
+        d: getChangeStr(indexChangePercents.dow),
+        up: indexChangePercents.dow >= 0,
       },
       {
         n: "나스닥 종합지수",
         v: liveTicks.nasdaq.toLocaleString(),
-        d: getDiffStr(liveTicks.nasdaq, baseTicks.nasdaq),
-        up: isUp(liveTicks.nasdaq, baseTicks.nasdaq),
+        d: getChangeStr(indexChangePercents.nasdaq),
+        up: indexChangePercents.nasdaq >= 0,
       },
       {
         n: "S&P 500 지수",
         v: liveTicks.sp500.toLocaleString(),
-        d: getDiffStr(liveTicks.sp500, baseTicks.sp500),
-        up: isUp(liveTicks.sp500, baseTicks.sp500),
+        d: getChangeStr(indexChangePercents.sp500),
+        up: indexChangePercents.sp500 >= 0,
       },
       {
         n: "원/달러 환율",
         v: liveTicks.exchangeRate.toLocaleString() + " 원",
-        d: getDiffStr(liveTicks.exchangeRate, baseTicks.exchangeRate),
-        up: isUp(liveTicks.exchangeRate, baseTicks.exchangeRate),
+        d: getChangeStr(indexChangePercents.exchangeRate),
+        up: indexChangePercents.exchangeRate >= 0,
       },
     ],
-    [liveTicks],
+    [liveTicks, indexChangePercents],
   );
 
   // [조회] 버튼 핸들러 연결

@@ -17,6 +17,28 @@ export default function DailyPricesTab({
   formatNum,
   formatFloat,
 }) {
+  const sortedStocks = [...stockMaster].sort((a, b) => {
+    const qtyA = activeHoldingQuantities[a.종목명] || 0;
+    const qtyB = activeHoldingQuantities[b.종목명] || 0;
+
+    if ((qtyA > 0) !== (qtyB > 0)) {
+      return qtyB > 0 ? 1 : -1;
+    }
+
+    if (qtyA !== qtyB) {
+      return qtyB - qtyA;
+    }
+
+    const dateA = dailyPriceSnapshots[a.티커]?.latestDate || "";
+    const dateB = dailyPriceSnapshots[b.티커]?.latestDate || "";
+
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+
+    return a.종목명.localeCompare(b.종목명, "ko");
+  });
+
   return (
     <div>
       <div className="mb-6 p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex items-end gap-4">
@@ -79,13 +101,7 @@ export default function DailyPricesTab({
           </tr>
         </thead>
         <tbody className="text-[12px] font-bold">
-          {[...stockMaster]
-            .sort((a, b) => {
-              const qtyA = activeHoldingQuantities[a.종목명] || 0;
-              const qtyB = activeHoldingQuantities[b.종목명] || 0;
-              return qtyB - qtyA;
-            })
-            .map((stock, index) => {
+          {sortedStocks.map((stock, index) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
               const priceStatus = livePriceStatus[stock.티커];
