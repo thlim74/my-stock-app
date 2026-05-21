@@ -52,6 +52,7 @@ export default function PivotHistoryTab({
               </th>
               <th>현재보유</th>
               <th>평균단가</th>
+              <th>총매수금액</th>
               <th className="text-blue-600 bg-blue-50/30">실시간주가</th>
               {pivotData.filteredDates.map((date) => (
                 <th
@@ -68,6 +69,7 @@ export default function PivotHistoryTab({
               <td className="sticky left-0 bg-slate-100 font-black z-10 text-slate-700 text-left px-4">
                 일별 손익 합계
               </td>
+              <td>-</td>
               <td>-</td>
               <td>-</td>
               <td className="bg-blue-50/20">-</td>
@@ -119,6 +121,9 @@ export default function PivotHistoryTab({
                         ? `$${formatFloat(currentAverage)}`
                         : formatNum(currentAverage)
                       : "-"}
+                  </td>
+                  <td className="font-black text-slate-700">
+                    {currentHolding ? formatNum(currentHolding.총매수금액) : "-"}
                   </td>
                   <td className="bg-blue-50/10 font-mono font-black text-blue-600">
                     {isForeign ? `$${formatFloat(currentPrice)}` : formatNum(currentPrice)}
