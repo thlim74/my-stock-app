@@ -127,7 +127,49 @@ export default function CashFlowsTab({
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="grid gap-3 md:hidden">
+        {cashFlows.map((cash) => (
+          <div key={cash.id} className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-center justify-between">
+              <div className="text-[12px] font-black text-slate-700">{cash.날짜}</div>
+              <div
+                className={`text-[12px] font-black ${cash.구분 === "입금" ? "text-rose-500" : "text-blue-500"}`}
+              >
+                {cash.구분}
+              </div>
+            </div>
+            <div className="mt-2 text-[14px] font-black text-slate-900">₩{formatNum(cash.금액)}</div>
+            <div className="mt-1 text-[12px] text-slate-500">{cash.메모 || "-"}</div>
+            <div className="mt-3 flex items-center justify-between">
+              <label className="text-[11px] text-slate-500">
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={selectedIds.includes(cash.id)}
+                  onChange={() => toggleSelect(cash.id)}
+                />
+                선택
+              </label>
+              <div className="space-x-3">
+                <button
+                  onClick={() => triggerEditCash(cash)}
+                  className="text-amber-600 underline text-[12px] font-black"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={() => deleteItem(cash.id)}
+                  className="text-rose-500 underline text-[12px]"
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full min-w-[760px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>

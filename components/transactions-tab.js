@@ -163,7 +163,76 @@ export default function TransactionsTab({
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="grid gap-3 md:hidden">
+        {transactions.map((tx) => {
+          const currentMasterMatch = stockMaster.find(
+            (stock) => stock.티커 === tx.티커 || stock.종목명 === tx.종목명,
+          );
+          const currentMarket = currentMasterMatch
+            ? currentMasterMatch.시장
+            : inferMarketFromTicker(tx.티커);
+          const isForeign = isForeignMarket(currentMarket, tx.티커);
+          const quantity = Number(tx.수량) || 0;
+          const price = Number(tx.단가) || 0;
+          const fee = Number(tx.수수료) || 0;
+          const tax = Number(tx.세금) || 0;
+          const activeTotalKrw =
+            tx.구분 === "매수"
+              ? isForeign
+                ? (quantity * price + fee + tax) * exchangeRate
+                : quantity * price + fee + tax
+              : isForeign
+                ? (quantity * price - fee - tax) * exchangeRate
+                : quantity * price - fee - tax;
+
+          return (
+            <div key={tx.id} className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-[12px] font-black text-slate-700">{tx.날짜}</div>
+                <div className={tx.구분 === "매수" ? "text-rose-500 text-[12px] font-black" : "text-blue-500 text-[12px] font-black"}>
+                  {tx.구분}
+                </div>
+              </div>
+              <div className="mt-1 text-[14px] font-black text-slate-900">{tx.종목명}</div>
+              <div className="text-[11px] text-slate-500">{tx.티커} ({currentMarket})</div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-[12px]">
+                <div>수량: <b>{formatNum(tx.수량)}</b></div>
+                <div>단가: <b>{isForeign ? `$ ${formatFloat(tx.단가)}` : `₩${formatNum(tx.단가)}`}</b></div>
+                <div>수수료: <b>{isForeign ? `$ ${formatFloat(tx.수수료)}` : `₩${formatNum(tx.수수료)}`}</b></div>
+                <div>세금: <b>{isForeign ? `$ ${formatFloat(tx.세금)}` : `₩${formatNum(tx.세금)}`}</b></div>
+              </div>
+              <div className="mt-2 text-[12px] font-black text-slate-700">원화 합계: ₩{formatNum(activeTotalKrw)}</div>
+              <div className="mt-3 flex items-center justify-between">
+                <label className="text-[11px] text-slate-500">
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    checked={selectedIds.includes(tx.id)}
+                    onChange={() => toggleSelect(tx.id)}
+                  />
+                  선택
+                </label>
+                <div className="space-x-3">
+                  <button
+                    onClick={() => triggerEditTx(tx)}
+                    className="text-amber-600 underline font-black text-[12px]"
+                  >
+                    수정
+                  </button>
+                  <button
+                    onClick={() => deleteItem(tx.id)}
+                    className="text-rose-500 underline text-[12px]"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full min-w-[1100px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
