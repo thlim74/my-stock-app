@@ -6,6 +6,8 @@ export default function StockMasterTab({
   resetForms,
   newStock,
   setNewStock,
+  handleStockNameChange,
+  handleStockTickerBlur,
   saveMaster,
   deleteSelected,
   stockMaster,
@@ -19,22 +21,20 @@ export default function StockMasterTab({
     <div>
       <div className="mb-4 p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex items-center justify-between text-[12px]">
         <div>
-          <span className="font-black text-purple-800">
-            💡 종목 마스터 메인 풀 관리 커맨더
-          </span>
+          <span className="font-black text-purple-800">종목마스터 관리</span>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleDownloadMasterCsv}
             className="bg-white text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg font-black hover:bg-purple-100/50 transition-all"
           >
-            📥 마스터 레코드 내보내기
+            마스터 CSV 내보내기
           </button>
           <button
             onClick={() => tabMasterCsvRef.current.click()}
             className="bg-purple-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-purple-700 transition-all"
           >
-            📤 마스터 CSV 업로드
+            마스터 CSV 불러오기
           </button>
           <input
             type="file"
@@ -51,37 +51,38 @@ export default function StockMasterTab({
       >
         <div className="col-span-5 font-black text-[13px] text-slate-700 flex justify-between">
           <span>
-            {masterEditingId
-              ? "⚠️ [마스터 메타 데이터 수정 오버라이드]"
-              : "➕ 신규 유니버스 자산 마스터 사전 기입"}
+            {masterEditingId ? "마스터 수정 모드" : "신규 종목 등록"}
           </span>
           {masterEditingId && (
-            <button
-              onClick={resetForms}
-              className="text-slate-400 underline text-[11px]"
-            >
+            <button onClick={resetForms} className="text-slate-400 underline text-[11px]">
               취소
             </button>
           )}
         </div>
+
         <div className="space-y-1">
           <label className="text-[11px] font-black text-slate-500">종목명</label>
           <input
             type="text"
             value={newStock.종목명}
-            onChange={(e) => setNewStock({ ...newStock, 종목명: e.target.value })}
+            onChange={(e) => handleStockNameChange(e.target.value)}
             className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            placeholder="종목명 입력 시 자동 매핑"
           />
         </div>
+
         <div className="space-y-1">
           <label className="text-[11px] font-black text-slate-500">티커코드</label>
           <input
             type="text"
             value={newStock.티커}
             onChange={(e) => setNewStock({ ...newStock, 티커: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            onBlur={handleStockTickerBlur}
+            className="w-full border rounded-xl p-2.5 text-[12px] font-bold uppercase"
+            placeholder="예: 005930, GOOGL, AMEX:SLV"
           />
         </div>
+
         <div className="space-y-1">
           <label className="text-[11px] font-black text-slate-500">시장분류</label>
           <select
@@ -93,27 +94,25 @@ export default function StockMasterTab({
             <option>KOSDAQ</option>
             <option>NASDAQ</option>
             <option>NYSE</option>
+            <option>AMEX</option>
           </select>
         </div>
+
         <div className="space-y-1">
-          <label className="text-[11px] font-black text-slate-500">섹터군분류</label>
-          <select
+          <label className="text-[11px] font-black text-slate-500">섹터분류</label>
+          <input
+            type="text"
             value={newStock.섹터}
             onChange={(e) => setNewStock({ ...newStock, 섹터: e.target.value })}
             className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
-          >
-            <option>일반제조/서비스</option>
-            <option>바이오/헬스케어</option>
-            <option>전기차/자동차</option>
-            <option>2차전지/친환경에너지</option>
-            <option>금융/지주사</option>
-          </select>
+          />
         </div>
+
         <button
           onClick={saveMaster}
           className="bg-purple-700 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md hover:bg-purple-800 transition-all"
         >
-          {masterEditingId ? "수정사항 저장" : "마스터 등록"}
+          {masterEditingId ? "수정 저장" : "종목 등록"}
         </button>
       </div>
 
@@ -122,7 +121,7 @@ export default function StockMasterTab({
           onClick={deleteSelected}
           className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-[11px] font-black border border-rose-200"
         >
-          선택 종목 일괄 삭제
+          선택 종목 삭제
         </button>
       </div>
 
@@ -167,7 +166,7 @@ export default function StockMasterTab({
                 </span>
               </td>
               <td className="text-emerald-600 text-[12px]">
-                {stock.섹터 || "일반제조/서비스"}
+                {stock.섹터 || "-"}
               </td>
               <td className="space-x-2">
                 <button
@@ -190,3 +189,4 @@ export default function StockMasterTab({
     </div>
   );
 }
+

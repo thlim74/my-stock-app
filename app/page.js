@@ -41,6 +41,7 @@ import {
   readTextFile,
 } from "@/lib/csv-utils";
 import { buildPortfolioStats } from "@/lib/portfolio-stats";
+import { inferMarketFromTicker, isForeignMarket } from "@/lib/market-utils";
 import { buildActiveHoldingQuantities, buildPivotData } from "@/lib/pivot-data";
 import {
   createInitialCash,
@@ -64,6 +65,7 @@ import {
 export default function StockManagerUltimateV39_11() {
   const [activeTab, setActiveTab] = useState("거래관리");
   const [editingId, setEditingId] = useState(null);
+  const [cashEditingId, setCashEditingId] = useState(null);
   const [masterEditingId, setMasterEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
@@ -113,6 +115,7 @@ export default function StockManagerUltimateV39_11() {
   const [manualPriceForm, setManualPriceForm] = useState(
     createInitialManualPriceForm,
   );
+  const [cashTotalInput, setCashTotalInput] = useState("");
 
   const refreshDailyPrices = useCallback(async () => {
     const response = await fetch("/api/daily-prices", { cache: "no-store" });
@@ -139,11 +142,7 @@ export default function StockManagerUltimateV39_11() {
       const updated = { ...prev };
       stockMaster.forEach((sm) => {
         if (updated[sm.티커] === undefined) {
-          const isForeign =
-            sm.시장 === "NASDAQ" ||
-            sm.시장 === "NYSE" ||
-            (sm.티커 &&
-              (sm.티커.includes(":") || sm.티커.startsWith("AUTO")));
+          const isForeign = isForeignMarket(sm.시장, sm.티커);
           updated[sm.티커] = isForeign ? 10.0 : 10000;
         }
       });
@@ -536,6 +535,13 @@ export default function StockManagerUltimateV39_11() {
   );
 
   useEffect(() => {
+    if (activeTab !== "입출금") {
+      return;
+    }
+    setCashTotalInput(String(Math.round(stats.cashBalance || 0)));
+  }, [stats.cashBalance, activeTab]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const fetchLivePrices = async () => {
@@ -740,21 +746,141 @@ export default function StockManagerUltimateV39_11() {
   const saveCash = () => {
     const payload = buildCashPayload(newCash);
     if (!payload) return;
-    setCashFlows([payload, ...cashFlows]);
+    const nextPayload = { ...payload, id: cashEditingId || payload.id };
+    if (cashEditingId) {
+      setCashFlows(
+        cashFlows.map((item) => (item.id === cashEditingId ? nextPayload : item)),
+      );
+    } else {
+      setCashFlows([nextPayload, ...cashFlows]);
+    }
     resetForms();
+  };
+
+  const triggerEditCash = (item) => {
+    setCashEditingId(item.id);
+    setNewCash({
+      날짜: item.날짜,
+      구분: item.구분,
+      금액: String(item.금액),
+      메모: item.메모 || "",
+    });
+  };
+
+  const applyCashTotalAdjustment = () => {
+    const targetAmount = parseCleanNum(cashTotalInput);
+    if (targetAmount < 0) {
+      alert("현금 총액은 0 이상이어야 합니다.");
+      return;
+    }
+
+    const currentAmount = Math.round(stats.cashBalance || 0);
+    const diff = targetAmount - currentAmount;
+    if (diff === 0) {
+      alert("현재 현금 총액과 동일합니다.");
+      return;
+    }
+
+    const payload = {
+      id: Date.now(),
+      날짜: today,
+      구분: diff > 0 ? "입금" : "출금",
+      금액: Math.abs(diff),
+      메모: "현금총액수정",
+    };
+    setCashFlows([payload, ...cashFlows]);
+    setCashEditingId(null);
+    alert(`현금 총액을 ₩${formatNum(targetAmount)} 기준으로 반영했습니다.`);
   };
 
   const saveMaster = () => {
     if (!newStock.종목명) return;
+    const normalizedTicker = String(newStock.티커 || "")
+      .trim()
+      .toUpperCase();
+    const normalizedMarket = inferMarketFromTicker(normalizedTicker);
+    const stockPayload = {
+      ...newStock,
+      티커: normalizedTicker,
+      시장: normalizedTicker ? normalizedMarket : newStock.시장,
+      섹터:
+        newStock.섹터 && newStock.섹터.trim() !== ""
+          ? newStock.섹터
+          : normalizedTicker
+            ? normalizedMarket === "KOSPI" || normalizedMarket === "KOSDAQ"
+              ? "일반제조/서비스"
+              : "해외주식"
+            : "일반제조/서비스",
+    };
     const result = buildStockSaveResult({
       stockMaster,
       transactions,
-      newStock,
+      newStock: stockPayload,
       masterEditingId,
     });
     setStockMaster(result.stockMaster);
     setTransactions(result.transactions);
     resetForms();
+  };
+
+  const handleStockNameChange = (name) => {
+    const trimmedName = String(name || "").trim();
+    const lookupPool = [...stockMaster, ...INITIAL_STOCK_MASTER];
+    const matched = lookupPool.find((item) => item.종목명 === trimmedName);
+
+    setNewStock((prev) => ({
+      ...prev,
+      종목명: name,
+      티커: matched?.티커 || prev.티커,
+      시장:
+        matched?.시장 ||
+        (prev.티커 ? inferMarketFromTicker(prev.티커) : prev.시장),
+      섹터: matched?.섹터 || prev.섹터,
+    }));
+  };
+
+  const handleStockTickerBlur = async () => {
+    const normalizedTicker = String(newStock.티커 || "")
+      .trim()
+      .toUpperCase();
+    if (!normalizedTicker) {
+      return;
+    }
+
+    setNewStock((prev) => ({
+      ...prev,
+      티커: normalizedTicker,
+      시장: inferMarketFromTicker(normalizedTicker),
+    }));
+
+    if (!/^\d{6}$/.test(normalizedTicker)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/master/search?code=${encodeURIComponent(normalizedTicker)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json();
+      if (!payload?.name) {
+        return;
+      }
+
+      const matchedByName = stockMaster.find((item) => item.종목명 === payload.name);
+      setNewStock((prev) => ({
+        ...prev,
+        종목명: payload.name,
+        티커: normalizedTicker,
+        시장: inferMarketFromTicker(normalizedTicker),
+        섹터: matchedByName?.섹터 || prev.섹터,
+      }));
+    } catch (_error) {
+      // Keep manual input if name auto lookup fails.
+    }
   };
 
   const deleteItem = (id) => {
@@ -805,6 +931,7 @@ export default function StockManagerUltimateV39_11() {
 
   const resetForms = () => {
     setEditingId(null);
+    setCashEditingId(null);
     setMasterEditingId(null);
     setNewTx(createInitialTx(today));
     setNewCash(createInitialCash(today));
@@ -900,6 +1027,12 @@ export default function StockManagerUltimateV39_11() {
                 newCash={newCash}
                 setNewCash={setNewCash}
                 saveCash={saveCash}
+                cashEditingId={cashEditingId}
+                triggerEditCash={triggerEditCash}
+                cashTotalInput={cashTotalInput}
+                setCashTotalInput={setCashTotalInput}
+                applyCashTotalAdjustment={applyCashTotalAdjustment}
+                currentCashTotal={stats.cashBalance}
                 deleteSelected={deleteSelected}
                 cashFlows={cashFlows}
                 selectedIds={selectedIds}
@@ -945,6 +1078,8 @@ export default function StockManagerUltimateV39_11() {
                 resetForms={resetForms}
                 newStock={newStock}
                 setNewStock={setNewStock}
+                handleStockNameChange={handleStockNameChange}
+                handleStockTickerBlur={handleStockTickerBlur}
                 saveMaster={saveMaster}
                 deleteSelected={deleteSelected}
                 stockMaster={stockMaster}

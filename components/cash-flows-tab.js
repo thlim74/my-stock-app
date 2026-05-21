@@ -12,27 +12,31 @@ export default function CashFlowsTab({
   toggleSelect,
   deleteItem,
   formatNum,
+  cashEditingId,
+  triggerEditCash,
+  cashTotalInput,
+  setCashTotalInput,
+  applyCashTotalAdjustment,
+  currentCashTotal,
 }) {
   return (
     <div>
       <div className="mb-4 p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center justify-between text-[12px]">
         <div>
-          <span className="font-black text-blue-800">
-            💡 자본 원금 관리 프레임워크
-          </span>
+          <span className="font-black text-blue-800">입출금 관리</span>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleDownloadCashCsv}
             className="bg-white text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg font-black hover:bg-blue-100/50 transition-all"
           >
-            📥 입출금 내역 내보내기
+            입출금 CSV 내보내기
           </button>
           <button
             onClick={() => tabCashCsvRef.current.click()}
             className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-blue-700 transition-all"
           >
-            📤 입출금 CSV 로드
+            입출금 CSV 불러오기
           </button>
           <input
             type="file"
@@ -44,7 +48,29 @@ export default function CashFlowsTab({
         </div>
       </div>
 
-      <div className="mb-6 p-6 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-5 gap-4 items-end">
+      <div className="mb-6 p-4 rounded-2xl bg-white border border-blue-200 flex items-end gap-3">
+        <div className="text-[12px] font-black text-blue-700">현금 총액</div>
+        <input
+          type="text"
+          value={cashTotalInput}
+          onChange={(e) => setCashTotalInput(e.target.value)}
+          className="w-56 border rounded-xl p-2 text-[12px] font-bold"
+          placeholder="총 현금 잔액 입력"
+        />
+        <button
+          onClick={applyCashTotalAdjustment}
+          className="bg-blue-700 text-white px-4 py-2 rounded-xl text-[12px] font-black hover:bg-blue-800 transition-all"
+        >
+          총액 수정 반영
+        </button>
+        <div className="ml-auto text-[12px] font-bold text-slate-600">
+          현재 계산 현금: <span className="text-blue-700">₩{formatNum(currentCashTotal)}</span>
+        </div>
+      </div>
+
+      <div
+        className={`mb-6 p-6 rounded-2xl border ${cashEditingId ? "bg-amber-50/50 border-amber-300" : "bg-slate-50 border-slate-200"} grid grid-cols-5 gap-4 items-end`}
+      >
         <div className="space-y-1">
           <label className="text-[11px] font-black text-slate-500">날짜</label>
           <input
@@ -66,15 +92,13 @@ export default function CashFlowsTab({
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-black text-slate-500">
-            현금 원금액(KRW)
-          </label>
+          <label className="text-[11px] font-black text-slate-500">금액 (KRW)</label>
           <input
             type="text"
             value={newCash.금액}
             onChange={(e) => setNewCash({ ...newCash, 금액: e.target.value })}
             className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
-            placeholder="컴마 없이 입력"
+            placeholder="숫자만 입력"
           />
         </div>
         <div className="space-y-1">
@@ -90,7 +114,7 @@ export default function CashFlowsTab({
           onClick={saveCash}
           className="bg-slate-900 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md hover:bg-slate-800 transition-all"
         >
-          투자원금 거래 반영
+          {cashEditingId ? "입출금 수정 저장" : "입출금 저장"}
         </button>
       </div>
 
@@ -99,7 +123,7 @@ export default function CashFlowsTab({
           onClick={deleteSelected}
           className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-[11px] font-black border border-rose-200"
         >
-          선택 일괄 삭제
+          선택 항목 삭제
         </button>
       </div>
 
@@ -134,14 +158,18 @@ export default function CashFlowsTab({
                 />
               </td>
               <td>{cash.날짜}</td>
-              <td
-                className={cash.구분 === "입금" ? "text-rose-500" : "text-blue-500"}
-              >
+              <td className={cash.구분 === "입금" ? "text-rose-500" : "text-blue-500"}>
                 {cash.구분}
               </td>
               <td className="font-black">₩{formatNum(cash.금액)}</td>
               <td className="text-slate-600 text-left px-4">{cash.메모 || "-"}</td>
-              <td>
+              <td className="space-x-2">
+                <button
+                  onClick={() => triggerEditCash(cash)}
+                  className="text-amber-600 underline text-[12px] font-black"
+                >
+                  수정
+                </button>
                 <button
                   onClick={() => deleteItem(cash.id)}
                   className="text-rose-500 underline text-[12px]"
@@ -156,3 +184,4 @@ export default function CashFlowsTab({
     </div>
   );
 }
+

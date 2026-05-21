@@ -1,7 +1,4 @@
-const isForeignMarket = (market, ticker) =>
-  market === "NASDAQ" ||
-  market === "NYSE" ||
-  (ticker && (ticker.includes(":") || ticker.startsWith("AUTO")));
+import { inferMarketFromTicker, isForeignMarket } from "@/lib/market-utils";
 
 export default function TransactionsTab({
   handleDownloadTxCsv,
@@ -198,7 +195,7 @@ export default function TransactionsTab({
             );
             const currentMarket = currentMasterMatch
               ? currentMasterMatch.시장
-              : "KOSPI";
+              : inferMarketFromTicker(tx.티커);
             const isForeign = isForeignMarket(currentMarket, tx.티커);
 
             const quantity = Number(tx.수량) || 0;

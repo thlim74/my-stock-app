@@ -1,8 +1,4 @@
-const isForeignMarket = (market, ticker) =>
-  market === "NASDAQ" ||
-  market === "NYSE" ||
-  market === "AMEX" ||
-  (ticker && (ticker.includes(":") || ticker.startsWith("AUTO")));
+import { isForeignMarket } from "@/lib/market-utils";
 
 export default function DailyPricesTab({
   manualPriceForm,

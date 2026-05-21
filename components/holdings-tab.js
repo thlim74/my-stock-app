@@ -1,3 +1,5 @@
+import { isForeignMarket } from "@/lib/market-utils";
+
 const COLORS = [
   "bg-blue-500",
   "bg-emerald-500",
@@ -6,11 +8,7 @@ const COLORS = [
   "bg-purple-500",
 ];
 
-const isForeignHolding = (holding) =>
-  holding.시장 === "NASDAQ" ||
-  holding.시장 === "NYSE" ||
-  (holding.티커 &&
-    (holding.티커.includes(":") || holding.티커.startsWith("AUTO")));
+const isForeignHolding = (holding) => isForeignMarket(holding.시장, holding.티커);
 
 export default function HoldingsTab({ stats, formatNum, formatFloat }) {
   return (
