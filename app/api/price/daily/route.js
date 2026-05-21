@@ -164,6 +164,25 @@ const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
   return [...targets.values()];
 };
 
+const ensureAssetsExist = async (supabase, targets = []) => {
+  if (targets.length === 0) {
+    return;
+  }
+
+  const assetRows = targets.map((target) => ({
+    code: target.code,
+    name: target.name || target.code,
+    market: target.market || inferMarketFromTicker(target.code),
+    quantity: 0,
+  }));
+
+  const { error } = await supabase.from("assets").upsert(assetRows);
+
+  if (error) {
+    throw new Error(`Failed to ensure assets: ${error.message}`);
+  }
+};
+
 const normalizeDate = (value) => value.replace(/\./g, "-");
 
 const extractDomesticRows = (html) => {
@@ -380,6 +399,8 @@ export async function POST(request) {
         message: "매수 거래 기준 수집 대상이 없습니다.",
       });
     }
+
+    await ensureAssetsExist(supabase, targets);
 
     const rows = [];
     const skipped = [];
