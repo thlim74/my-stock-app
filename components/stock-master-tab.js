@@ -28,13 +28,13 @@ export default function StockMasterTab({
             onClick={handleDownloadMasterCsv}
             className="bg-white text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg font-black hover:bg-purple-100/50 transition-all"
           >
-            마스터 CSV 내보내기
+            CSV 다운로드
           </button>
           <button
             onClick={() => tabMasterCsvRef.current.click()}
             className="bg-purple-600 text-white px-3 py-1.5 rounded-lg font-black hover:bg-purple-700 transition-all"
           >
-            마스터 CSV 불러오기
+            CSV 업로드
           </button>
           <input
             type="file"

@@ -50,8 +50,23 @@ import {
   INITIAL_LIVE_TICKS,
   INITIAL_STOCK_MASTER,
   STORAGE_KEYS,
-  TODAY,
 } from "@/lib/seed-data";
+
+const CASH_ADJUSTMENT_STORAGE_KEY = "ultimate_v39_11_cash_adjustment";
+
+const formatToday = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const shiftDate = (dateText, offset) => {
+  const date = new Date(dateText);
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().split("T")[0];
+};
 
 /**
  * [STOCK-MANAGER ULTIMATE FINAL V39.11 - PIVOT FILTER PATCH]
@@ -61,7 +76,10 @@ import {
  */
 
 export default function StockManagerUltimateV39_11() {
-  const [activeTab, setActiveTab] = useState("거래관리");
+  const today = formatToday();
+  const defaultStartDate = shiftDate(today, -4);
+
+  const [activeTab, setActiveTab] = useState("보유현황");
   const [editingId, setEditingId] = useState(null);
   const [cashEditingId, setCashEditingId] = useState(null);
   const [masterEditingId, setMasterEditingId] = useState(null);
@@ -75,11 +93,11 @@ export default function StockManagerUltimateV39_11() {
   const tabMasterCsvRef = useRef(null);
 
   // --- [조회 기간 필터 및 실동작 트리거 상태] ---
-  const [startDate, setStartDate] = useState("2026-05-06");
-  const [endDate, setEndDate] = useState("2026-05-15");
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(today);
   const [appliedFilter, setAppliedFilter] = useState({
-    start: "2026-05-06",
-    end: "2026-05-15",
+    start: defaultStartDate,
+    end: today,
   });
 
   // --- [기준 가격 및 실시간 틱 데이터] ---
@@ -101,9 +119,9 @@ export default function StockManagerUltimateV39_11() {
   const [transactions, setTransactions] = useState([]);
   const [cashFlows, setCashFlows] = useState([]);
   const [stockMaster, setStockMaster] = useState(INITIAL_STOCK_MASTER);
+  const [cashAdjustment, setCashAdjustment] = useState(0);
 
   const [isLoaded, setIsLoaded] = useState(false);
-  const today = TODAY;
 
   // --- [개별 입력 폼 상태 구조 정의] ---
   const [newTx, setNewTx] = useState(() => createInitialTx(today));
@@ -237,6 +255,7 @@ export default function StockManagerUltimateV39_11() {
       const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
       const savedCash = localStorage.getItem(STORAGE_KEYS.CASH);
       const savedMaster = localStorage.getItem(STORAGE_KEYS.MASTER);
+      const savedCashAdjustment = localStorage.getItem(CASH_ADJUSTMENT_STORAGE_KEY);
 
       try {
         const response = await fetch("/api/app-state", { cache: "no-store" });
@@ -266,6 +285,10 @@ export default function StockManagerUltimateV39_11() {
             setStockMaster(JSON.parse(savedMaster));
           }
 
+          if (savedCashAdjustment) {
+            setCashAdjustment(Number(savedCashAdjustment) || 0);
+          }
+
           setIsLoaded(true);
           return;
         }
@@ -280,6 +303,7 @@ export default function StockManagerUltimateV39_11() {
       if (savedTx) setTransactions(JSON.parse(savedTx));
       if (savedCash) setCashFlows(JSON.parse(savedCash));
       if (savedMaster) setStockMaster(JSON.parse(savedMaster));
+      if (savedCashAdjustment) setCashAdjustment(Number(savedCashAdjustment) || 0);
       setIsLoaded(true);
     };
 
@@ -296,6 +320,7 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(STORAGE_KEYS.TX, JSON.stringify(transactions));
     localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(cashFlows));
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
+    localStorage.setItem(CASH_ADJUSTMENT_STORAGE_KEY, String(cashAdjustment));
 
     fetch("/api/app-state", {
       method: "POST",
@@ -308,7 +333,7 @@ export default function StockManagerUltimateV39_11() {
     }).catch(() => {
       // Keep local storage as a fallback even if remote save fails.
     });
-  }, [transactions, cashFlows, stockMaster, isLoaded]);
+  }, [transactions, cashFlows, stockMaster, cashAdjustment, isLoaded]);
 
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
   const formatFloat = (n) =>
@@ -325,6 +350,7 @@ export default function StockManagerUltimateV39_11() {
       transactions,
       cashFlows,
       stockMaster,
+      cashAdjustment,
       exportedAt: new Date().toISOString(),
     };
     const dataStr =
@@ -355,6 +381,7 @@ export default function StockManagerUltimateV39_11() {
           setTransactions(parsed.transactions);
           setCashFlows(parsed.cashFlows);
           setStockMaster(parsed.stockMaster);
+          setCashAdjustment(Number(parsed.cashAdjustment) || 0);
           setErrorMessage("");
           alert("성공적으로 복구가 완료되었습니다.");
         }
@@ -460,8 +487,9 @@ export default function StockManagerUltimateV39_11() {
         liveStockPrices,
         stockMaster,
         today,
+        cashAdjustment,
       }),
-    [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster, today],
+    [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster, today, cashAdjustment],
   );
 
   // ==========================================
@@ -735,22 +763,13 @@ export default function StockManagerUltimateV39_11() {
     }
 
     const currentAmount = Math.round(stats.cashBalance || 0);
-    const diff = targetAmount - currentAmount;
-    if (diff === 0) {
+    if (targetAmount === currentAmount) {
       alert("현재 현금 총액과 동일합니다.");
       return;
     }
-
-    const payload = {
-      id: Date.now(),
-      날짜: today,
-      구분: diff > 0 ? "입금" : "출금",
-      금액: Math.abs(diff),
-      메모: "현금총액수정",
-    };
-    setCashFlows([payload, ...cashFlows]);
+    setCashAdjustment(targetAmount - Math.round(stats.baseCashBalance || 0));
     setCashEditingId(null);
-    alert(`현금 총액을 ₩${formatNum(targetAmount)} 기준으로 반영했습니다.`);
+    alert(`현금 총액을 ${formatNum(targetAmount)} 기준으로 반영했습니다.`);
   };
 
   const saveMaster = () => {
@@ -900,8 +919,8 @@ export default function StockManagerUltimateV39_11() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-3 sm:p-6 text-slate-900">
-      <div className="max-w-[1800px] mx-auto">
+    <div className="min-h-screen bg-[#f8fafc] px-3 py-3 sm:px-6 sm:py-6 xl:px-10 2xl:px-16 text-slate-900">
+      <div className="max-w-[1480px] mx-auto">
         <AppHeader
           lastUpdate={lastUpdate}
         />

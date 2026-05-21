@@ -1,49 +1,19 @@
 import { isForeignMarket } from "@/lib/market-utils";
 
-const COLORS = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-indigo-500",
-  "bg-purple-500",
-];
-
 const isForeignHolding = (holding) => isForeignMarket(holding.시장, holding.티커);
 
 export default function HoldingsTab({ stats, formatNum, formatFloat }) {
   return (
-    <div>
-      <div className="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200">
-        <h3 className="text-[12px] font-black text-slate-600 mb-3 uppercase">
-          📂 포트폴리오 섹터 분산 비중
-        </h3>
-        <div className="w-full flex h-6 rounded-xl overflow-hidden border border-slate-300">
-          {stats.sectorWeights.map((sectorWeight, index) => (
-            <div
-              key={index}
-              style={{ width: `${sectorWeight.percentage}%` }}
-              className={`${COLORS[index % COLORS.length]} h-full relative group transition-all hover:opacity-90`}
-            >
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white truncate px-1">
-                {sectorWeight.percentage > 7
-                  ? `${sectorWeight.name}(${sectorWeight.percentage}%)`
-                  : ""}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
           <tr>
             <th>종목명</th>
             <th>티커</th>
             <th>시장구분</th>
-            <th>보유량</th>
+            <th>보유수량</th>
             <th>평균단가</th>
-            <th>장중 현재가 (Live)</th>
+            <th>현재가 (Live)</th>
             <th>평가금액</th>
             <th>손익(원화)</th>
             <th>수익률</th>
@@ -61,33 +31,21 @@ export default function HoldingsTab({ stats, formatNum, formatFloat }) {
                     {holding.시장}
                   </span>
                 </td>
-                <td>{formatNum(holding.보유량)}</td>
+                <td>{formatNum(holding.보유수량)}</td>
                 <td className="font-mono text-amber-700">
                   {isForeign
-                    ? `$ ${formatFloat(holding.평균단가외국)}`
-                    : `₩ ${formatNum(holding.평균단가)}`}
+                    ? `$ ${formatFloat(holding.평균단가달러기준)}`
+                    : formatNum(holding.평균단가)}
                 </td>
                 <td className="font-mono text-blue-600">
-                  {isForeign
-                    ? `$ ${formatFloat(holding.현재가)}`
-                    : `₩ ${formatNum(holding.현재가)}`}
+                  {isForeign ? `$ ${formatFloat(holding.현재가)}` : formatNum(holding.현재가)}
                 </td>
-                <td className="font-black text-slate-800">
-                  ₩ {formatNum(holding.평가금액)}
-                </td>
-                <td
-                  className={
-                    holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"
-                  }
-                >
+                <td className="font-black text-slate-800">{formatNum(holding.평가금액)}</td>
+                <td className={holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {holding.손익 >= 0 ? "+" : ""}
                   {formatNum(holding.손익)}
                 </td>
-                <td
-                  className={
-                    holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"
-                  }
-                >
+                <td className={holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {holding.수익률}
                 </td>
               </tr>
@@ -95,7 +53,6 @@ export default function HoldingsTab({ stats, formatNum, formatFloat }) {
           })}
         </tbody>
       </table>
-      </div>
     </div>
   );
 }
