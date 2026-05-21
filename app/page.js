@@ -956,6 +956,7 @@ export default function StockManagerUltimateV39_11() {
                 stats={stats}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
+                today={today}
               />
             )}
 
