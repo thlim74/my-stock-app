@@ -50,10 +50,10 @@ export default function PivotHistoryTab({
               <th className="bg-slate-100 text-slate-800 font-black sticky left-0 z-10 px-4">
                 종목명
               </th>
-              <th>현재보유</th>
+              <th>보유량</th>
               <th>평균단가</th>
               <th>총매수금액</th>
-              <th className="text-blue-600 bg-blue-50/30">실시간주가</th>
+              <th className="text-blue-600 bg-blue-50/30">최신종가</th>
               {pivotData.filteredDates.map((date) => (
                 <th
                   key={date}
@@ -64,10 +64,10 @@ export default function PivotHistoryTab({
               ))}
             </tr>
           </thead>
-          <tbody className="text-[12px] font-bold text-slate-800">
+          <tbody className="text-[13px] font-bold text-slate-800">
             <tr className="bg-slate-50 font-black text-slate-900 border-b border-slate-300 h-12">
               <td className="sticky left-0 bg-slate-100 font-black z-10 text-slate-700 text-left px-4">
-                일별 손익 합계
+                일별 수익 합계
               </td>
               <td>-</td>
               <td>-</td>
@@ -110,7 +110,7 @@ export default function PivotHistoryTab({
                 >
                   <td className="sticky left-0 bg-white font-black text-left px-4 border-r border-slate-200 z-10">
                     <span className="block text-slate-900 font-black">{row.종목명}</span>
-                    <span className="block text-[9px] text-slate-400 font-medium italic">
+                    <span className="block text-[10px] text-slate-400 font-medium italic">
                       {row.시장}:{row.티커}
                     </span>
                   </td>
@@ -149,7 +149,7 @@ export default function PivotHistoryTab({
                         }`}
                       >
                         <span className="block font-bold">{formatNum(snapshot.profit)}</span>
-                        <span className="block text-[10px]">({snapshot.rate.toFixed(1)}%)</span>
+                        <span className="block text-[11px]">({snapshot.rate.toFixed(1)}%)</span>
                       </td>
                     );
                   })}

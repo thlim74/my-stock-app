@@ -35,6 +35,31 @@ const buildTickerCandidates = (code, market) => {
   return [...new Set(candidates.filter(Boolean))];
 };
 
+const tryFetchNaverPrice = async (code, market) => {
+  const candidates = buildTickerCandidates(code, market);
+
+  for (const candidate of candidates) {
+    const response = await fetch(
+      `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${candidate}`,
+      {
+        headers: COMMON_HEADERS,
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) continue;
+
+    const data = await response.json();
+    const price = data?.result?.areas?.[0]?.datas?.[0]?.nv;
+
+    if (price !== undefined && price !== null) {
+      return { price, sourceCode: candidate };
+    }
+  }
+
+  return null;
+};
+
 const getPartsInTimeZone = (date, timeZone) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -95,35 +120,14 @@ const isMarketClosed = (market, code, now = new Date()) => {
   };
 };
 
-const tryFetchNaverPrice = async (code, market) => {
-  const candidates = buildTickerCandidates(code, market);
-
-  for (const candidate of candidates) {
-    const response = await fetch(
-      `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${candidate}`,
-      {
-        headers: COMMON_HEADERS,
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      continue;
-    }
-
-    const data = await response.json();
-    const price = data?.result?.areas?.[0]?.datas?.[0]?.nv;
-
-    if (price !== undefined && price !== null) {
-      return { price, sourceCode: candidate };
-    }
-  }
-
-  return null;
-};
-
 const inferMarketFromTicker = (ticker) =>
   ticker && (ticker.includes(":") || /^[A-Z]+$/.test(ticker)) ? "NASDAQ" : "KOSPI";
+
+const normalizeMonthStart = (dateText) => {
+  const [year, month] = String(dateText || "").split("-");
+  if (!year || !month) return dateText;
+  return `${year}-${month}-01`;
+};
 
 const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
   const targets = new Map();
@@ -132,17 +136,13 @@ const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
   );
 
   sorted.forEach((tx) => {
-    if (tx.구분 !== "매수") {
-      return;
-    }
+    if (tx.구분 !== "매수") return;
 
-    const ticker = tx.티커?.trim();
-    const name = tx.종목명?.trim();
+    const ticker = String(tx.티커 || "").trim();
+    const name = String(tx.종목명 || "").trim();
     const date = tx.날짜;
 
-    if (!ticker || !date) {
-      return;
-    }
+    if (!ticker || !date) return;
 
     const masterMatch = stockMaster.find(
       (stock) => stock.티커 === ticker || stock.종목명 === name,
@@ -150,13 +150,14 @@ const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
 
     const existing = targets.get(ticker);
     const market = masterMatch?.시장 || inferMarketFromTicker(ticker);
+    const startDate = normalizeMonthStart(date);
 
-    if (!existing || date < existing.startDate) {
+    if (!existing || startDate < existing.startDate) {
       targets.set(ticker, {
         code: ticker,
         name: name || masterMatch?.종목명 || ticker,
         market,
-        startDate: date,
+        startDate,
       });
     }
   });
@@ -165,9 +166,7 @@ const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
 };
 
 const ensureAssetsExist = async (supabase, targets = []) => {
-  if (targets.length === 0) {
-    return;
-  }
+  if (targets.length === 0) return;
 
   const assetRows = targets.map((target) => ({
     code: target.code,
@@ -177,7 +176,6 @@ const ensureAssetsExist = async (supabase, targets = []) => {
   }));
 
   const { error } = await supabase.from("assets").upsert(assetRows);
-
   if (error) {
     throw new Error(`Failed to ensure assets: ${error.message}`);
   }
@@ -191,9 +189,7 @@ const extractDomesticRows = (html) => {
 
   trMatches.forEach((tr) => {
     const dateMatch = tr.match(/gray03">([0-9]{4}\.[0-9]{2}\.[0-9]{2})<\/span>/);
-    if (!dateMatch) {
-      return;
-    }
+    if (!dateMatch) return;
 
     const nums = [
       ...tr.matchAll(
@@ -201,9 +197,7 @@ const extractDomesticRows = (html) => {
       ),
     ].map((match) => Number(match[1].replace(/,/g, "")));
 
-    if (nums.length === 0) {
-      return;
-    }
+    if (nums.length === 0) return;
 
     rows.push({
       date: normalizeDate(dateMatch[1]),
@@ -226,17 +220,12 @@ const fetchDomesticHistory = async (code, startDate) => {
       },
     );
 
-    if (!response.ok) {
-      break;
-    }
+    if (!response.ok) break;
 
     const buffer = await response.arrayBuffer();
     const html = new TextDecoder("euc-kr").decode(buffer);
     const pageRows = extractDomesticRows(html);
-
-    if (pageRows.length === 0) {
-      break;
-    }
+    if (pageRows.length === 0) break;
 
     rows.push(
       ...pageRows
@@ -249,28 +238,19 @@ const fetchDomesticHistory = async (code, startDate) => {
     );
 
     const oldestRow = pageRows[pageRows.length - 1];
-    if (!oldestRow || oldestRow.date < startDate) {
-      break;
-    }
+    if (!oldestRow || oldestRow.date < startDate) break;
   }
 
   const deduped = new Map();
-  rows.forEach((row) => {
-    deduped.set(`${row.code}:${row.date}`, row);
-  });
-
+  rows.forEach((row) => deduped.set(`${row.code}:${row.date}`, row));
   return [...deduped.values()];
 };
 
 const normalizeForeignSymbol = (code) => {
   const raw = String(code || "").trim().toUpperCase();
   if (!raw) return "";
-  if (raw.includes(":")) {
-    return raw.split(":").pop();
-  }
-  if (raw.includes(".")) {
-    return raw.split(".")[0];
-  }
+  if (raw.includes(":")) return raw.split(":").pop();
+  if (raw.includes(".")) return raw.split(".")[0];
   return raw;
 };
 
@@ -287,9 +267,7 @@ const toDateString = (ts) => {
 
 const fetchForeignHistory = async (code, startDate) => {
   const symbol = normalizeForeignSymbol(code);
-  if (!symbol) {
-    return [];
-  }
+  if (!symbol) return [];
 
   const period1 = toUnixSeconds(startDate);
   const period2 = Math.floor(Date.now() / 1000);
@@ -301,9 +279,7 @@ const fetchForeignHistory = async (code, startDate) => {
     },
   );
 
-  if (!response.ok) {
-    return [];
-  }
+  if (!response.ok) return [];
 
   const payload = await response.json();
   const result = payload?.chart?.result?.[0];
@@ -314,14 +290,10 @@ const fetchForeignHistory = async (code, startDate) => {
   for (let i = 0; i < timestamps.length; i += 1) {
     const ts = timestamps[i];
     const close = closes[i];
-    if (!ts || close === null || close === undefined || Number.isNaN(close)) {
-      continue;
-    }
+    if (!ts || close === null || close === undefined || Number.isNaN(close)) continue;
 
     const date = toDateString(ts);
-    if (date < startDate) {
-      continue;
-    }
+    if (date < startDate) continue;
 
     rows.push({
       code,
@@ -331,10 +303,7 @@ const fetchForeignHistory = async (code, startDate) => {
   }
 
   const deduped = new Map();
-  rows.forEach((row) => {
-    deduped.set(`${row.code}:${row.date}`, row);
-  });
-
+  rows.forEach((row) => deduped.set(`${row.code}:${row.date}`, row));
   return [...deduped.values()];
 };
 
@@ -356,7 +325,10 @@ const loadActiveAssets = async (supabase) => {
     throw new Error(`Failed to load holdings: ${holdingsError.message}`);
   }
 
-  return { holdings: (holdings || []).filter((holding) => holding.code), missingTable: false };
+  return {
+    holdings: (holdings || []).filter((holding) => holding.code),
+    missingTable: false,
+  };
 };
 
 export async function GET() {
@@ -492,7 +464,7 @@ export async function POST(request) {
             code: target.code,
             market: target.market,
             reason: isForeignTicker(target.market, target.code)
-              ? "해외 과거 종가를 찾지 못했습니다."
+              ? "해외 과거 종가 데이터를 찾지 못했습니다."
               : "수집 가능한 과거 종가가 없습니다.",
           });
           continue;
@@ -513,13 +485,12 @@ export async function POST(request) {
         success: true,
         updated: 0,
         targets: targets.length,
-        message: "백필된 종가 데이터가 없습니다.",
+        message: "백필할 종가 데이터가 없습니다.",
         skipped,
       });
     }
 
     const { error } = await supabase.from("daily_prices").upsert(rows);
-
     if (error) {
       throw new Error(`Failed to upsert daily prices: ${error.message}`);
     }
