@@ -262,6 +262,82 @@ const fetchDomesticHistory = async (code, startDate) => {
   return [...deduped.values()];
 };
 
+const normalizeForeignSymbol = (code) => {
+  const raw = String(code || "").trim().toUpperCase();
+  if (!raw) return "";
+  if (raw.includes(":")) {
+    return raw.split(":").pop();
+  }
+  if (raw.includes(".")) {
+    return raw.split(".")[0];
+  }
+  return raw;
+};
+
+const toUnixSeconds = (dateStr) =>
+  Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 1000);
+
+const toDateString = (ts) => {
+  const d = new Date(ts * 1000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const fetchForeignHistory = async (code, startDate) => {
+  const symbol = normalizeForeignSymbol(code);
+  if (!symbol) {
+    return [];
+  }
+
+  const period1 = toUnixSeconds(startDate);
+  const period2 = Math.floor(Date.now() / 1000);
+  const response = await fetch(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&events=history`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const payload = await response.json();
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closes = result?.indicators?.quote?.[0]?.close || [];
+
+  const rows = [];
+  for (let i = 0; i < timestamps.length; i += 1) {
+    const ts = timestamps[i];
+    const close = closes[i];
+    if (!ts || close === null || close === undefined || Number.isNaN(close)) {
+      continue;
+    }
+
+    const date = toDateString(ts);
+    if (date < startDate) {
+      continue;
+    }
+
+    rows.push({
+      code,
+      date,
+      price: Number(close),
+    });
+  }
+
+  const deduped = new Map();
+  rows.forEach((row) => {
+    deduped.set(`${row.code}:${row.date}`, row);
+  });
+
+  return [...deduped.values()];
+};
+
 const loadActiveAssets = async (supabase) => {
   const { data: holdings, error: holdingsError } = await supabase
     .from("assets")
@@ -406,23 +482,18 @@ export async function POST(request) {
     const skipped = [];
 
     for (const target of targets) {
-      if (isForeignTicker(target.market, target.code)) {
-        skipped.push({
-          code: target.code,
-          market: target.market,
-          reason: "해외 종목 과거 종가 백필은 아직 지원하지 않습니다.",
-        });
-        continue;
-      }
-
       try {
-        const historyRows = await fetchDomesticHistory(target.code, target.startDate);
+        const historyRows = isForeignTicker(target.market, target.code)
+          ? await fetchForeignHistory(target.code, target.startDate)
+          : await fetchDomesticHistory(target.code, target.startDate);
 
         if (historyRows.length === 0) {
           skipped.push({
             code: target.code,
             market: target.market,
-            reason: "수집 가능한 과거 종가가 없습니다.",
+            reason: isForeignTicker(target.market, target.code)
+              ? "해외 과거 종가를 찾지 못했습니다."
+              : "수집 가능한 과거 종가가 없습니다.",
           });
           continue;
         }
