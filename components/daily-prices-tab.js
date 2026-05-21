@@ -38,7 +38,7 @@ export default function DailyPricesTab({
 
   return (
     <div>
-      <div className="mb-6 p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex items-end gap-4">
+      <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
         <div className="text-[13px] font-black text-amber-800">
           현재가 수동 보정
         </div>
@@ -89,7 +89,8 @@ export default function DailyPricesTab({
         </button>
       </div>
 
-      <table className="w-full text-center border-collapse">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
           <tr>
             <th>기준일</th>
@@ -191,6 +192,7 @@ export default function DailyPricesTab({
             })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

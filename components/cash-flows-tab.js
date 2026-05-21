@@ -69,7 +69,7 @@ export default function CashFlowsTab({
       </div>
 
       <div
-        className={`mb-6 p-6 rounded-2xl border ${cashEditingId ? "bg-amber-50/50 border-amber-300" : "bg-slate-50 border-slate-200"} grid grid-cols-5 gap-4 items-end`}
+        className={`mb-6 p-4 sm:p-6 rounded-2xl border ${cashEditingId ? "bg-amber-50/50 border-amber-300" : "bg-slate-50 border-slate-200"} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end`}
       >
         <div className="space-y-1">
           <label className="text-[11px] font-black text-slate-500">날짜</label>
@@ -127,7 +127,8 @@ export default function CashFlowsTab({
         </button>
       </div>
 
-      <table className="w-full text-center border-collapse">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[760px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th className="w-12">
@@ -181,7 +182,7 @@ export default function CashFlowsTab({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
-

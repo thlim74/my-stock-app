@@ -940,7 +940,7 @@ export default function StockManagerUltimateV39_11() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 text-slate-900">
+    <div className="min-h-screen bg-[#f8fafc] p-3 sm:p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
         <AppHeader
           handleDownloadTemplate={handleDownloadTemplate}
@@ -966,7 +966,7 @@ export default function StockManagerUltimateV39_11() {
         <AssetSummaryGrid stats={stats} formatNum={formatNum} />
 
         {/* 8개 탭 하우징 프레임 */}
-        <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
+        <div className="bg-white rounded-2xl sm:rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
           <TabNavigation
             activeTab={activeTab}
             onSelectTab={(tab) => {
@@ -976,7 +976,7 @@ export default function StockManagerUltimateV39_11() {
             }}
           />
 
-          <div className="p-8">
+          <div className="p-3 sm:p-8">
             {/* 탭 1. 보유현황 */}
             {activeTab === "보유현황" && (
               <HoldingsTab

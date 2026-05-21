@@ -14,12 +14,12 @@ export default function TabNavigation({
   onSelectTab,
 }) {
   return (
-    <div className="flex bg-slate-50 p-2 gap-1 border-b border-slate-200">
+    <div className="flex overflow-x-auto whitespace-nowrap bg-slate-50 p-2 gap-1 border-b border-slate-200">
       {TABS.map((tab) => (
         <button
           key={tab}
           onClick={() => onSelectTab(tab)}
-          className={`px-6 py-3.5 rounded-2xl text-[12px] font-black transition-all ${activeTab === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+          className={`shrink-0 px-4 sm:px-6 py-3 rounded-2xl text-[12px] font-black transition-all ${activeTab === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
         >
           {tab}
         </button>

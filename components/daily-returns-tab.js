@@ -1,6 +1,7 @@
 export default function DailyReturnsTab({ dailyList, formatNum }) {
   return (
-    <table className="w-full text-center border-collapse">
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[760px] text-center border-collapse">
       <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
         <tr>
           <th>날짜</th>
@@ -35,5 +36,6 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
           ))}
       </tbody>
     </table>
+    </div>
   );
 }

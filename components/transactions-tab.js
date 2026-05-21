@@ -53,7 +53,7 @@ export default function TransactionsTab({
       </div>
 
       <div
-        className={`mb-8 p-6 rounded-2xl border transition-all ${editingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-4 gap-4 items-end`}
+        className={`mb-8 p-4 sm:p-6 rounded-2xl border transition-all ${editingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end`}
       >
         <div className="col-span-4 font-black text-[14px] text-slate-700 flex justify-between">
           <span>
@@ -163,7 +163,8 @@ export default function TransactionsTab({
         </button>
       </div>
 
-      <table className="w-full text-center border-collapse">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[1100px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th className="w-12">
@@ -268,6 +269,7 @@ export default function TransactionsTab({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

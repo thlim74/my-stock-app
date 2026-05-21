@@ -47,7 +47,7 @@ export default function StockMasterTab({
       </div>
 
       <div
-        className={`mb-8 p-6 rounded-2xl border transition-all ${masterEditingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-5 gap-4 items-end`}
+        className={`mb-8 p-4 sm:p-6 rounded-2xl border transition-all ${masterEditingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end`}
       >
         <div className="col-span-5 font-black text-[13px] text-slate-700 flex justify-between">
           <span>
@@ -125,7 +125,8 @@ export default function StockMasterTab({
         </button>
       </div>
 
-      <table className="w-full text-center border-collapse">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[820px] text-center border-collapse">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th className="w-12">
@@ -186,7 +187,7 @@ export default function StockMasterTab({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
-

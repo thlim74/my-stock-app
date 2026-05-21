@@ -17,7 +17,7 @@ export default function PivotHistoryTab({
 }) {
   return (
     <div>
-      <div className="mb-6 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+      <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div>
           <span className="text-[13px] font-black text-slate-700 block">
             📊 보유 종목별 가로 전개 피벗 매트릭스
@@ -26,7 +26,7 @@ export default function PivotHistoryTab({
             시작일과 종료일을 지정한 후 조회 버튼을 누르세요.
           </span>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <span className="text-[11px] font-black text-slate-500">시작일</span>
           <input
             type="date"
