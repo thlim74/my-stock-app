@@ -31,11 +31,9 @@ import {
 import {
   buildCashCsvRows,
   buildMasterCsvRows,
-  buildTemplateCsvRows,
   buildTransactionsCsvRows,
   downloadCsv,
   parseCashFlowsCsv,
-  parseIntegratedTransactionsCsv,
   parseStockMasterCsv,
   parseTransactionsCsv,
   readTextFile,
@@ -72,7 +70,6 @@ export default function StockManagerUltimateV39_11() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const fileInputRef = useRef(null);
-  const csvUploadRef = useRef(null);
   const tabCashCsvRef = useRef(null);
   const tabTxCsvRef = useRef(null);
   const tabMasterCsvRef = useRef(null);
@@ -368,43 +365,6 @@ export default function StockManagerUltimateV39_11() {
     };
     reader.readAsText(file);
     e.target.value = "";
-  };
-
-  const handleDownloadTemplate = () => {
-    const { headers, rows } = buildTemplateCsvRows();
-    downloadCsv("통합매매내역_일괄등록_양식.csv", headers, rows);
-  };
-
-  // [전제 4 구현] 통합 대량 CSV 업로드 및 자동 티커 핸들러
-  const handleUploadCSV = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      setErrorMessage("");
-      const text = await readTextFile(file, "UTF-8");
-      const { transactions: list, masterTokens, errorLines } =
-        parseIntegratedTransactionsCsv(text, stockMaster);
-
-      if (errorLines.length > 0) {
-        setErrorMessage(`[CSV 분석 경고]\n${errorLines.join("\n")}`);
-      }
-
-      if (list.length > 0) {
-        if (confirm(`총 ${list.length}건의 데이터를 결합 업로드 하시겠습니까?`)) {
-          if (masterTokens.length > 0) {
-            setStockMaster((prev) => [...prev, ...masterTokens]);
-          }
-          setTransactions((prev) => [...list, ...prev]);
-        }
-      } else {
-        alert("업로드 가능한 유효 데이터 행이 전무합니다.");
-      }
-    } catch (err) {
-      setErrorMessage(`통합 CSV 에러: ${err.message}`);
-      alert(`[에러] ${err.message}`);
-    } finally {
-      e.target.value = "";
-    }
   };
 
   // 개별 탭 엑셀(CSV) 입출력 핸들러 그룹
@@ -943,12 +903,6 @@ export default function StockManagerUltimateV39_11() {
     <div className="min-h-screen bg-[#f8fafc] p-3 sm:p-6 text-slate-900">
       <div className="max-w-[1800px] mx-auto">
         <AppHeader
-          handleDownloadTemplate={handleDownloadTemplate}
-          csvUploadRef={csvUploadRef}
-          handleDownloadBackup={handleDownloadBackup}
-          fileInputRef={fileInputRef}
-          handleUploadBackup={handleUploadBackup}
-          handleUploadCSV={handleUploadCSV}
           lastUpdate={lastUpdate}
         />
 
@@ -1108,6 +1062,41 @@ export default function StockManagerUltimateV39_11() {
                 formatNum={formatNum}
                 formatFloat={formatFloat}
               />
+            )}
+
+            {activeTab === "관리" && (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+                  <h3 className="text-[14px] font-black text-slate-800 mb-3">데이터 백업/복구</h3>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={handleDownloadBackup}
+                      className="text-[12px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all"
+                    >
+                      전체 데이터 백업(JSON)
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current.click()}
+                      className="text-[12px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all"
+                    >
+                      전체 데이터 복구(JSON)
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleUploadBackup}
+                      accept=".json"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+                  <h3 className="text-[14px] font-black text-slate-800 mb-2">로그인/접근 관리</h3>
+                  <p className="text-[12px] font-bold text-slate-500">
+                    추후 로그인 관리 기능을 이 탭에서 확장할 수 있도록 준비된 영역입니다.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
