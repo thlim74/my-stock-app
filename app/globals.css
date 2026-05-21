@@ -41,3 +41,38 @@ table {
   width: 100%;
   border: 1px solid #e2e8f0;
 }
+
+.data-table-wrap {
+  overflow: auto;
+  max-height: min(68vh, 900px);
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: white;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+.data-table thead th:first-child {
+  z-index: 30;
+}
+
+.data-table tbody td:first-child {
+  background: white;
+}

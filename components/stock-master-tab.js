@@ -125,8 +125,8 @@ export default function StockMasterTab({
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] text-center border-collapse">
+      <div className="data-table-wrap">
+      <table className="data-table min-w-[820px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th className="w-12">

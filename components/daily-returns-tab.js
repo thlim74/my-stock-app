@@ -1,7 +1,7 @@
 export default function DailyReturnsTab({ dailyList, formatNum }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] text-center border-collapse">
+    <div className="data-table-wrap">
+      <table className="data-table min-w-[980px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th>기준일</th>

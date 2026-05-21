@@ -43,8 +43,8 @@ export default function PivotHistoryTab({
           </button>
         </div>
       </div>
-      <div className="w-full overflow-x-auto border rounded-2xl border-slate-200">
-        <table className="w-full text-center border-collapse whitespace-nowrap">
+      <div className="data-table-wrap w-full">
+        <table className="data-table w-full text-center whitespace-nowrap">
           <thead className="bg-[#f8fafc] text-slate-700 text-[11px] font-black border-b border-slate-200">
             <tr>
               <th className="bg-slate-100 text-slate-800 font-black sticky left-0 z-10 px-4">
