@@ -12,9 +12,35 @@ const getSupabaseClient = () => {
   return createClient(url, anonKey);
 };
 
-export async function GET() {
+export async function GET(request) {
   try {
     const supabase = getSupabaseClient();
+    const searchParams = request.nextUrl.searchParams;
+    const code = searchParams.get("code");
+    const date = searchParams.get("date");
+
+    if (code || date) {
+      let query = supabase
+        .from("daily_prices")
+        .select("code, date, price")
+        .order("date", { ascending: false });
+
+      if (code) {
+        query = query.eq("code", code);
+      }
+
+      if (date) {
+        query = query.eq("date", date);
+      }
+
+      const { data, error } = await query.limit(500);
+
+      if (error) {
+        throw new Error(`Failed to load daily price history: ${error.message}`);
+      }
+
+      return NextResponse.json(data || []);
+    }
 
     const { data, error } = await supabase
       .from("daily_prices")

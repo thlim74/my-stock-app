@@ -129,7 +129,11 @@ const normalizeMonthStart = (dateText) => {
   return `${year}-${month}-01`;
 };
 
-const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
+const deriveTargetsFromTransactions = (
+  transactions = [],
+  stockMaster = [],
+  holdingTickers = null,
+) => {
   const targets = new Map();
   const sorted = [...transactions].sort(
     (a, b) => new Date(a.날짜) - new Date(b.날짜),
@@ -143,6 +147,7 @@ const deriveTargetsFromTransactions = (transactions = [], stockMaster = []) => {
     const date = tx.날짜;
 
     if (!ticker || !date) return;
+    if (holdingTickers && !holdingTickers.has(ticker)) return;
 
     const masterMatch = stockMaster.find(
       (stock) => stock.티커 === ticker || stock.종목명 === name,
@@ -436,8 +441,21 @@ export async function POST(request) {
     const body = await request.json();
     const transactions = Array.isArray(body?.transactions) ? body.transactions : [];
     const stockMaster = Array.isArray(body?.stockMaster) ? body.stockMaster : [];
+    const holdingList = Array.isArray(body?.holdingList) ? body.holdingList : [];
+    const holdingTickers =
+      holdingList.length > 0
+        ? new Set(
+            holdingList
+              .map((holding) => String(holding.티커 || "").trim())
+              .filter(Boolean),
+          )
+        : null;
 
-    const targets = deriveTargetsFromTransactions(transactions, stockMaster);
+    const targets = deriveTargetsFromTransactions(
+      transactions,
+      stockMaster,
+      holdingTickers,
+    );
 
     if (targets.length === 0) {
       return Response.json({

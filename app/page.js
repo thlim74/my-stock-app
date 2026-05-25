@@ -689,7 +689,11 @@ export default function StockManagerUltimateV39_11() {
       const response = await fetch("/api/price/daily", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactions, stockMaster }),
+        body: JSON.stringify({
+          transactions,
+          stockMaster,
+          holdingList: stats.holdingList,
+        }),
       });
 
       const result = await response.json();
