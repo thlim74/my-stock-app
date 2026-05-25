@@ -35,16 +35,19 @@ export async function GET() {
 
     const latestByCode = new Map();
     const previousByCode = new Map();
+    const oldestByCode = new Map();
+    const countByCode = new Map();
 
     for (const row of data || []) {
+      countByCode.set(row.code, (countByCode.get(row.code) || 0) + 1);
+
       if (!latestByCode.has(row.code)) {
         latestByCode.set(row.code, row);
-        continue;
-      }
-
-      if (!previousByCode.has(row.code)) {
+      } else if (!previousByCode.has(row.code)) {
         previousByCode.set(row.code, row);
       }
+
+      oldestByCode.set(row.code, row);
     }
 
     const result = Array.from(latestByCode.entries()).map(([code, latest]) => ({
@@ -53,6 +56,8 @@ export async function GET() {
       latestPrice: latest.price,
       previousDate: previousByCode.get(code)?.date || null,
       previousPrice: previousByCode.get(code)?.price || null,
+      oldestDate: oldestByCode.get(code)?.date || latest.date,
+      rowCount: countByCode.get(code) || 1,
     }));
 
     return NextResponse.json(result);

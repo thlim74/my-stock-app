@@ -39,9 +39,7 @@ export default function DailyPricesTab({
   return (
     <div>
       <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
-        <div className="text-[13px] font-black text-amber-800">
-          현재가 수동 보정
-        </div>
+        <div className="text-[13px] font-black text-amber-800">현재가 수동 보정</div>
         <button
           onClick={handleCollectDailyPriceHistory}
           className="ml-4 bg-slate-800 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-slate-700 transition-all"
@@ -89,23 +87,29 @@ export default function DailyPricesTab({
         </button>
       </div>
 
+      <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[12px] font-bold text-slate-500">
+        이 화면은 종목별 `최신 종가 / 직전 종가 / 최초 수집일 / 수집건수` 요약을 보여줍니다.
+      </div>
+
       <div className="data-table-wrap">
-      <table className="data-table min-w-[980px] text-center">
-        <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
-          <tr>
-            <th>기준일</th>
-            <th>티커</th>
-            <th>종목명</th>
-            <th>시장구분</th>
-            <th>보유수량</th>
-            <th>최근 종가</th>
-            <th>직전 종가</th>
-            <th>장중 현재가</th>
-            <th>종가 대비 변동</th>
-          </tr>
-        </thead>
-        <tbody className="text-[12px] font-bold">
-          {sortedStocks.map((stock, index) => {
+        <table className="data-table min-w-[1180px] text-center">
+          <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
+            <tr>
+              <th>기준일</th>
+              <th>티커</th>
+              <th>종목명</th>
+              <th>시장구분</th>
+              <th>보유수량</th>
+              <th>최신 종가</th>
+              <th>직전 종가</th>
+              <th>최초 수집일</th>
+              <th>수집건수</th>
+              <th>실시간 현재가</th>
+              <th>종가 대비 변동</th>
+            </tr>
+          </thead>
+          <tbody className="text-[12px] font-bold">
+            {sortedStocks.map((stock, index) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
               const priceStatus = livePriceStatus[stock.티커];
@@ -129,7 +133,9 @@ export default function DailyPricesTab({
               return (
                 <tr
                   key={index}
-                  className={`h-11 border-b hover:bg-slate-50 ${holdingQty > 0 ? "bg-blue-50/50" : ""}`}
+                  className={`h-11 border-b hover:bg-slate-50 ${
+                    holdingQty > 0 ? "bg-blue-50/50" : ""
+                  }`}
                 >
                   <td>{snapshot?.latestDate || today}</td>
                   <td className="text-blue-600 font-black">{stock.티커}</td>
@@ -153,24 +159,28 @@ export default function DailyPricesTab({
                       ? "-"
                       : isForeign
                         ? `$ ${formatFloat(latestClose)}`
-                        : `₩${formatNum(latestClose)}`}
+                        : formatNum(latestClose)}
                   </td>
                   <td className="font-mono text-slate-500">
                     {previousClose === null
                       ? "-"
                       : isForeign
                         ? `$ ${formatFloat(previousClose)}`
-                        : `₩${formatNum(previousClose)}`}
+                        : formatNum(previousClose)}
                   </td>
+                  <td className="text-slate-600">{snapshot?.oldestDate || "-"}</td>
+                  <td className="text-slate-700">{snapshot?.rowCount || 0}</td>
                   <td className="font-mono font-black text-slate-900">
                     {currentPrice === null
                       ? "-"
                       : isForeign
                         ? `$ ${formatFloat(currentPrice)}`
-                        : `₩${formatNum(currentPrice)}`}
+                        : formatNum(currentPrice)}
                     {priceStatus && (
                       <div
-                        className={`mt-1 text-[10px] font-bold ${priceStatus.ok ? "text-emerald-600" : "text-amber-600"}`}
+                        className={`mt-1 text-[10px] font-bold ${
+                          priceStatus.ok ? "text-emerald-600" : "text-amber-600"
+                        }`}
                       >
                         {priceStatus.message}
                       </div>
@@ -181,17 +191,19 @@ export default function DailyPricesTab({
                       <span className="text-slate-400">-</span>
                     ) : (
                       <span
-                        className={`text-[11px] font-black ${diff >= 0 ? "text-rose-500" : "text-blue-500"}`}
+                        className={`text-[11px] font-black ${
+                          diff >= 0 ? "text-rose-500" : "text-blue-500"
+                        }`}
                       >
-                        {diff >= 0 ? `▲ ${pct}%` : `▼ ${Math.abs(Number(pct)).toFixed(2)}%`}
+                        {diff >= 0 ? `+${pct}%` : `-${Math.abs(Number(pct)).toFixed(2)}%`}
                       </span>
                     )}
                   </td>
                 </tr>
               );
             })}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
       </div>
     </div>
   );
