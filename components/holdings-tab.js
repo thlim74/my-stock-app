@@ -2,10 +2,17 @@ import { isForeignMarket } from "@/lib/market-utils";
 
 const isForeignHolding = (holding) => isForeignMarket(holding.시장, holding.티커);
 
-export default function HoldingsTab({ stats, formatNum, formatFloat, today }) {
+export default function HoldingsTab({
+  stats,
+  formatNum,
+  formatFloat,
+  dailyPriceSnapshots,
+  today,
+  exchangeRate,
+}) {
   return (
     <div className="data-table-wrap">
-      <table className="data-table min-w-[1180px] text-center">
+      <table className="data-table min-w-[1320px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
           <tr>
             <th>종목명</th>
@@ -15,15 +22,33 @@ export default function HoldingsTab({ stats, formatNum, formatFloat, today }) {
             <th>순투자원금</th>
             <th>평균단가</th>
             <th>최신종가</th>
-            <th>기준일</th>
             <th>평가금액</th>
             <th>평가손익</th>
-            <th>수익률</th>
+            <th>평가수익률</th>
+            <th>일수익금</th>
+            <th>일수익률</th>
           </tr>
         </thead>
         <tbody className="text-[13px] font-bold">
           {stats.holdingList.map((holding, index) => {
             const isForeign = isForeignHolding(holding);
+            const snapshot = dailyPriceSnapshots?.[holding.티커];
+            const latestDate = snapshot?.latestDate || today;
+            const referenceClose =
+              latestDate === today && snapshot?.previousPrice != null
+                ? snapshot.previousPrice
+                : snapshot?.latestPrice ?? null;
+            const dayProfit =
+              referenceClose != null
+                ? isForeign
+                  ? (holding.현재가 - referenceClose) * holding.보유수량 * exchangeRate
+                  : (holding.현재가 - referenceClose) * holding.보유수량
+                : 0;
+            const dayRate =
+              referenceClose != null && referenceClose > 0
+                ? ((holding.현재가 - referenceClose) / referenceClose) * 100
+                : 0;
+
             return (
               <tr key={index} className="h-12 border-b hover:bg-slate-50">
                 <td className="font-black text-blue-600">{holding.종목명}</td>
@@ -43,7 +68,6 @@ export default function HoldingsTab({ stats, formatNum, formatFloat, today }) {
                 <td className="font-mono text-blue-600">
                   {isForeign ? `$ ${formatFloat(holding.현재가)}` : formatNum(holding.현재가)}
                 </td>
-                <td className="text-slate-500">{today}</td>
                 <td className="font-black text-slate-800">{formatNum(holding.평가금액)}</td>
                 <td className={holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {holding.손익 >= 0 ? "+" : ""}
@@ -51,6 +75,14 @@ export default function HoldingsTab({ stats, formatNum, formatFloat, today }) {
                 </td>
                 <td className={holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {holding.수익률}
+                </td>
+                <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
+                  {dayProfit >= 0 ? "+" : ""}
+                  {formatNum(dayProfit)}
+                </td>
+                <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
+                  {dayRate >= 0 ? "+" : ""}
+                  {dayRate.toFixed(2)}%
                 </td>
               </tr>
             );

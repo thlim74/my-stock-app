@@ -960,7 +960,9 @@ export default function StockManagerUltimateV39_11() {
                 stats={stats}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
+                dailyPriceSnapshots={dailyPriceSnapshots}
                 today={today}
+                exchangeRate={EXCHANGE_RATE}
               />
             )}
 
