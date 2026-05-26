@@ -20,7 +20,10 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
         <tbody className="text-[13px] font-bold">
           {sortedList.map((daily, index) => (
             <tr key={index} className="h-11 border-b hover:bg-slate-50">
-              <td className="font-black text-slate-700">{daily.기준일}</td>
+              <td className="font-black text-slate-700">
+                {daily.기준일}
+                {daily.휴장여부 ? " (휴장)" : ""}
+              </td>
               <td className="text-slate-700">{daily.기준일 === latestDate ? "실시간" : "종가"}</td>
               <td className="font-black text-slate-900">{formatNum(daily.평가금액)}</td>
               <td className={daily.당일현금흐름 >= 0 ? "text-slate-700" : "text-blue-500"}>
