@@ -104,6 +104,7 @@ export default function StockManagerUltimateV39_11() {
     role: "user",
   });
   const [canBootstrap, setCanBootstrap] = useState(true);
+  const isAdminUser = authUser?.role === "admin";
 
   const fileInputRef = useRef(null);
   const tabCashCsvRef = useRef(null);
@@ -652,6 +653,11 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleUploadCashCsv = async (e) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 업로드할 수 없습니다.");
+      e.target.value = "";
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -676,6 +682,11 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleUploadTxCsv = async (e) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 업로드할 수 없습니다.");
+      e.target.value = "";
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -706,6 +717,11 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleUploadMasterCsv = async (e) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 업로드할 수 없습니다.");
+      e.target.value = "";
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -927,11 +943,19 @@ export default function StockManagerUltimateV39_11() {
 
   // [CRUD 인터랙션 데이터 제어 그룹]
   const triggerEditTx = (item) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 수정할 수 없습니다.");
+      return;
+    }
     setEditingId(item.id);
     setNewTx(createEditableTransaction(item));
   };
 
   const triggerEditMaster = (item) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 수정할 수 없습니다.");
+      return;
+    }
     setMasterEditingId(item.id);
     setNewStock(createEditableStock(item));
   };
@@ -946,6 +970,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleCollectDailyPriceHistory = async () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 실행할 수 없습니다.");
+      return;
+    }
     try {
       const response = await fetch("/api/price/daily", {
         method: "POST",
@@ -982,6 +1010,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const saveTx = () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 저장할 수 없습니다.");
+      return;
+    }
     setErrorMessage("");
     if (!newTx.종목명) {
       setErrorMessage("종목 식별 인자가 누락되었습니다.");
@@ -997,6 +1029,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const saveCash = () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 저장할 수 없습니다.");
+      return;
+    }
     const payload = buildCashPayload(newCash);
     if (!payload) return;
     const nextPayload = { ...payload, id: cashEditingId || payload.id };
@@ -1011,6 +1047,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const triggerEditCash = (item) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 수정할 수 없습니다.");
+      return;
+    }
     setCashEditingId(item.id);
     setNewCash({
       날짜: item.날짜,
@@ -1021,6 +1061,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const applyCashTotalAdjustment = () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 수정할 수 없습니다.");
+      return;
+    }
     const targetAmount = parseCleanNum(cashTotalInput);
     if (targetAmount < 0) {
       alert("현금 총액은 0 이상이어야 합니다.");
@@ -1038,6 +1082,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const saveMaster = () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 저장할 수 없습니다.");
+      return;
+    }
     if (!newStock.종목명) return;
     const normalizedTicker = String(newStock.티커 || "")
       .trim()
@@ -1068,6 +1116,9 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleStockNameChange = (name) => {
+    if (!isAdminUser) {
+      return;
+    }
     const trimmedName = String(name || "").trim();
     const lookupPool = [...stockMaster, ...INITIAL_STOCK_MASTER];
     const matched = lookupPool.find((item) => item.종목명 === trimmedName);
@@ -1084,6 +1135,9 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const handleStockTickerBlur = async () => {
+    if (!isAdminUser) {
+      return;
+    }
     const normalizedTicker = String(newStock.티커 || "")
       .trim()
       .toUpperCase();
@@ -1128,6 +1182,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const deleteItem = (id) => {
+    if (!isAdminUser) {
+      alert("일반사용자는 삭제할 수 없습니다.");
+      return;
+    }
     if (!confirm("해당 레코드를 완전히 삭제 파기하시겠습니까?")) return;
     const result = removeItemByTab({
       activeTab,
@@ -1156,6 +1214,10 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const deleteSelected = () => {
+    if (!isAdminUser) {
+      alert("일반사용자는 삭제할 수 없습니다.");
+      return;
+    }
     if (
       !confirm(`선택한 ${selectedIds.length}개의 내역을 일괄 파기 삭제합니까?`)
     )
@@ -1174,6 +1236,9 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const resetForms = () => {
+    if (!isAdminUser && authUser) {
+      return;
+    }
     setEditingId(null);
     setCashEditingId(null);
     setMasterEditingId(null);
@@ -1235,6 +1300,8 @@ export default function StockManagerUltimateV39_11() {
       <div className="max-w-[1480px] mx-auto">
         <AppHeader
           lastUpdate={lastUpdate}
+          authUser={authUser}
+          onLogout={handleLogout}
         />
 
         {errorMessage && (
@@ -1405,30 +1472,32 @@ export default function StockManagerUltimateV39_11() {
 
             {activeTab === "관리" && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
-                  <h3 className="text-[14px] font-black text-slate-800 mb-3">데이터 백업/복구</h3>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={handleDownloadBackup}
-                      className="text-[12px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all"
-                    >
-                      전체 데이터 백업(JSON)
-                    </button>
-                    <button
-                      onClick={() => fileInputRef.current.click()}
-                      className="text-[12px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all"
-                    >
-                      전체 데이터 복구(JSON)
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleUploadBackup}
-                      accept=".json"
-                      className="hidden"
-                    />
+                {isAdminUser && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+                    <h3 className="text-[14px] font-black text-slate-800 mb-3">데이터 백업/복구</h3>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={handleDownloadBackup}
+                        className="text-[12px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all"
+                      >
+                        전체 데이터 백업(JSON)
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current.click()}
+                        className="text-[12px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all"
+                      >
+                        전체 데이터 복구(JSON)
+                      </button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleUploadBackup}
+                        accept=".json"
+                        className="hidden"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 <AuthManagementTab
                   authUser={authUser}
                   users={authUsers}

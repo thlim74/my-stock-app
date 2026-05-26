@@ -1,4 +1,4 @@
-export default function AppHeader({ lastUpdate }) {
+export default function AppHeader({ lastUpdate, authUser, onLogout }) {
   return (
     <div className="mb-4 sm:mb-6 bg-white px-5 py-4 sm:px-7 sm:py-5 xl:px-8 xl:py-6 rounded-2xl sm:rounded-[24px] border border-slate-200 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -15,6 +15,14 @@ export default function AppHeader({ lastUpdate }) {
             </span>
           </div>
         </div>
+        {authUser && (
+          <button
+            onClick={onLogout}
+            className="self-start sm:self-auto text-[12px] font-black bg-slate-100 border border-slate-300 text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-200"
+          >
+            로그아웃
+          </button>
+        )}
       </div>
     </div>
   );
