@@ -194,8 +194,6 @@ export default function DailyPricesTab({
               <th>시장구분</th>
               <th>보유수량</th>
               <th>전일종가</th>
-              <th>최초 수집일</th>
-              <th>수집건수</th>
               <th>실시간 현재가</th>
               <th>종가 대비 변동</th>
             </tr>
@@ -256,8 +254,6 @@ export default function DailyPricesTab({
                         ? `$ ${formatFloat(referenceClose)}`
                         : formatNum(referenceClose)}
                   </td>
-                  <td className="text-slate-600">{snapshot?.oldestDate || "-"}</td>
-                  <td className="text-slate-700">{snapshot?.rowCount || 0}</td>
                   <td className="font-mono font-black text-slate-900">
                     {currentPrice === null
                       ? "-"

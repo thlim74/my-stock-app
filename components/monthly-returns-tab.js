@@ -1,4 +1,8 @@
 export default function MonthlyReturnsTab({ monthlyList, formatNum }) {
+  const visibleMonthlyList = monthlyList.filter(
+    (monthly) => String(monthly.월별 || "") >= "2025-11",
+  );
+
   return (
     <div className="data-table-wrap">
       <table className="data-table min-w-[1100px] text-center">
@@ -14,7 +18,7 @@ export default function MonthlyReturnsTab({ monthlyList, formatNum }) {
           </tr>
         </thead>
         <tbody className="text-[13px] font-bold">
-          {monthlyList.map((monthly) => (
+          {visibleMonthlyList.map((monthly) => (
             <tr key={monthly.월별} className="h-11 border-b hover:bg-slate-50">
               <td className="font-black text-blue-600">{monthly.월별}</td>
               <td className="font-black text-slate-800">{formatNum(monthly.순투자원금)}</td>
