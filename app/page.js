@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import AppHeader from "@/components/app-header";
 import AssetSummaryGrid from "@/components/asset-summary-grid";
+import AuthManagementTab from "@/components/auth-management-tab";
 import CashFlowsTab from "@/components/cash-flows-tab";
 import DailyPricesTab from "@/components/daily-prices-tab";
 import DailyReturnsTab from "@/components/daily-returns-tab";
@@ -86,6 +87,22 @@ export default function StockManagerUltimateV39_11() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
   const [errorMessage, setErrorMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authUser, setAuthUser] = useState(null);
+  const [authUsers, setAuthUsers] = useState([]);
+  const [bootstrapMode, setBootstrapMode] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: "",
+    displayName: "관리자",
+    password: "",
+  });
+  const [createUserForm, setCreateUserForm] = useState({
+    username: "",
+    displayName: "",
+    password: "",
+    role: "user",
+  });
 
   const fileInputRef = useRef(null);
   const tabCashCsvRef = useRef(null);
@@ -380,6 +397,182 @@ export default function StockManagerUltimateV39_11() {
           maximumFractionDigits: 2,
         })
       : "0.00";
+
+  const fetchAuthMe = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const payload = await response.json();
+      setAuthUser(payload?.user || null);
+    } catch (_error) {
+      setAuthUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  const fetchAdminUsers = useCallback(async () => {
+    if (authUser?.role !== "admin") {
+      setAuthUsers([]);
+      return;
+    }
+    try {
+      const response = await fetch("/api/admin/users", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "사용자 목록 조회 실패");
+      }
+      setAuthUsers(Array.isArray(payload.users) ? payload.users : []);
+    } catch (error) {
+      alert(error.message || "사용자 목록 조회 실패");
+    }
+  }, [authUser?.role]);
+
+  useEffect(() => {
+    fetchAuthMe();
+  }, [fetchAuthMe]);
+
+  useEffect(() => {
+    fetchAdminUsers();
+  }, [fetchAdminUsers]);
+
+  useEffect(() => {
+    if (!authLoading && !authUser) {
+      setActiveTab("관리");
+    }
+  }, [authLoading, authUser]);
+
+  const handleLogin = async () => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginForm),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "로그인 실패");
+      }
+      setLoginForm({ username: "", password: "" });
+      await fetchAuthMe();
+      alert("로그인 성공");
+    } catch (error) {
+      alert(error.message || "로그인 실패");
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setAuthUser(null);
+    setAuthUsers([]);
+  };
+
+  const handleBootstrapAdmin = async () => {
+    try {
+      const response = await fetch("/api/auth/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bootstrapForm),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "최초 관리자 생성 실패");
+      }
+      setBootstrapMode(false);
+      alert("최초 관리자 생성 완료. 로그인하세요.");
+    } catch (error) {
+      alert(error.message || "최초 관리자 생성 실패");
+    }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: createUserForm.username,
+          displayName: createUserForm.displayName,
+          password: createUserForm.password,
+          role: createUserForm.role,
+          isActive: true,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "사용자 추가 실패");
+      }
+      setCreateUserForm({ username: "", displayName: "", password: "", role: "user" });
+      await fetchAdminUsers();
+      alert("사용자 추가 완료");
+    } catch (error) {
+      alert(error.message || "사용자 추가 실패");
+    }
+  };
+
+  const handleUpdateUser = async (user) => {
+    const displayName = prompt("이름 수정", user.display_name || "");
+    if (displayName === null) return;
+    const role = prompt("권한(admin/user)", user.role || "user");
+    if (role === null) return;
+    const activeText = prompt("활성화 여부(true/false)", user.is_active ? "true" : "false");
+    if (activeText === null) return;
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName,
+          role: role === "admin" ? "admin" : "user",
+          isActive: String(activeText).toLowerCase() === "true",
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "사용자 수정 실패");
+      }
+      await fetchAdminUsers();
+    } catch (error) {
+      alert(error.message || "사용자 수정 실패");
+    }
+  };
+
+  const handleResetPassword = async (user) => {
+    const nextPassword = prompt("새 비밀번호(8자 이상)");
+    if (!nextPassword) return;
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resetPassword: true,
+          newPassword: nextPassword,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "비밀번호 초기화 실패");
+      }
+      alert("비밀번호 초기화 완료");
+    } catch (error) {
+      alert(error.message || "비밀번호 초기화 실패");
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!confirm(`${user.username} 계정을 삭제하시겠습니까?`)) return;
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "사용자 삭제 실패");
+      }
+      await fetchAdminUsers();
+    } catch (error) {
+      alert(error.message || "사용자 삭제 실패");
+    }
+  };
 
   // 백업 파일 입출력 핸들러 (JSON)
   const handleDownloadBackup = () => {
@@ -994,6 +1187,11 @@ export default function StockManagerUltimateV39_11() {
           <TabNavigation
             activeTab={activeTab}
             onSelectTab={(tab) => {
+              if (!authUser && tab !== "관리") {
+                alert("로그인 후 이용 가능합니다.");
+                setActiveTab("관리");
+                return;
+              }
               setActiveTab(tab);
               resetForms();
               setSelectedIds([]);
@@ -1163,12 +1361,27 @@ export default function StockManagerUltimateV39_11() {
                     />
                   </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
-                  <h3 className="text-[14px] font-black text-slate-800 mb-2">로그인/접근 관리</h3>
-                  <p className="text-[12px] font-bold text-slate-500">
-                    추후 로그인 관리 기능을 이 탭에서 확장할 수 있도록 준비된 영역입니다.
-                  </p>
-                </div>
+                <AuthManagementTab
+                  authUser={authUser}
+                  users={authUsers}
+                  authLoading={authLoading}
+                  loginForm={loginForm}
+                  setLoginForm={setLoginForm}
+                  bootstrapMode={bootstrapMode}
+                  setBootstrapMode={setBootstrapMode}
+                  bootstrapForm={bootstrapForm}
+                  setBootstrapForm={setBootstrapForm}
+                  createForm={createUserForm}
+                  setCreateForm={setCreateUserForm}
+                  onLogin={handleLogin}
+                  onLogout={handleLogout}
+                  onBootstrap={handleBootstrapAdmin}
+                  onCreateUser={handleCreateUser}
+                  onRefreshUsers={fetchAdminUsers}
+                  onUpdateUser={handleUpdateUser}
+                  onDeleteUser={handleDeleteUser}
+                  onResetPassword={handleResetPassword}
+                />
               </div>
             )}
           </div>
