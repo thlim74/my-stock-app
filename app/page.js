@@ -103,6 +103,7 @@ export default function StockManagerUltimateV39_11() {
     password: "",
     role: "user",
   });
+  const [canBootstrap, setCanBootstrap] = useState(true);
 
   const fileInputRef = useRef(null);
   const tabCashCsvRef = useRef(null);
@@ -410,6 +411,20 @@ export default function StockManagerUltimateV39_11() {
     }
   }, []);
 
+  const fetchBootstrapStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/bootstrap", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) return;
+      setCanBootstrap(Boolean(payload?.canBootstrap));
+      if (!payload?.canBootstrap) {
+        setBootstrapMode(false);
+      }
+    } catch (_error) {
+      // keep default
+    }
+  }, []);
+
   const fetchAdminUsers = useCallback(async () => {
     if (authUser?.role !== "admin") {
       setAuthUsers([]);
@@ -430,6 +445,10 @@ export default function StockManagerUltimateV39_11() {
   useEffect(() => {
     fetchAuthMe();
   }, [fetchAuthMe]);
+
+  useEffect(() => {
+    fetchBootstrapStatus();
+  }, [fetchBootstrapStatus]);
 
   useEffect(() => {
     fetchAdminUsers();
@@ -454,6 +473,7 @@ export default function StockManagerUltimateV39_11() {
       }
       setLoginForm({ username: "", password: "" });
       await fetchAuthMe();
+      setActiveTab("보유현황");
       alert("로그인 성공");
     } catch (error) {
       alert(error.message || "로그인 실패");
@@ -478,6 +498,7 @@ export default function StockManagerUltimateV39_11() {
         throw new Error(payload.error || "최초 관리자 생성 실패");
       }
       setBootstrapMode(false);
+      await fetchBootstrapStatus();
       alert("최초 관리자 생성 완료. 로그인하세요.");
     } catch (error) {
       alert(error.message || "최초 관리자 생성 실패");
@@ -1202,6 +1223,7 @@ export default function StockManagerUltimateV39_11() {
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
             onResetPassword={handleResetPassword}
+            canBootstrap={canBootstrap}
           />
         </div>
       </div>
@@ -1427,6 +1449,7 @@ export default function StockManagerUltimateV39_11() {
                   onUpdateUser={handleUpdateUser}
                   onDeleteUser={handleDeleteUser}
                   onResetPassword={handleResetPassword}
+                  canBootstrap={canBootstrap}
                 />
               </div>
             )}

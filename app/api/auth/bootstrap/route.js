@@ -67,3 +67,26 @@ export async function POST(request) {
     );
   }
 }
+
+export async function GET() {
+  try {
+    const supabase = getServerSupabase();
+    await ensureUsersTable(supabase);
+    const { count, error } = await supabase
+      .from("app_users")
+      .select("id", { count: "exact", head: true });
+
+    if (error) {
+      throw new Error(`Failed to inspect users: ${error.message}`);
+    }
+
+    return NextResponse.json({
+      canBootstrap: (count || 0) === 0,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message || "Unknown server error" },
+      { status: 500 },
+    );
+  }
+}

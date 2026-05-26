@@ -27,6 +27,7 @@ export default function AuthManagementTab({
   onUpdateUser,
   onDeleteUser,
   onResetPassword,
+  canBootstrap = true,
 }) {
   if (authLoading) {
     return <div className="text-[13px] font-bold text-slate-500">인증 상태 확인 중...</div>;
@@ -61,12 +62,14 @@ export default function AuthManagementTab({
                 >
                   로그인
                 </button>
-                <button
-                  onClick={() => setBootstrapMode(true)}
-                  className="text-[12px] text-blue-600 underline text-left"
-                >
-                  최초 관리자 계정 생성
-                </button>
+                {canBootstrap && (
+                  <button
+                    onClick={() => setBootstrapMode(true)}
+                    className="text-[12px] text-blue-600 underline text-left"
+                  >
+                    최초 관리자 계정 생성
+                  </button>
+                )}
               </>
             ) : (
               <>
