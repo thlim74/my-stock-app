@@ -1,14 +1,15 @@
 export default function DailyReturnsTab({ dailyList, formatNum }) {
   return (
     <div className="data-table-wrap">
-      <table className="data-table min-w-[980px] text-center">
+      <table className="data-table min-w-[1120px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
             <th>기준일</th>
             <th>평가금액</th>
             <th>당일현금흐름</th>
             <th>일간손익</th>
-            <th>수익률</th>
+            <th>일간수익률</th>
+            <th>평가수익률</th>
             <th>평가손익</th>
           </tr>
         </thead>
@@ -26,6 +27,9 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
                 <td className={daily.일간손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {daily.일간손익 >= 0 ? "+" : ""}
                   {formatNum(daily.일간손익)}
+                </td>
+                <td className={daily.일간손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
+                  {daily.일간수익률}
                 </td>
                 <td className={daily.평가손익 >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {daily.수익률}
