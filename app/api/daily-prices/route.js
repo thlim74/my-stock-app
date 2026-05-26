@@ -18,6 +18,28 @@ export async function GET(request) {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
     const date = searchParams.get("date");
+    const raw = searchParams.get("raw");
+
+    if (raw === "1") {
+      const { data, error } = await supabase
+        .from("daily_prices")
+        .select("code, date, price")
+        .order("date", { ascending: false });
+
+      if (error) {
+        const missingDailyPricesTable =
+          error.message?.includes("Could not find the table") &&
+          error.message?.includes("daily_prices");
+
+        if (missingDailyPricesTable) {
+          return NextResponse.json([]);
+        }
+
+        throw new Error(`Failed to load raw daily prices: ${error.message}`);
+      }
+
+      return NextResponse.json(data || []);
+    }
 
     if (code || date) {
       let query = supabase

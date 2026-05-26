@@ -113,6 +113,7 @@ export default function StockManagerUltimateV39_11() {
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
+  const [dailyPriceHistoryMap, setDailyPriceHistoryMap] = useState({});
   const [livePriceStatus, setLivePriceStatus] = useState({});
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
@@ -133,7 +134,7 @@ export default function StockManagerUltimateV39_11() {
   const [cashTotalInput, setCashTotalInput] = useState("");
 
   const refreshDailyPrices = useCallback(async () => {
-    const response = await fetch("/api/daily-prices", { cache: "no-store" });
+    const response = await fetch("/api/daily-prices?raw=1", { cache: "no-store" });
     if (!response.ok) {
       throw new Error("일별 종가 데이터를 불러오지 못했습니다.");
     }
@@ -143,12 +144,48 @@ export default function StockManagerUltimateV39_11() {
       return;
     }
 
-    const snapshotMap = rows.reduce((acc, row) => {
-      acc[row.code] = row;
-      return acc;
-    }, {});
+    const sortedRows = [...rows].sort((a, b) => {
+      if (a.code !== b.code) return String(a.code).localeCompare(String(b.code));
+      return String(b.date).localeCompare(String(a.date));
+    });
+
+    const snapshotMap = {};
+    const historyMap = {};
+
+    sortedRows.forEach((row) => {
+      const code = row.code;
+      const date = row.date;
+      const price = Number(row.price);
+
+      if (!code || !date || !Number.isFinite(price)) return;
+
+      if (!historyMap[code]) {
+        historyMap[code] = {};
+      }
+      historyMap[code][date] = price;
+
+      if (!snapshotMap[code]) {
+        snapshotMap[code] = {
+          code,
+          latestDate: date,
+          latestPrice: price,
+          previousDate: null,
+          previousPrice: null,
+          oldestDate: date,
+          rowCount: 1,
+        };
+      } else {
+        snapshotMap[code].rowCount += 1;
+        snapshotMap[code].oldestDate = date;
+        if (!snapshotMap[code].previousDate) {
+          snapshotMap[code].previousDate = date;
+          snapshotMap[code].previousPrice = price;
+        }
+      }
+    });
 
     setDailyPriceSnapshots(snapshotMap);
+    setDailyPriceHistoryMap(historyMap);
   }, []);
 
   // 종목 현재가 기본값만 유지하고, 난수 시뮬레이션은 제거
@@ -485,11 +522,21 @@ export default function StockManagerUltimateV39_11() {
         cashFlows,
         exchangeRate: EXCHANGE_RATE,
         liveStockPrices,
+        dailyPriceHistoryMap,
         stockMaster,
         today,
         cashAdjustment,
       }),
-    [transactions, cashFlows, EXCHANGE_RATE, liveStockPrices, stockMaster, today, cashAdjustment],
+    [
+      transactions,
+      cashFlows,
+      EXCHANGE_RATE,
+      liveStockPrices,
+      dailyPriceHistoryMap,
+      stockMaster,
+      today,
+      cashAdjustment,
+    ],
   );
 
   // ==========================================
