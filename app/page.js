@@ -1162,6 +1162,52 @@ export default function StockManagerUltimateV39_11() {
     setManualPriceForm(createInitialManualPriceForm());
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] px-3 py-6 sm:px-6 flex items-center justify-center">
+        <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <p className="text-[14px] font-black text-slate-700">인증 상태 확인 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] px-3 py-6 sm:px-6 flex items-center justify-center">
+        <div className="w-full max-w-[560px]">
+          <div className="mb-4 text-center">
+            <h1 className="text-[26px] font-black text-slate-900">My Stock App V3</h1>
+            <p className="text-[12px] font-bold text-slate-500 mt-1">
+              로그인 후 대시보드에 접근할 수 있습니다.
+            </p>
+          </div>
+          <AuthManagementTab
+            authUser={null}
+            users={[]}
+            authLoading={false}
+            loginForm={loginForm}
+            setLoginForm={setLoginForm}
+            bootstrapMode={bootstrapMode}
+            setBootstrapMode={setBootstrapMode}
+            bootstrapForm={bootstrapForm}
+            setBootstrapForm={setBootstrapForm}
+            createForm={createUserForm}
+            setCreateForm={setCreateUserForm}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            onBootstrap={handleBootstrapAdmin}
+            onCreateUser={handleCreateUser}
+            onRefreshUsers={fetchAdminUsers}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+            onResetPassword={handleResetPassword}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] px-3 py-3 sm:px-6 sm:py-6 xl:px-10 2xl:px-16 text-slate-900">
       <div className="max-w-[1480px] mx-auto">
