@@ -18,8 +18,8 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
           </tr>
         </thead>
         <tbody className="text-[13px] font-bold">
-          {sortedList.map((daily, index) => (
-            <tr key={index} className="h-11 border-b hover:bg-slate-50">
+          {sortedList.map((daily) => (
+            <tr key={daily.기준일} className="h-11 border-b hover:bg-slate-50">
               <td className="font-black text-slate-700">
                 {daily.기준일}
                 {daily.휴장여부 ? " (휴장)" : ""}

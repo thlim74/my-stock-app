@@ -14,8 +14,8 @@ export default function MonthlyReturnsTab({ monthlyList, formatNum }) {
           </tr>
         </thead>
         <tbody className="text-[13px] font-bold">
-          {monthlyList.map((monthly, index) => (
-            <tr key={index} className="h-11 border-b hover:bg-slate-50">
+          {monthlyList.map((monthly) => (
+            <tr key={monthly.월별} className="h-11 border-b hover:bg-slate-50">
               <td className="font-black text-blue-600">{monthly.월별}</td>
               <td className="font-black text-slate-800">{formatNum(monthly.순투자원금)}</td>
               <td className="font-black text-slate-900">{formatNum(monthly.월말평가금액)}</td>

@@ -34,6 +34,7 @@ th,
 td {
   border: 1px solid #e2e8f0;
   padding: 12px 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 table {

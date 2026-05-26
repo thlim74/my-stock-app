@@ -201,7 +201,7 @@ export default function DailyPricesTab({
             </tr>
           </thead>
           <tbody className="text-[12px] font-bold">
-            {sortedStocks.map((stock, index) => {
+            {sortedStocks.map((stock) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
               const priceStatus = livePriceStatus[stock.티커];
@@ -226,7 +226,7 @@ export default function DailyPricesTab({
 
               return (
                 <tr
-                  key={index}
+                  key={stock.티커}
                   onClick={() => setDetailTicker(stock.티커)}
                   className={`h-11 border-b cursor-pointer hover:bg-slate-50 ${
                     detailTicker === stock.티커 ? "bg-amber-50" : holdingQty > 0 ? "bg-blue-50/50" : ""

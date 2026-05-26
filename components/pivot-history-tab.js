@@ -90,7 +90,7 @@ export default function PivotHistoryTab({
                 );
               })}
             </tr>
-            {pivotData.finalRows.map((row, index) => {
+            {pivotData.finalRows.map((row) => {
               const currentHolding = stats.holdingList.find(
                 (holding) => holding.종목명 === row.종목명,
               );
@@ -105,7 +105,7 @@ export default function PivotHistoryTab({
 
               return (
                 <tr
-                  key={index}
+                  key={row.티커 || row.종목명}
                   className="h-12 border-b border-slate-200 hover:bg-slate-50/50"
                 >
                   <td className="sticky left-0 bg-white font-black text-left px-4 border-r border-slate-200 z-10">

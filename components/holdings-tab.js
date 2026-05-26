@@ -30,7 +30,7 @@ export default function HoldingsTab({
           </tr>
         </thead>
         <tbody className="text-[13px] font-bold">
-          {stats.holdingList.map((holding, index) => {
+          {stats.holdingList.map((holding) => {
             const isForeign = isForeignHolding(holding);
             const snapshot = dailyPriceSnapshots?.[holding.티커];
             const latestDate = snapshot?.latestDate || today;
@@ -50,7 +50,7 @@ export default function HoldingsTab({
                 : 0;
 
             return (
-              <tr key={index} className="h-12 border-b hover:bg-slate-50">
+              <tr key={holding.종목명} className="h-12 border-b hover:bg-slate-50">
                 <td className="font-black text-blue-600">{holding.종목명}</td>
                 <td>
                   <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">

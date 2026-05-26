@@ -1,9 +1,9 @@
 export default function MarketIndexGrid({ items }) {
   return (
     <div className="grid grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3 mb-4">
-      {items.map((item, index) => (
+      {items.map((item) => (
         <div
-          key={index}
+          key={item.n}
           className="bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm"
         >
           <div className="flex flex-col gap-1.5">
