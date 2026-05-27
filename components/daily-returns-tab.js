@@ -19,11 +19,11 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
 
   return (
     <div className="data-table-wrap">
-      <table className="data-table min-w-[1120px] text-center">
+      <table className="data-table min-w-[980px] sm:min-w-[1120px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
-            <th className="px-1 sm:px-2">기준일</th>
-            <th>기준</th>
+            <th className="w-[116px] sm:w-[170px] px-0 sm:px-2">기준일</th>
+            <th className="w-[44px] sm:w-[76px] px-0 sm:px-2">기준</th>
             <th>평가금액</th>
             <th>당일 현금흐름</th>
             <th>일간 손익</th>
@@ -32,14 +32,16 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
             <th>평가수익률</th>
           </tr>
         </thead>
-        <tbody className="text-[13px] font-bold">
-          {sortedList.map(({ row, f }) => (
+        <tbody className="text-[12px] sm:text-[13px] font-bold">
+          {sortedList.map(({ f }) => (
             <tr key={String(f.date)} className="h-11 border-b hover:bg-slate-50">
-              <td className="px-1 sm:px-2 font-black text-slate-700">
+              <td className="w-[116px] sm:w-[170px] px-0 sm:px-2 font-black text-slate-700 whitespace-nowrap">
                 {f.date}
                 {f.isHoliday ? " (휴장)" : ""}
               </td>
-              <td className="text-slate-700">{f.date === latestDate ? "실시간" : "종가"}</td>
+              <td className="w-[44px] sm:w-[76px] px-0 sm:px-2 text-slate-700 whitespace-nowrap">
+                {f.date === latestDate ? "실시간" : "종가"}
+              </td>
               <td className="font-black text-slate-900">{formatNum(f.evalAmount)}</td>
               <td className={f.cashFlow >= 0 ? "text-slate-700" : "text-blue-500"}>
                 {f.cashFlow >= 0 ? "+" : ""}
