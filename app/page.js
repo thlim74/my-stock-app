@@ -1537,7 +1537,7 @@ export default function StockManagerUltimateV39_11() {
                 handleExecuteSearch={handleExecuteSearch}
                 pivotData={pivotData}
                 stats={stats}
-                liveStockPrices={liveStockPrices}
+                liveStockPrices={effectiveLivePrices}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
               />

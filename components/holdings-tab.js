@@ -15,11 +15,7 @@ export default function HoldingsTab({
       {stats.holdingList.map((holding) => {
         const isForeign = isForeignHolding(holding);
         const snapshot = dailyPriceSnapshots?.[holding.티커];
-        const latestDate = snapshot?.latestDate || today;
-        const referenceClose =
-          latestDate === today && snapshot?.previousPrice != null
-            ? snapshot.previousPrice
-            : snapshot?.latestPrice ?? null;
+        const referenceClose = snapshot?.latestPrice ?? null;
         const dayProfit =
           referenceClose != null
             ? isForeign
