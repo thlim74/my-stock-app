@@ -47,14 +47,14 @@ export default function AuthManagementTab({
                   value={loginForm.username}
                   onChange={(e) => setLoginForm((prev) => ({ ...prev, username: e.target.value }))}
                   placeholder="아이디"
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black placeholder:text-slate-400 bg-white"
                 />
                 <input
                   type="password"
                   value={loginForm.password}
                   onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))}
                   placeholder="비밀번호"
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black placeholder:text-slate-400 bg-white"
                 />
                 <button
                   onClick={onLogin}
@@ -79,7 +79,7 @@ export default function AuthManagementTab({
                     setBootstrapForm((prev) => ({ ...prev, username: e.target.value }))
                   }
                   placeholder="관리자 아이디"
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black placeholder:text-slate-400 bg-white"
                 />
                 <input
                   value={bootstrapForm.displayName}
@@ -87,7 +87,7 @@ export default function AuthManagementTab({
                     setBootstrapForm((prev) => ({ ...prev, displayName: e.target.value }))
                   }
                   placeholder="이름"
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black placeholder:text-slate-400 bg-white"
                 />
                 <input
                   type="password"
@@ -96,7 +96,7 @@ export default function AuthManagementTab({
                     setBootstrapForm((prev) => ({ ...prev, password: e.target.value }))
                   }
                   placeholder="비밀번호(8자 이상)"
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black placeholder:text-slate-400 bg-white"
                 />
                 <button
                   onClick={onBootstrap}
@@ -143,7 +143,7 @@ export default function AuthManagementTab({
                 value={createForm.username}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, username: e.target.value }))}
                 placeholder="아이디"
-                className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black bg-white"
               />
               <input
                 value={createForm.displayName}
@@ -151,20 +151,20 @@ export default function AuthManagementTab({
                   setCreateForm((prev) => ({ ...prev, displayName: e.target.value }))
                 }
                 placeholder="이름"
-                className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black bg-white"
               />
               <input
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
                 placeholder="비밀번호"
-                className="border rounded-xl px-3 py-2 text-[12px] font-bold"
+                className="border rounded-xl px-3 py-2 text-[12px] font-bold text-black bg-white"
               />
               <div className="flex gap-2">
                 <select
                   value={createForm.role}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
-                  className="border rounded-xl px-3 py-2 text-[12px] font-bold bg-white"
+                  className="border rounded-xl px-3 py-2 text-[12px] font-bold bg-white text-black"
                 >
                   <option value="user">일반사용자</option>
                   <option value="admin">관리자</option>
@@ -179,8 +179,8 @@ export default function AuthManagementTab({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-2 sm:p-4">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
               <h3 className="text-[14px] font-black text-slate-800">사용자 목록</h3>
               <button
                 onClick={onRefreshUsers}
@@ -189,58 +189,39 @@ export default function AuthManagementTab({
                 새로고침
               </button>
             </div>
-            <div className="data-table-wrap">
-              <table className="data-table min-w-[960px] text-center">
-                <thead className="bg-slate-800 text-white text-[11px] font-black">
-                  <tr>
-                    <th>아이디</th>
-                    <th>이름</th>
-                    <th>권한</th>
-                    <th>활성</th>
-                    <th>최근 로그인</th>
-                    <th>관리</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[12px] font-bold">
-                  {users.map((user) => (
-                    <tr key={user.id} className="h-11 border-b">
-                      <td>{user.username}</td>
-                      <td>{user.display_name}</td>
-                      <td>{user.role}</td>
-                      <td>{user.is_active ? "활성" : "비활성"}</td>
-                      <td>{formatDateTime(user.last_login_at)}</td>
-                      <td className="space-x-2">
-                        <button
-                          onClick={() => onUpdateUser(user)}
-                          className="text-[11px] text-blue-600 underline"
-                        >
-                          수정
-                        </button>
-                        <button
-                          onClick={() => onResetPassword(user)}
-                          className="text-[11px] text-amber-600 underline"
-                        >
-                          비번재설정
-                        </button>
-                        <button
-                          onClick={() => onDeleteUser(user)}
-                          className="text-[11px] text-rose-600 underline"
-                        >
-                          삭제
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-slate-400">
-                        사용자 없음
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {users.map((user) => (
+                <div key={user.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[14px] font-black text-slate-800">{user.display_name}</div>
+                    <span className="text-[11px] font-black px-2 py-1 rounded bg-white border text-slate-600">
+                      {user.role}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[12px] font-bold text-slate-500">{user.username}</div>
+                  <div className="mt-2 text-[12px] font-bold text-slate-500">
+                    상태: {user.is_active ? "활성" : "비활성"}
+                  </div>
+                  <div className="mt-1 text-[12px] font-bold text-slate-500">
+                    최근 로그인: {formatDateTime(user.last_login_at)}
+                  </div>
+                  <div className="mt-3 flex gap-3 text-[12px] font-black">
+                    <button onClick={() => onUpdateUser(user)} className="text-blue-600 underline">
+                      수정
+                    </button>
+                    <button onClick={() => onResetPassword(user)} className="text-amber-600 underline">
+                      비번재설정
+                    </button>
+                    <button onClick={() => onDeleteUser(user)} className="text-rose-600 underline">
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
+            {users.length === 0 && (
+              <div className="mt-2 text-[12px] font-bold text-slate-400">사용자가 없습니다.</div>
+            )}
           </div>
         </>
       ) : (
@@ -251,3 +232,4 @@ export default function AuthManagementTab({
     </div>
   );
 }
+

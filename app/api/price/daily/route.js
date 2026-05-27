@@ -251,6 +251,22 @@ const fetchDomesticHistory = async (code, startDate) => {
   return [...deduped.values()];
 };
 
+const fetchLatestDomesticClose = async (code) => {
+  const response = await fetch(
+    `https://finance.naver.com/item/sise_day.naver?code=${encodeURIComponent(code)}&page=1`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) return null;
+  const buffer = await response.arrayBuffer();
+  const html = new TextDecoder("euc-kr").decode(buffer);
+  const rows = extractDomesticRows(html);
+  if (!rows.length) return null;
+  return { code, date: rows[0].date, price: rows[0].price };
+};
+
 const normalizeForeignSymbol = (code) => {
   const raw = String(code || "").trim().toUpperCase();
   if (!raw) return "";
@@ -312,6 +328,36 @@ const fetchForeignHistory = async (code, startDate) => {
   return [...deduped.values()];
 };
 
+const fetchLatestForeignClose = async (code) => {
+  const symbol = normalizeForeignSymbol(code);
+  if (!symbol) return null;
+
+  const period2 = Math.floor(Date.now() / 1000);
+  const period1 = period2 - 60 * 60 * 24 * 10;
+  const response = await fetch(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&events=history`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closes = result?.indicators?.quote?.[0]?.close || [];
+  if (!timestamps.length) return null;
+
+  for (let i = timestamps.length - 1; i >= 0; i -= 1) {
+    const ts = timestamps[i];
+    const close = closes[i];
+    if (!ts || close === null || close === undefined || Number.isNaN(close)) continue;
+    return { code, date: toDateString(ts), price: Number(close) };
+  }
+  return null;
+};
+
 const loadActiveAssets = async (supabase) => {
   const { data: holdings, error: holdingsError } = await supabase
     .from("assets")
@@ -359,32 +405,33 @@ export async function GET() {
     for (const holding of holdings) {
       const marketStatus = isMarketClosed(holding.market, holding.code);
 
-      if (!marketStatus.closed) {
-        skipped.push({
-          code: holding.code,
-          market: holding.market || null,
-          reason: marketStatus.reason,
-        });
-        continue;
-      }
-
       try {
-        const fetched = await tryFetchNaverPrice(holding.code, holding.market);
+        let fetchedRow = null;
+        if (marketStatus.closed) {
+          const fetched = await tryFetchNaverPrice(holding.code, holding.market);
+          if (fetched) {
+            fetchedRow = {
+              code: holding.code,
+              price: fetched.price,
+              date: marketStatus.tradingDate,
+            };
+          }
+        } else {
+          fetchedRow = isForeignTicker(holding.market, holding.code)
+            ? await fetchLatestForeignClose(holding.code)
+            : await fetchLatestDomesticClose(holding.code);
+        }
 
-        if (!fetched) {
+        if (!fetchedRow) {
           skipped.push({
             code: holding.code,
             market: holding.market || null,
-            reason: "No price found",
+            reason: marketStatus.closed ? "No price found" : "No latest close found",
           });
           continue;
         }
 
-        results.push({
-          code: holding.code,
-          price: fetched.price,
-          date: marketStatus.tradingDate,
-        });
+        results.push(fetchedRow);
       } catch (error) {
         skipped.push({
           code: holding.code,

@@ -54,6 +54,7 @@ import {
 } from "@/lib/seed-data";
 
 const CASH_ADJUSTMENT_STORAGE_KEY = "ultimate_v39_11_cash_adjustment";
+const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_date";
 
 const formatToday = () => {
   const now = new Date();
@@ -454,6 +455,29 @@ export default function StockManagerUltimateV39_11() {
   useEffect(() => {
     fetchAdminUsers();
   }, [fetchAdminUsers]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    const syncedDate = localStorage.getItem(DAILY_CLOSE_SYNC_KEY);
+    if (syncedDate === today) return;
+
+    let cancelled = false;
+    const syncDailyClose = async () => {
+      try {
+        await fetch("/api/price/daily", { cache: "no-store" });
+        if (cancelled) return;
+        localStorage.setItem(DAILY_CLOSE_SYNC_KEY, today);
+        await refreshDailyPrices();
+      } catch (_error) {
+        // Try again on next reload if this attempt fails.
+      }
+    };
+
+    syncDailyClose();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, refreshDailyPrices, today]);
 
   useEffect(() => {
     if (!authLoading && !authUser) {
