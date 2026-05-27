@@ -983,11 +983,9 @@ export default function StockManagerUltimateV39_11() {
     let cancelled = false;
 
     const fetchAfterHours = async () => {
-      const targetStocks = stockMaster.filter((stock) => {
-        const hasHolding = (activeHoldingQuantities[stock.종목명] || 0) > 0;
-        const isForeign = isForeignMarket(stock.시장, stock.티커);
-        return hasHolding && isForeign;
-      });
+      const targetStocks = stockMaster.filter(
+        (stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0,
+      );
 
       if (targetStocks.length === 0) {
         if (!cancelled) {
