@@ -11,6 +11,8 @@ export default function DailyPricesTab({
   handleCollectDailyPriceHistory,
   activeHoldingQuantities,
   liveStockPrices,
+  afterHoursPrices,
+  afterHoursStatus,
   dailyPriceSnapshots,
   livePriceStatus,
   today,
@@ -156,9 +158,10 @@ export default function DailyPricesTab({
               <th>종목명</th>
               <th>시장구분</th>
               <th>보유수량</th>
-              <th>정규장 종가</th>
+              <th>전일 종가</th>
+              <th>당일 정규장 종가</th>
               <th>애프터마켓(참고)</th>
-              <th>애프터 차이</th>
+              <th>애프터-당일종가</th>
             </tr>
           </thead>
           <tbody className="text-[12px] font-bold">
@@ -166,24 +169,31 @@ export default function DailyPricesTab({
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
               const isTodaySnapshot = snapshot?.latestDate === today;
-              const referenceClose =
-                isTodaySnapshot && snapshot?.previousPrice != null
-                  ? snapshot.previousPrice
+              const previousClose =
+                isTodaySnapshot
+                  ? snapshot?.previousPrice ?? null
                   : snapshot?.latestPrice ?? null;
+              const todayRegularClose =
+                isTodaySnapshot
+                  ? snapshot?.latestPrice ?? null
+                  : null;
               const afterPrice =
-                liveStockPrices[stock.티커] !== undefined
-                  ? liveStockPrices[stock.티커]
-                  : referenceClose ?? null;
+                afterHoursPrices?.[stock.티커] !== undefined
+                  ? afterHoursPrices[stock.티커]
+                  : liveStockPrices[stock.티커] !== undefined
+                    ? liveStockPrices[stock.티커]
+                    : null;
               const holdingQty = activeHoldingQuantities[stock.종목명] || 0;
               const diff =
-                afterPrice !== null && referenceClose !== null
-                  ? Number(afterPrice) - Number(referenceClose)
+                afterPrice !== null && todayRegularClose !== null
+                  ? Number(afterPrice) - Number(todayRegularClose)
                   : null;
               const pct =
-                diff !== null && Number(referenceClose) > 0
-                  ? (diff / Number(referenceClose)) * 100
+                diff !== null && Number(todayRegularClose) > 0
+                  ? (diff / Number(todayRegularClose)) * 100
                   : null;
               const priceStatus = livePriceStatus[stock.티커];
+              const afterStatus = afterHoursStatus?.[stock.티커];
 
               return (
                 <tr
@@ -205,11 +215,18 @@ export default function DailyPricesTab({
                     {formatNum(holdingQty)}
                   </td>
                   <td className="font-mono text-slate-900">
-                    {referenceClose === null
+                    {previousClose === null
                       ? "-"
                       : isForeign
-                        ? `$ ${formatFloat(referenceClose)}`
-                        : formatNum(referenceClose)}
+                        ? `$ ${formatFloat(previousClose)}`
+                        : formatNum(previousClose)}
+                  </td>
+                  <td className="font-mono text-slate-900">
+                    {todayRegularClose === null
+                      ? "-"
+                      : isForeign
+                        ? `$ ${formatFloat(todayRegularClose)}`
+                        : formatNum(todayRegularClose)}
                   </td>
                   <td className="font-mono font-black text-slate-900">
                     {afterPrice === null
@@ -220,6 +237,11 @@ export default function DailyPricesTab({
                     {priceStatus && (
                       <div className={`mt-1 text-[10px] font-bold ${priceStatus.ok ? "text-emerald-600" : "text-amber-600"}`}>
                         {priceStatus.message}
+                      </div>
+                    )}
+                    {afterStatus?.ok && (
+                      <div className="mt-1 text-[10px] font-bold text-violet-600">
+                        애프터 {afterStatus.source}
                       </div>
                     )}
                   </td>
@@ -290,4 +312,3 @@ export default function DailyPricesTab({
     </div>
   );
 }
-

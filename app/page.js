@@ -132,6 +132,8 @@ export default function StockManagerUltimateV39_11() {
   });
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
+  const [afterHoursPrices, setAfterHoursPrices] = useState({});
+  const [afterHoursStatus, setAfterHoursStatus] = useState({});
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
   const [dailyPriceHistoryMap, setDailyPriceHistoryMap] = useState({});
   const [livePriceStatus, setLivePriceStatus] = useState({});
@@ -806,10 +808,15 @@ export default function StockManagerUltimateV39_11() {
           : snapshot?.latestPrice ?? holding.현재가;
       const qty = Number(holding.보유수량) || 0;
       const isForeign = isForeignMarket(holding.시장, holding.티커);
-      const afterPrice =
-        liveStockPrices[holding.티커] !== undefined
-          ? Number(liveStockPrices[holding.티커])
-          : Number(holding.현재가);
+      const afterPriceRaw =
+        afterHoursPrices[holding.티커] !== undefined
+          ? Number(afterHoursPrices[holding.티커])
+          : liveStockPrices[holding.티커] !== undefined
+            ? Number(liveStockPrices[holding.티커])
+            : Number(holding.현재가);
+      const afterPrice = Number.isFinite(afterPriceRaw)
+        ? afterPriceRaw
+        : Number(holding.현재가);
 
       if (isForeign) {
         closeEvaluation += qty * Number(referenceClose) * EXCHANGE_RATE;
@@ -845,7 +852,7 @@ export default function StockManagerUltimateV39_11() {
       deltaAsset: Math.round(afterAsset - closeAsset),
       deltaProfitAmount: Math.round(afterProfitAmount - closeProfitAmount),
     };
-  }, [stats, dailyPriceSnapshots, liveStockPrices, today, EXCHANGE_RATE]);
+  }, [stats, dailyPriceSnapshots, liveStockPrices, afterHoursPrices, today, EXCHANGE_RATE]);
 
   // ==========================================
   // [조회 버튼 클릭 시 실시간 작동하도록 버그 전면 해결 피벗 연산 체계]
@@ -966,6 +973,85 @@ export default function StockManagerUltimateV39_11() {
     fetchLivePrices();
     const timer = setInterval(fetchLivePrices, 60000);
 
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [stockMaster, activeHoldingQuantities]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchAfterHours = async () => {
+      const targetStocks = stockMaster.filter((stock) => {
+        const hasHolding = (activeHoldingQuantities[stock.종목명] || 0) > 0;
+        const isForeign = isForeignMarket(stock.시장, stock.티커);
+        return hasHolding && isForeign;
+      });
+
+      if (targetStocks.length === 0) {
+        if (!cancelled) {
+          setAfterHoursPrices({});
+          setAfterHoursStatus({});
+        }
+        return;
+      }
+
+      const settled = await Promise.allSettled(
+        targetStocks.map(async (stock) => {
+          const response = await fetch(
+            `/api/price/after?code=${encodeURIComponent(stock.티커)}`,
+            { cache: "no-store" },
+          );
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `Failed to fetch after-hours for ${stock.티커}`);
+          }
+          return await response.json();
+        }),
+      );
+
+      if (cancelled) return;
+
+      setAfterHoursPrices((prev) => {
+        const next = { ...prev };
+        targetStocks.forEach((stock, index) => {
+          const result = settled[index];
+          if (
+            result?.status === "fulfilled" &&
+            Number.isFinite(Number(result.value?.afterPrice))
+          ) {
+            next[stock.티커] = Number(result.value.afterPrice);
+          }
+        });
+        return next;
+      });
+
+      setAfterHoursStatus(() => {
+        const next = {};
+        targetStocks.forEach((stock, index) => {
+          const result = settled[index];
+          if (
+            result?.status === "fulfilled" &&
+            Number.isFinite(Number(result.value?.afterPrice))
+          ) {
+            next[stock.티커] = {
+              ok: true,
+              source: result.value?.source || "after",
+            };
+          } else {
+            next[stock.티커] = {
+              ok: false,
+              source: "none",
+            };
+          }
+        });
+        return next;
+      });
+    };
+
+    fetchAfterHours();
+    const timer = setInterval(fetchAfterHours, 60000);
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -1541,6 +1627,8 @@ export default function StockManagerUltimateV39_11() {
                 handleCollectDailyPriceHistory={handleCollectDailyPriceHistory}
                 activeHoldingQuantities={activeHoldingQuantities}
                 liveStockPrices={liveStockPrices}
+                afterHoursPrices={afterHoursPrices}
+                afterHoursStatus={afterHoursStatus}
                 dailyPriceSnapshots={dailyPriceSnapshots}
                 livePriceStatus={livePriceStatus}
                 defaultStockPrices={defaultStockPrices}
