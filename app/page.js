@@ -154,6 +154,19 @@ export default function StockManagerUltimateV39_11() {
   );
   const [cashTotalInput, setCashTotalInput] = useState("");
 
+  const effectiveLivePrices = useMemo(() => {
+    const next = { ...liveStockPrices };
+    Object.keys(afterHoursPrices || {}).forEach((ticker) => {
+      const source = afterHoursStatus?.[ticker]?.source;
+      const isAfterSource =
+        source === "post" || source === "pre" || source === "naver_after";
+      if (isAfterSource && Number.isFinite(Number(afterHoursPrices[ticker]))) {
+        next[ticker] = Number(afterHoursPrices[ticker]);
+      }
+    });
+    return next;
+  }, [liveStockPrices, afterHoursPrices, afterHoursStatus]);
+
   const refreshDailyPrices = useCallback(async () => {
     const response = await fetch("/api/daily-prices?raw=1", { cache: "no-store" });
     if (!response.ok) {
@@ -773,7 +786,7 @@ export default function StockManagerUltimateV39_11() {
         transactions,
         cashFlows,
         exchangeRate: EXCHANGE_RATE,
-        liveStockPrices,
+        liveStockPrices: effectiveLivePrices,
         dailyPriceHistoryMap,
         stockMaster,
         today,
@@ -783,7 +796,7 @@ export default function StockManagerUltimateV39_11() {
       transactions,
       cashFlows,
       EXCHANGE_RATE,
-      liveStockPrices,
+      effectiveLivePrices,
       dailyPriceHistoryMap,
       stockMaster,
       today,
@@ -860,18 +873,22 @@ export default function StockManagerUltimateV39_11() {
         holdingList: stats.holdingList,
         transactions,
         stockMaster,
+        liveStockPrices: effectiveLivePrices,
         dailyPriceHistoryMap,
         exchangeRate: EXCHANGE_RATE,
         appliedFilter,
+        today,
       }),
     [
       stats.allDates,
       stats.holdingList,
       transactions,
       stockMaster,
+      effectiveLivePrices,
       dailyPriceHistoryMap,
       EXCHANGE_RATE,
       appliedFilter,
+      today,
     ],
   );
 
