@@ -4,6 +4,23 @@ const isForeignTicker = (market, ticker) =>
   market === "AMEX" ||
   (ticker && (ticker.includes(":") || /^[A-Z]/.test(ticker)));
 
+const findFirst = (obj, keys, fallback = undefined) => {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj || {}, key)) return obj[key];
+  }
+  return fallback;
+};
+
+const toNumber = (value) => Number(value) || 0;
+
+const holdingView = (holding) => ({
+  name: String(findFirst(holding, ["종목명"], "")),
+  qty: toNumber(findFirst(holding, ["보유수량"], 0)),
+  avgKrw: toNumber(findFirst(holding, ["평균단가"], 0)),
+  avgUsd: toNumber(findFirst(holding, ["평균단가_달러기준"], 0)),
+  totalBuy: toNumber(findFirst(holding, ["총매수금액"], 0)),
+});
+
 export default function PivotHistoryTab({
   startDate,
   endDate,
@@ -16,6 +33,8 @@ export default function PivotHistoryTab({
   formatNum,
   formatFloat,
 }) {
+  const holdings = (stats?.holdingList || []).map(holdingView);
+
   return (
     <div>
       <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -47,18 +66,13 @@ export default function PivotHistoryTab({
         <table className="data-table w-full text-center whitespace-nowrap">
           <thead className="bg-[#f8fafc] text-slate-700 text-[11px] font-black border-b border-slate-200">
             <tr>
-              <th className="bg-slate-100 text-slate-800 font-black sticky left-0 z-10 px-4">
-                종목명
-              </th>
+              <th className="bg-slate-100 text-slate-800 font-black sticky left-0 z-10 px-4">종목명</th>
               <th>보유량</th>
               <th>평균단가</th>
               <th>총매수금액</th>
               <th className="text-blue-600 bg-blue-50/30">최신종가</th>
               {pivotData.filteredDates.map((date) => (
-                <th
-                  key={date}
-                  className="px-6 font-bold bg-slate-50 border-l border-slate-200"
-                >
+                <th key={date} className="px-6 font-bold bg-slate-50 border-l border-slate-200">
                   {date}
                 </th>
               ))}
@@ -79,9 +93,7 @@ export default function PivotHistoryTab({
                 return (
                   <td
                     key={date}
-                    className={`border-l border-slate-200 font-black ${
-                      isUp ? "text-rose-500" : "text-blue-600"
-                    }`}
+                    className={`border-l border-slate-200 font-black ${isUp ? "text-rose-500" : "text-blue-600"}`}
                   >
                     {total && total.profit !== 0
                       ? `${total.profit >= 0 ? "+" : ""}${formatNum(total.profit)} (${total.rate.toFixed(2)}%)`
@@ -91,27 +103,22 @@ export default function PivotHistoryTab({
               })}
             </tr>
             {pivotData.finalRows.map((row) => {
-              const currentHolding = stats.holdingList.find(
-                (holding) => holding.종목명 === row.종목명,
-              );
-              const isForeign = isForeignTicker(row.시장, row.티커);
-              const currentQuantity = currentHolding ? currentHolding.보유수량 : 0;
+              const currentHolding = holdings.find((holding) => holding.name === row.name);
+              const isForeign = isForeignTicker(row.market, row.ticker);
+              const currentQuantity = currentHolding ? currentHolding.qty : 0;
               const currentAverage = currentHolding
                 ? isForeign
-                  ? currentHolding.평균단가달러기준
-                  : currentHolding.평균단가
+                  ? currentHolding.avgUsd
+                  : currentHolding.avgKrw
                 : 0;
-              const currentPrice = liveStockPrices[row.티커] || currentAverage;
+              const currentPrice = liveStockPrices[row.ticker] || currentAverage;
 
               return (
-                <tr
-                  key={row.티커 || row.종목명}
-                  className="h-12 border-b border-slate-200 hover:bg-slate-50/50"
-                >
+                <tr key={row.ticker || row.name} className="h-12 border-b border-slate-200 hover:bg-slate-50/50">
                   <td className="sticky left-0 bg-white font-black text-left px-4 border-r border-slate-200 z-10">
-                    <span className="block text-slate-900 font-black">{row.종목명}</span>
+                    <span className="block text-slate-900 font-black">{row.name}</span>
                     <span className="block text-[10px] text-slate-400 font-medium italic">
-                      {row.시장}:{row.티커}
+                      {row.market}:{row.ticker}
                     </span>
                   </td>
                   <td>{currentQuantity > 0 ? formatNum(currentQuantity) : "0"}</td>
@@ -123,24 +130,20 @@ export default function PivotHistoryTab({
                       : "-"}
                   </td>
                   <td className="font-black text-slate-700">
-                    {currentHolding ? formatNum(currentHolding.총매수금액) : "-"}
+                    {currentHolding ? formatNum(currentHolding.totalBuy) : "-"}
                   </td>
                   <td className="bg-blue-50/10 font-mono font-black text-blue-600">
                     {isForeign ? `$${formatFloat(currentPrice)}` : formatNum(currentPrice)}
                   </td>
                   {pivotData.filteredDates.map((date) => {
-                    const snapshot = row.일자별손익?.[date];
+                    const snapshot = row.byDate?.[date];
                     if (!snapshot) {
                       return (
-                        <td
-                          key={date}
-                          className="border-l border-slate-200 text-slate-300 font-normal italic"
-                        >
+                        <td key={date} className="border-l border-slate-200 text-slate-300 font-normal italic">
                           -
                         </td>
                       );
                     }
-
                     return (
                       <td
                         key={date}
