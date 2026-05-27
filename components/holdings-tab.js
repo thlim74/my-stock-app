@@ -40,7 +40,7 @@ export default function HoldingsTab({
       <table className="data-table min-w-[1180px] text-center whitespace-nowrap">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
-            <th className="sticky left-0 z-10 bg-slate-800 px-1 sm:px-2 text-left">종목명</th>
+            <th className="sticky left-0 z-10 bg-slate-800 w-[110px] sm:w-[170px] px-0 sm:px-1 text-left">종목명</th>
             <th>보유수량</th>
             <th>순투자원금</th>
             <th>평균단가</th>
@@ -73,7 +73,7 @@ export default function HoldingsTab({
 
             return (
               <tr key={row.ticker || row.name} className="h-11 border-b hover:bg-slate-50">
-                <td className="sticky left-0 z-10 bg-white px-1 sm:px-2 text-left">
+                <td className="sticky left-0 z-10 bg-white w-[110px] sm:w-[170px] px-0 sm:px-1 text-left">
                   <div className="font-black text-slate-900">{row.name}</div>
                   <div className="text-[10px] text-slate-500">{row.market}:{row.ticker}</div>
                 </td>
