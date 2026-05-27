@@ -28,7 +28,6 @@ export default function DailyPricesTab({
       .filter((stock) => {
         const keyword = searchTicker.trim().toUpperCase();
         if (!keyword) return true;
-
         return (
           String(stock.티커 || "").toUpperCase().includes(keyword) ||
           String(stock.종목명 || "").toUpperCase().includes(keyword)
@@ -37,25 +36,11 @@ export default function DailyPricesTab({
       .sort((a, b) => {
         const qtyA = activeHoldingQuantities[a.종목명] || 0;
         const qtyB = activeHoldingQuantities[b.종목명] || 0;
-
-        if ((qtyA > 0) !== (qtyB > 0)) {
-          return qtyB > 0 ? 1 : -1;
-        }
-
-        if (qtyA !== qtyB) {
-          return qtyB - qtyA;
-        }
-
-        const dateA = dailyPriceSnapshots[a.티커]?.latestDate || "";
-        const dateB = dailyPriceSnapshots[b.티커]?.latestDate || "";
-
-        if (dateA !== dateB) {
-          return dateB.localeCompare(dateA);
-        }
-
-        return a.종목명.localeCompare(b.종목명, "ko");
+        if ((qtyA > 0) !== (qtyB > 0)) return qtyB > 0 ? 1 : -1;
+        if (qtyA !== qtyB) return qtyB - qtyA;
+        return String(a.종목명).localeCompare(String(b.종목명), "ko");
       });
-  }, [activeHoldingQuantities, dailyPriceSnapshots, searchTicker, stockMaster]);
+  }, [activeHoldingQuantities, searchTicker, stockMaster]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -63,20 +48,15 @@ export default function DailyPricesTab({
         setHistoryRows([]);
         return;
       }
-
       setHistoryLoading(true);
       try {
         const params = new URLSearchParams();
         if (detailTicker) params.set("code", detailTicker);
         if (searchDate) params.set("date", searchDate);
-
         const response = await fetch(`/api/daily-prices?${params.toString()}`, {
           cache: "no-store",
         });
-        if (!response.ok) {
-          throw new Error("종가 상세 이력을 불러오지 못했습니다.");
-        }
-
+        if (!response.ok) throw new Error("종가 이력을 불러오지 못했습니다.");
         const rows = await response.json();
         setHistoryRows(Array.isArray(rows) ? rows : []);
       } catch (_error) {
@@ -85,7 +65,6 @@ export default function DailyPricesTab({
         setHistoryLoading(false);
       }
     };
-
     fetchHistory();
   }, [detailTicker, searchDate]);
 
@@ -107,12 +86,7 @@ export default function DailyPricesTab({
         <div className="space-y-1 sm:ml-auto">
           <select
             value={manualPriceForm.티커}
-            onChange={(e) =>
-              setManualPriceForm({
-                ...manualPriceForm,
-                티커: e.target.value,
-              })
-            }
+            onChange={(e) => setManualPriceForm({ ...manualPriceForm, 티커: e.target.value })}
             className="border rounded-xl px-3 py-1.5 text-[12px] font-bold bg-white"
           >
             <option value="">--종목 선택--</option>
@@ -123,20 +97,13 @@ export default function DailyPricesTab({
             ))}
           </select>
         </div>
-        <div className="space-y-1">
-          <input
-            type="number"
-            placeholder="현재가 입력"
-            value={manualPriceForm.가격}
-            onChange={(e) =>
-              setManualPriceForm({
-                ...manualPriceForm,
-                가격: e.target.value,
-              })
-            }
-            className="border rounded-xl px-3 py-1.5 text-[12px] font-bold"
-          />
-        </div>
+        <input
+          type="number"
+          placeholder="현재가 입력"
+          value={manualPriceForm.가격}
+          onChange={(e) => setManualPriceForm({ ...manualPriceForm, 가격: e.target.value })}
+          className="border rounded-xl px-3 py-1.5 text-[12px] font-bold"
+        />
         <button
           onClick={handleApplyManualPrice}
           className="bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-amber-700 transition-all"
@@ -180,12 +147,8 @@ export default function DailyPricesTab({
         </div>
       </div>
 
-      <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[12px] font-bold text-slate-500">
-        종목 행을 클릭하면 실제 일자별 종가 이력을 아래에서 확인할 수 있습니다.
-      </div>
-
       <div className="data-table-wrap">
-        <table className="data-table min-w-[1180px] text-center">
+        <table className="data-table min-w-[1320px] text-center">
           <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
             <tr>
               <th>기준일</th>
@@ -193,34 +156,34 @@ export default function DailyPricesTab({
               <th>종목명</th>
               <th>시장구분</th>
               <th>보유수량</th>
-              <th>전일종가</th>
-              <th>실시간 현재가</th>
-              <th>종가 대비 변동</th>
+              <th>정규장 종가</th>
+              <th>애프터마켓(참고)</th>
+              <th>애프터 차이</th>
             </tr>
           </thead>
           <tbody className="text-[12px] font-bold">
             {sortedStocks.map((stock) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
-              const priceStatus = livePriceStatus[stock.티커];
               const isTodaySnapshot = snapshot?.latestDate === today;
               const referenceClose =
                 isTodaySnapshot && snapshot?.previousPrice != null
                   ? snapshot.previousPrice
                   : snapshot?.latestPrice ?? null;
-              const currentPrice =
+              const afterPrice =
                 liveStockPrices[stock.티커] !== undefined
                   ? liveStockPrices[stock.티커]
                   : referenceClose ?? null;
               const holdingQty = activeHoldingQuantities[stock.종목명] || 0;
               const diff =
-                currentPrice !== null && referenceClose !== null
-                  ? currentPrice - referenceClose
+                afterPrice !== null && referenceClose !== null
+                  ? Number(afterPrice) - Number(referenceClose)
                   : null;
               const pct =
-                diff !== null && referenceClose
-                  ? ((diff / referenceClose) * 100).toFixed(2)
+                diff !== null && Number(referenceClose) > 0
+                  ? (diff / Number(referenceClose)) * 100
                   : null;
+              const priceStatus = livePriceStatus[stock.티커];
 
               return (
                 <tr
@@ -238,13 +201,7 @@ export default function DailyPricesTab({
                       {stock.시장}
                     </span>
                   </td>
-                  <td
-                    className={
-                      holdingQty > 0
-                        ? "font-black text-blue-600 bg-blue-100/30"
-                        : "text-slate-400 font-normal"
-                    }
-                  >
+                  <td className={holdingQty > 0 ? "font-black text-blue-600" : "text-slate-400"}>
                     {formatNum(holdingQty)}
                   </td>
                   <td className="font-mono text-slate-900">
@@ -255,17 +212,13 @@ export default function DailyPricesTab({
                         : formatNum(referenceClose)}
                   </td>
                   <td className="font-mono font-black text-slate-900">
-                    {currentPrice === null
+                    {afterPrice === null
                       ? "-"
                       : isForeign
-                        ? `$ ${formatFloat(currentPrice)}`
-                        : formatNum(currentPrice)}
+                        ? `$ ${formatFloat(afterPrice)}`
+                        : formatNum(afterPrice)}
                     {priceStatus && (
-                      <div
-                        className={`mt-1 text-[10px] font-bold ${
-                          priceStatus.ok ? "text-emerald-600" : "text-amber-600"
-                        }`}
-                      >
+                      <div className={`mt-1 text-[10px] font-bold ${priceStatus.ok ? "text-emerald-600" : "text-amber-600"}`}>
                         {priceStatus.message}
                       </div>
                     )}
@@ -274,12 +227,10 @@ export default function DailyPricesTab({
                     {pct === null ? (
                       <span className="text-slate-400">-</span>
                     ) : (
-                      <span
-                        className={`text-[11px] font-black ${
-                          diff >= 0 ? "text-rose-500" : "text-blue-500"
-                        }`}
-                      >
-                        {diff >= 0 ? `+${pct}%` : `-${Math.abs(Number(pct)).toFixed(2)}%`}
+                      <span className={`text-[11px] font-black ${diff >= 0 ? "text-rose-500" : "text-blue-500"}`}>
+                        {diff >= 0 ? "+" : ""}
+                        {isForeign ? formatFloat(diff) : formatNum(diff)} ({pct >= 0 ? "+" : ""}
+                        {pct.toFixed(2)}%)
                       </span>
                     )}
                   </td>
@@ -293,15 +244,7 @@ export default function DailyPricesTab({
       <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
           <h3 className="text-[14px] font-black text-slate-800">{detailTitle}</h3>
-          <div className="text-[11px] font-bold text-slate-400">
-            {detailTicker
-              ? "현재 선택한 종목의 일자별 종가 이력"
-              : searchDate
-                ? "선택한 날짜 기준 종가 검색 결과"
-                : "종목을 클릭하거나 날짜를 지정하세요."}
-          </div>
         </div>
-
         <div className="data-table-wrap">
           <table className="data-table min-w-[680px] text-center">
             <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
@@ -316,22 +259,17 @@ export default function DailyPricesTab({
             <tbody className="text-[12px] font-bold">
               {historyLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-slate-400">
-                    조회 중...
-                  </td>
+                  <td colSpan={5} className="py-6 text-slate-400">조회 중...</td>
                 </tr>
               ) : historyRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-slate-400">
-                    표시할 종가 이력이 없습니다.
-                  </td>
+                  <td colSpan={5} className="py-6 text-slate-400">표시할 종가 이력이 없습니다.</td>
                 </tr>
               ) : (
                 historyRows.map((row, index) => {
                   const matched = stockMaster.find((stock) => stock.티커 === row.code);
                   const market = matched?.시장 || "";
                   const isForeign = isForeignMarket(market, row.code);
-
                   return (
                     <tr key={`${row.code}-${row.date}-${index}`} className="h-10 border-b hover:bg-slate-50">
                       <td>{row.date}</td>
@@ -352,3 +290,4 @@ export default function DailyPricesTab({
     </div>
   );
 }
+

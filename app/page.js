@@ -793,6 +793,60 @@ export default function StockManagerUltimateV39_11() {
     ],
   );
 
+  const afterMarketMetrics = useMemo(() => {
+    let closeEvaluation = 0;
+    let afterEvaluation = 0;
+
+    stats.holdingList.forEach((holding) => {
+      const snapshot = dailyPriceSnapshots?.[holding.티커];
+      const latestDate = snapshot?.latestDate || today;
+      const referenceClose =
+        latestDate === today && snapshot?.previousPrice != null
+          ? snapshot.previousPrice
+          : snapshot?.latestPrice ?? holding.현재가;
+      const qty = Number(holding.보유수량) || 0;
+      const isForeign = isForeignMarket(holding.시장, holding.티커);
+      const afterPrice =
+        liveStockPrices[holding.티커] !== undefined
+          ? Number(liveStockPrices[holding.티커])
+          : Number(holding.현재가);
+
+      if (isForeign) {
+        closeEvaluation += qty * Number(referenceClose) * EXCHANGE_RATE;
+        afterEvaluation += qty * afterPrice * EXCHANGE_RATE;
+      } else {
+        closeEvaluation += qty * Number(referenceClose);
+        afterEvaluation += qty * afterPrice;
+      }
+    });
+
+    const closeAsset = closeEvaluation + Number(stats.cashBalance || 0);
+    const afterAsset = afterEvaluation + Number(stats.cashBalance || 0);
+    const closeProfitAmount = closeAsset - Number(stats.netInvestment || 0);
+    const afterProfitAmount = afterAsset - Number(stats.netInvestment || 0);
+    const closeProfitRate =
+      Number(stats.netInvestment || 0) > 0
+        ? (closeProfitAmount / Number(stats.netInvestment)) * 100
+        : 0;
+    const afterProfitRate =
+      Number(stats.netInvestment || 0) > 0
+        ? (afterProfitAmount / Number(stats.netInvestment)) * 100
+        : 0;
+
+    return {
+      closeEvaluation: Math.round(closeEvaluation),
+      closeAsset: Math.round(closeAsset),
+      closeProfitAmount: Math.round(closeProfitAmount),
+      closeProfitRate,
+      afterEvaluation: Math.round(afterEvaluation),
+      afterAsset: Math.round(afterAsset),
+      afterProfitAmount: Math.round(afterProfitAmount),
+      afterProfitRate,
+      deltaAsset: Math.round(afterAsset - closeAsset),
+      deltaProfitAmount: Math.round(afterProfitAmount - closeProfitAmount),
+    };
+  }, [stats, dailyPriceSnapshots, liveStockPrices, today, EXCHANGE_RATE]);
+
   // ==========================================
   // [조회 버튼 클릭 시 실시간 작동하도록 버그 전면 해결 피벗 연산 체계]
   // ==========================================
@@ -1339,7 +1393,7 @@ export default function StockManagerUltimateV39_11() {
         <MarketIndexGrid items={marketIndexItems} />
 
         {/* 자산 요약 대시보드 */}
-        <AssetSummaryGrid stats={stats} formatNum={formatNum} />
+        <AssetSummaryGrid stats={stats} formatNum={formatNum} afterMarketMetrics={afterMarketMetrics} />
 
         {/* 8개 탭 하우징 프레임 */}
         <div className="bg-white rounded-2xl sm:rounded-[32px] shadow-sm border border-slate-200 overflow-hidden min-h-[850px]">
@@ -1375,6 +1429,7 @@ export default function StockManagerUltimateV39_11() {
               <DailyReturnsTab
                 dailyList={stats.dailyList}
                 formatNum={formatNum}
+                afterMarketMetrics={afterMarketMetrics}
               />
             )}
 
@@ -1399,6 +1454,7 @@ export default function StockManagerUltimateV39_11() {
               <MonthlyReturnsTab
                 monthlyList={stats.monthlyList}
                 formatNum={formatNum}
+                afterMarketMetrics={afterMarketMetrics}
               />
             )}
 
@@ -1491,6 +1547,7 @@ export default function StockManagerUltimateV39_11() {
                 today={today}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
+                afterMarketMetrics={afterMarketMetrics}
               />
             )}
 
