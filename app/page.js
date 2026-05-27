@@ -53,7 +53,6 @@ import {
   STORAGE_KEYS,
 } from "@/lib/seed-data";
 
-const CASH_ADJUSTMENT_STORAGE_KEY = "ultimate_v39_11_cash_adjustment";
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_date";
 
 const formatToday = () => {
@@ -314,7 +313,6 @@ export default function StockManagerUltimateV39_11() {
       const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
       const savedCash = localStorage.getItem(STORAGE_KEYS.CASH);
       const savedMaster = localStorage.getItem(STORAGE_KEYS.MASTER);
-      const savedCashAdjustment = localStorage.getItem(CASH_ADJUSTMENT_STORAGE_KEY);
 
       try {
         const response = await fetch("/api/app-state", { cache: "no-store" });
@@ -344,9 +342,7 @@ export default function StockManagerUltimateV39_11() {
             setStockMaster(JSON.parse(savedMaster));
           }
 
-          if (savedCashAdjustment) {
-            setCashAdjustment(Number(savedCashAdjustment) || 0);
-          }
+          setCashAdjustment(Number(remoteState.cashAdjustment) || 0);
 
           setIsLoaded(true);
           return;
@@ -362,7 +358,7 @@ export default function StockManagerUltimateV39_11() {
       if (savedTx) setTransactions(JSON.parse(savedTx));
       if (savedCash) setCashFlows(JSON.parse(savedCash));
       if (savedMaster) setStockMaster(JSON.parse(savedMaster));
-      if (savedCashAdjustment) setCashAdjustment(Number(savedCashAdjustment) || 0);
+      setCashAdjustment(0);
       setIsLoaded(true);
     };
 
@@ -379,7 +375,6 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(STORAGE_KEYS.TX, JSON.stringify(transactions));
     localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(cashFlows));
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
-    localStorage.setItem(CASH_ADJUSTMENT_STORAGE_KEY, String(cashAdjustment));
 
     fetch("/api/app-state", {
       method: "POST",
@@ -388,6 +383,7 @@ export default function StockManagerUltimateV39_11() {
         transactions,
         cashFlows,
         stockMaster,
+        cashAdjustment,
       }),
     }).catch(() => {
       // Keep local storage as a fallback even if remote save fails.

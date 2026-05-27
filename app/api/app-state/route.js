@@ -20,11 +20,22 @@ const isMissingTableError = (message, table) =>
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
+    let data = null;
+    let error = null;
+
+    ({ data, error } = await supabase
       .from("app_state")
-      .select("transactions, cash_flows, stock_master")
+      .select("transactions, cash_flows, stock_master, cash_adjustment")
       .eq("id", APP_STATE_ID)
-      .maybeSingle();
+      .maybeSingle());
+
+    if (error && error.message?.includes("cash_adjustment")) {
+      ({ data, error } = await supabase
+        .from("app_state")
+        .select("transactions, cash_flows, stock_master")
+        .eq("id", APP_STATE_ID)
+        .maybeSingle());
+    }
 
     if (error) {
       if (isMissingTableError(error.message, "app_state")) {
@@ -52,6 +63,8 @@ export async function GET() {
       transactions: data.transactions || [],
       cashFlows: data.cash_flows || [],
       stockMaster: data.stock_master || [],
+      cashAdjustment:
+        typeof data.cash_adjustment === "number" ? data.cash_adjustment : 0,
       source: "supabase",
     });
   } catch (error) {
@@ -72,9 +85,21 @@ export async function POST(request) {
       transactions: Array.isArray(body?.transactions) ? body.transactions : [],
       cash_flows: Array.isArray(body?.cashFlows) ? body.cashFlows : [],
       stock_master: Array.isArray(body?.stockMaster) ? body.stockMaster : [],
+      cash_adjustment:
+        typeof body?.cashAdjustment === "number" ? body.cashAdjustment : 0,
     };
 
-    const { error } = await supabase.from("app_state").upsert(payload);
+    let { error } = await supabase.from("app_state").upsert(payload);
+
+    if (error && error.message?.includes("cash_adjustment")) {
+      const fallbackPayload = {
+        id: APP_STATE_ID,
+        transactions: payload.transactions,
+        cash_flows: payload.cash_flows,
+        stock_master: payload.stock_master,
+      };
+      ({ error } = await supabase.from("app_state").upsert(fallbackPayload));
+    }
 
     if (error) {
       if (isMissingTableError(error.message, "app_state")) {
