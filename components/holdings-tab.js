@@ -1,6 +1,29 @@
 import { isForeignMarket } from "@/lib/market-utils";
 
-const isForeignHolding = (holding) => isForeignMarket(holding.시장, holding.티커);
+const findFirst = (obj, keys, fallback = undefined) => {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj || {}, key)) {
+      return obj[key];
+    }
+  }
+  return fallback;
+};
+
+const toNumber = (value) => Number(value) || 0;
+
+const holdingView = (holding) => ({
+  name: String(findFirst(holding, ["종목명"], "")),
+  ticker: String(findFirst(holding, ["티커"], "")),
+  market: String(findFirst(holding, ["시장"], "KOSPI")),
+  qty: toNumber(findFirst(holding, ["보유수량"], 0)),
+  principal: toNumber(findFirst(holding, ["순투자원금"], 0)),
+  avgKrw: toNumber(findFirst(holding, ["평균단가"], 0)),
+  avgUsd: toNumber(findFirst(holding, ["평균단가_달러기준"], 0)),
+  currentPrice: toNumber(findFirst(holding, ["현재가"], 0)),
+  evalAmount: toNumber(findFirst(holding, ["평가금액"], 0)),
+  evalProfit: toNumber(findFirst(holding, ["손익"], 0)),
+  evalRate: String(findFirst(holding, ["수익률"], "0.00%")),
+});
 
 export default function HoldingsTab({
   stats,
@@ -10,97 +33,81 @@ export default function HoldingsTab({
   today,
   exchangeRate,
 }) {
+  const rows = (stats?.holdingList || []).map(holdingView);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-      {stats.holdingList.map((holding) => {
-        const isForeign = isForeignHolding(holding);
-        const snapshot = dailyPriceSnapshots?.[holding.티커];
-        const latestDate = snapshot?.latestDate || today;
-        const referenceClose =
-          latestDate === today && snapshot?.previousPrice != null
-            ? snapshot.previousPrice
-            : snapshot?.latestPrice ?? null;
-        const dayProfit =
-          referenceClose != null
-            ? isForeign
-              ? (holding.현재가 - referenceClose) * holding.보유수량 * exchangeRate
-              : (holding.현재가 - referenceClose) * holding.보유수량
-            : 0;
-        const dayRate =
-          referenceClose != null && referenceClose > 0
-            ? ((holding.현재가 - referenceClose) / referenceClose) * 100
-            : 0;
+    <div className="data-table-wrap">
+      <table className="data-table min-w-[1180px] text-center whitespace-nowrap">
+        <thead className="bg-slate-800 text-white text-[11px] font-black">
+          <tr>
+            <th className="sticky left-0 z-10 bg-slate-800 px-1 sm:px-2 text-left">종목명</th>
+            <th>보유수량</th>
+            <th>순투자원금</th>
+            <th>평균단가</th>
+            <th>현재가</th>
+            <th>등락률</th>
+            <th>평가금액</th>
+            <th>평가손익</th>
+            <th>평가수익률</th>
+            <th>일수익금</th>
+            <th>일수익률</th>
+          </tr>
+        </thead>
+        <tbody className="text-[13px] font-bold text-slate-800">
+          {rows.map((row) => {
+            const isForeign = isForeignMarket(row.market, row.ticker);
+            const snapshot = dailyPriceSnapshots?.[row.ticker];
+            const latestDate = snapshot?.latestDate || today;
+            const referenceClose =
+              latestDate === today && snapshot?.previousPrice != null
+                ? Number(snapshot.previousPrice)
+                : Number(snapshot?.latestPrice);
+            const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
 
-        return (
-          <div
-            key={holding.티커 || holding.종목명}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[16px] font-black text-slate-900">{holding.종목명}</div>
-                <div className="text-[11px] font-bold text-slate-500 mt-0.5">
-                  {holding.시장} · {holding.티커}
-                </div>
-              </div>
-              <span className="text-[11px] font-black rounded-full px-2 py-1 bg-slate-100 text-slate-600">
-                수량 {formatNum(holding.보유수량)}
-              </span>
-            </div>
+            const dayProfit = hasReference
+              ? isForeign
+                ? (row.currentPrice - referenceClose) * row.qty * exchangeRate
+                : (row.currentPrice - referenceClose) * row.qty
+              : 0;
+            const dayRate = hasReference ? ((row.currentPrice - referenceClose) / referenceClose) * 100 : 0;
 
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] font-bold">
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">순투자원금</div>
-                <div className="text-slate-800 mt-0.5">{formatNum(holding.순투자원금)}</div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">평균단가</div>
-                <div className="text-slate-800 mt-0.5">
-                  {isForeign ? `$ ${formatFloat(holding.평균단가_달러기준)}` : formatNum(holding.평균단가)}
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">현재가</div>
-                <div className="text-blue-600 mt-0.5 font-black">
-                  {isForeign ? `$ ${formatFloat(holding.현재가)}` : formatNum(holding.현재가)}
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">등락률</div>
-                <div className={`mt-0.5 font-black ${dayRate >= 0 ? "text-rose-500" : "text-blue-500"}`}>
+            return (
+              <tr key={row.ticker || row.name} className="h-11 border-b hover:bg-slate-50">
+                <td className="sticky left-0 z-10 bg-white px-1 sm:px-2 text-left">
+                  <div className="font-black text-slate-900">{row.name}</div>
+                  <div className="text-[10px] text-slate-500">{row.market}:{row.ticker}</div>
+                </td>
+                <td>{formatNum(row.qty)}</td>
+                <td>{formatNum(row.principal)}</td>
+                <td className="text-amber-700">
+                  {isForeign ? `$ ${formatFloat(row.avgUsd)}` : formatNum(row.avgKrw)}
+                </td>
+                <td className="text-blue-600">
+                  {isForeign ? `$ ${formatFloat(row.currentPrice)}` : formatNum(row.currentPrice)}
+                </td>
+                <td className={dayRate >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {dayRate >= 0 ? "+" : ""}
                   {dayRate.toFixed(2)}%
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">평가금액</div>
-                <div className="text-slate-800 mt-0.5 font-black">{formatNum(holding.평가금액)}</div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">평가손익률</div>
-                <div className={`mt-0.5 font-black ${holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}`}>
-                  {holding.수익률}
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">평가손익</div>
-                <div className={`mt-0.5 font-black ${holding.손익 >= 0 ? "text-rose-500" : "text-blue-500"}`}>
-                  {holding.손익 >= 0 ? "+" : ""}
-                  {formatNum(holding.손익)}
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-2">
-                <div className="text-slate-400">일수익금/일수익률</div>
-                <div className={`mt-0.5 font-black ${dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}`}>
+                </td>
+                <td>{formatNum(row.evalAmount)}</td>
+                <td className={row.evalProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
+                  {row.evalProfit >= 0 ? "+" : ""}
+                  {formatNum(row.evalProfit)}
+                </td>
+                <td className={row.evalProfit >= 0 ? "text-rose-500" : "text-blue-500"}>{row.evalRate}</td>
+                <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {dayProfit >= 0 ? "+" : ""}
-                  {formatNum(dayProfit)} / {dayRate >= 0 ? "+" : ""}
+                  {formatNum(dayProfit)}
+                </td>
+                <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
+                  {dayRate >= 0 ? "+" : ""}
                   {dayRate.toFixed(2)}%
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

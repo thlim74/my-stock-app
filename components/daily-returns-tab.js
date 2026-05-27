@@ -22,7 +22,7 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
       <table className="data-table min-w-[1120px] text-center">
         <thead className="bg-slate-800 text-white text-[11px] font-black">
           <tr>
-            <th className="px-2 sm:px-3">기준일</th>
+            <th className="px-1 sm:px-2">기준일</th>
             <th>기준</th>
             <th>평가금액</th>
             <th>당일 현금흐름</th>
@@ -35,7 +35,7 @@ export default function DailyReturnsTab({ dailyList, formatNum }) {
         <tbody className="text-[13px] font-bold">
           {sortedList.map(({ row, f }) => (
             <tr key={String(f.date)} className="h-11 border-b hover:bg-slate-50">
-              <td className="px-2 sm:px-3 font-black text-slate-700">
+              <td className="px-1 sm:px-2 font-black text-slate-700">
                 {f.date}
                 {f.isHoliday ? " (휴장)" : ""}
               </td>
