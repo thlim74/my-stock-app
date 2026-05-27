@@ -811,10 +811,7 @@ export default function StockManagerUltimateV39_11() {
     stats.holdingList.forEach((holding) => {
       const snapshot = dailyPriceSnapshots?.[holding.티커];
       const latestDate = snapshot?.latestDate || today;
-      const referenceClose =
-        latestDate === today && snapshot?.previousPrice != null
-          ? snapshot.previousPrice
-          : snapshot?.latestPrice ?? holding.현재가;
+        const referenceClose = snapshot?.latestPrice ?? holding.현재가;
       const qty = Number(holding.보유수량) || 0;
       const isForeign = isForeignMarket(holding.시장, holding.티커);
       const afterPriceRaw =
