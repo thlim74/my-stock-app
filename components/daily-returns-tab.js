@@ -13,7 +13,9 @@ const getDailyFieldBundle = (row) => {
 };
 
 export default function DailyReturnsTab({ dailyList, formatNum }) {
-  const enriched = (dailyList || []).map((row) => ({ row, f: getDailyFieldBundle(row) }));
+  const enriched = (dailyList || [])
+    .map((row) => ({ row, f: getDailyFieldBundle(row) }))
+    .filter(({ f }) => String(f.date) >= "2025-11-01");
   const sortedList = [...enriched].sort((a, b) => String(b.f.date).localeCompare(String(a.f.date)));
   const latestDate = sortedList[0]?.f.date || "";
 
