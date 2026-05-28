@@ -24,28 +24,18 @@ export default function AssetSummaryGrid({ stats, formatNum, afterMarketMetrics 
 
       <div className="bg-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm text-center">
         <p className="text-[9px] sm:text-[10px] font-black text-slate-400 mb-1 leading-tight">평가손익률</p>
-        <p
-          className={`text-sm sm:text-lg font-black ${
-            stats.totalProfitRate >= 0 ? "text-rose-500" : "text-blue-600"
-          }`}
-        >
+        <p className={`text-sm sm:text-lg font-black ${stats.totalProfitRate >= 0 ? "text-rose-500" : "text-blue-600"}`}>
           {stats.totalProfitRate.toFixed(2)}%
         </p>
         {afterMarketMetrics && (
-          <p className="mt-1 text-[10px] font-black text-slate-500">
-            정규장: {afterMarketMetrics.closeProfitRate.toFixed(2)}%
-          </p>
+          <p className="mt-1 text-[10px] font-black text-slate-500">정규장: {afterMarketMetrics.closeProfitRate.toFixed(2)}%</p>
         )}
       </div>
 
       <div className="bg-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm text-center">
-        <p className="text-[9px] sm:text-[10px] font-black text-slate-400 mb-1 leading-tight">실현손익</p>
-        <p
-          className={`text-sm sm:text-lg font-black ${
-            stats.totalRealizedProfit >= 0 ? "text-rose-500" : "text-blue-600"
-          }`}
-        >
-          {formatNum(stats.totalRealizedProfit)}
+        <p className="text-[9px] sm:text-[10px] font-black text-slate-400 mb-1 leading-tight">평가손익</p>
+        <p className={`text-sm sm:text-lg font-black ${stats.totalProfitAmount >= 0 ? "text-rose-500" : "text-blue-600"}`}>
+          {formatNum(stats.totalProfitAmount)}
         </p>
       </div>
 
