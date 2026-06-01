@@ -204,9 +204,13 @@ const extractDomesticRows = (html) => {
 
     if (nums.length === 0) return;
 
+    const volume = nums[4] || 0;
+    if (volume <= 0) return;
+
     rows.push({
       date: normalizeDate(dateMatch[1]),
       price: nums[0],
+      volume,
     });
   });
 
@@ -409,24 +413,15 @@ export async function GET() {
       try {
         let fetchedRow = null;
         if (!isForeignTicker(holding.market, holding.code)) {
-          const fetched = await tryFetchNaverPrice(holding.code, holding.market);
-          if (fetched) {
-            fetchedRow = {
-              code: holding.code,
-              price: fetched.price,
-              date: marketStatus.tradingDate,
-            };
-            if (marketStatus.closed) {
-              finalizedDates.add(marketStatus.tradingDate);
-            }
-          }
-        } else if (marketStatus.closed) {
-          fetchedRow = await fetchLatestForeignClose(holding.code);
-          if (fetchedRow?.date) {
-            finalizedDates.add(fetchedRow.date);
+          fetchedRow = await fetchLatestDomesticClose(holding.code);
+          if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
+            finalizedDates.add(marketStatus.tradingDate);
           }
         } else {
           fetchedRow = await fetchLatestForeignClose(holding.code);
+          if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
+            finalizedDates.add(fetchedRow.date);
+          }
         }
 
         if (!fetchedRow) {
