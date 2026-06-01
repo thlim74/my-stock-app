@@ -33,7 +33,7 @@ export default function AssetSummaryGrid({ stats, formatNum, afterMarketMetrics 
       </div>
 
       <div className="bg-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm text-center">
-        <p className="text-[9px] sm:text-[10px] font-black text-slate-400 mb-1 leading-tight">평가손익</p>
+        <p className="text-[9px] sm:text-[10px] font-black text-slate-400 mb-1 leading-tight">평가손익(현금포함)</p>
         <p className={`text-sm sm:text-lg font-black ${stats.totalProfitAmount >= 0 ? "text-rose-500" : "text-blue-600"}`}>
           {formatNum(stats.totalProfitAmount)}
         </p>

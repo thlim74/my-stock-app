@@ -12,6 +12,33 @@ const getSupabaseClient = () => {
   return createClient(url, anonKey);
 };
 
+const DAILY_PRICE_PAGE_SIZE = 1000;
+
+const fetchAllDailyPrices = async (supabase) => {
+  const rows = [];
+
+  for (let from = 0; ; from += DAILY_PRICE_PAGE_SIZE) {
+    const to = from + DAILY_PRICE_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("daily_prices")
+      .select("code, date, price")
+      .order("date", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    rows.push(...(data || []));
+
+    if (!data || data.length < DAILY_PRICE_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return rows;
+};
+
 export async function GET(request) {
   try {
     const supabase = getSupabaseClient();
@@ -21,12 +48,10 @@ export async function GET(request) {
     const raw = searchParams.get("raw");
 
     if (raw === "1") {
-      const { data, error } = await supabase
-        .from("daily_prices")
-        .select("code, date, price")
-        .order("date", { ascending: false });
-
-      if (error) {
+      try {
+        const data = await fetchAllDailyPrices(supabase);
+        return NextResponse.json(data);
+      } catch (error) {
         const missingDailyPricesTable =
           error.message?.includes("Could not find the table") &&
           error.message?.includes("daily_prices");
@@ -37,8 +62,6 @@ export async function GET(request) {
 
         throw new Error(`Failed to load raw daily prices: ${error.message}`);
       }
-
-      return NextResponse.json(data || []);
     }
 
     if (code || date) {
@@ -64,12 +87,10 @@ export async function GET(request) {
       return NextResponse.json(data || []);
     }
 
-    const { data, error } = await supabase
-      .from("daily_prices")
-      .select("code, date, price")
-      .order("date", { ascending: false });
-
-    if (error) {
+    let data = [];
+    try {
+      data = await fetchAllDailyPrices(supabase);
+    } catch (error) {
       const missingDailyPricesTable =
         error.message?.includes("Could not find the table") &&
         error.message?.includes("daily_prices");
