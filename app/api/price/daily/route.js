@@ -401,13 +401,14 @@ export async function GET() {
 
     const results = [];
     const skipped = [];
+    const finalizedDates = new Set();
 
     for (const holding of holdings) {
       const marketStatus = isMarketClosed(holding.market, holding.code);
 
       try {
         let fetchedRow = null;
-        if (marketStatus.closed) {
+        if (!isForeignTicker(holding.market, holding.code)) {
           const fetched = await tryFetchNaverPrice(holding.code, holding.market);
           if (fetched) {
             fetchedRow = {
@@ -415,11 +416,17 @@ export async function GET() {
               price: fetched.price,
               date: marketStatus.tradingDate,
             };
+            if (marketStatus.closed) {
+              finalizedDates.add(marketStatus.tradingDate);
+            }
+          }
+        } else if (marketStatus.closed) {
+          fetchedRow = await fetchLatestForeignClose(holding.code);
+          if (fetchedRow?.date) {
+            finalizedDates.add(fetchedRow.date);
           }
         } else {
-          fetchedRow = isForeignTicker(holding.market, holding.code)
-            ? await fetchLatestForeignClose(holding.code)
-            : await fetchLatestDomesticClose(holding.code);
+          fetchedRow = await fetchLatestForeignClose(holding.code);
         }
 
         if (!fetchedRow) {
@@ -473,6 +480,7 @@ export async function GET() {
       success: true,
       updated: results.length,
       updatedDates: [...new Set(results.map((row) => row.date))].sort(),
+      finalizedDates: [...finalizedDates].sort(),
       skipped,
     });
   } catch (error) {

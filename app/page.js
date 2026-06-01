@@ -473,8 +473,8 @@ export default function StockManagerUltimateV39_11() {
         const response = await fetch("/api/price/daily", { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
         if (cancelled) return;
-        const updatedDates = Array.isArray(payload?.updatedDates) ? payload.updatedDates : [];
-        if (updatedDates.includes(today)) {
+        const finalizedDates = Array.isArray(payload?.finalizedDates) ? payload.finalizedDates : [];
+        if (finalizedDates.includes(today)) {
           localStorage.setItem(DAILY_CLOSE_SYNC_KEY, today);
         }
         await refreshDailyPrices();
