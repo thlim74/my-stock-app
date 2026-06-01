@@ -63,12 +63,6 @@ const formatToday = () => {
   return `${year}-${month}-${day}`;
 };
 
-const shiftDate = (dateText, offset) => {
-  const date = new Date(dateText);
-  date.setDate(date.getDate() + offset);
-  return date.toISOString().split("T")[0];
-};
-
 /**
  * [STOCK-MANAGER ULTIMATE FINAL V39.11 - PIVOT FILTER PATCH]
  * - [개선] '보유종목일별' 탭의 시작일/종료일 지정 후 [조회] 버튼 클릭 시 필터링 완벽 바인딩
@@ -78,7 +72,7 @@ const shiftDate = (dateText, offset) => {
 
 export default function StockManagerUltimateV39_11() {
   const today = formatToday();
-  const defaultStartDate = shiftDate(today, -4);
+  const defaultStartDate = "";
 
   const [activeTab, setActiveTab] = useState("보유현황");
   const [editingId, setEditingId] = useState(null);
