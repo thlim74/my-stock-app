@@ -472,6 +472,7 @@ export async function GET() {
     return Response.json({
       success: true,
       updated: results.length,
+      updatedDates: [...new Set(results.map((row) => row.date))].sort(),
       skipped,
     });
   } catch (error) {

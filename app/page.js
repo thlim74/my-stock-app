@@ -469,15 +469,20 @@ export default function StockManagerUltimateV39_11() {
 
   useEffect(() => {
     if (!authUser) return;
-    const syncedDate = localStorage.getItem(DAILY_CLOSE_SYNC_KEY);
-    if (syncedDate === today) return;
 
     let cancelled = false;
     const syncDailyClose = async () => {
+      const syncedDate = localStorage.getItem(DAILY_CLOSE_SYNC_KEY);
+      if (syncedDate === today) return;
+
       try {
-        await fetch("/api/price/daily", { cache: "no-store" });
+        const response = await fetch("/api/price/daily", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
         if (cancelled) return;
-        localStorage.setItem(DAILY_CLOSE_SYNC_KEY, today);
+        const updatedDates = Array.isArray(payload?.updatedDates) ? payload.updatedDates : [];
+        if (updatedDates.includes(today)) {
+          localStorage.setItem(DAILY_CLOSE_SYNC_KEY, today);
+        }
         await refreshDailyPrices();
       } catch (_error) {
         // Try again on next reload if this attempt fails.
@@ -485,8 +490,10 @@ export default function StockManagerUltimateV39_11() {
     };
 
     syncDailyClose();
+    const timer = setInterval(syncDailyClose, 5 * 60 * 1000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [authUser, refreshDailyPrices, today]);
 
