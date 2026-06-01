@@ -53,7 +53,7 @@ import {
   STORAGE_KEYS,
 } from "@/lib/seed-data";
 
-const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_date";
+const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 
 const formatToday = () => {
   const now = new Date();
@@ -467,7 +467,7 @@ export default function StockManagerUltimateV39_11() {
     let cancelled = false;
     const syncDailyClose = async () => {
       const syncedDate = localStorage.getItem(DAILY_CLOSE_SYNC_KEY);
-      if (syncedDate === today) return;
+      if (syncedDate === `final:${today}`) return;
 
       try {
         const response = await fetch("/api/price/daily", { cache: "no-store" });
@@ -475,7 +475,7 @@ export default function StockManagerUltimateV39_11() {
         if (cancelled) return;
         const finalizedDates = Array.isArray(payload?.finalizedDates) ? payload.finalizedDates : [];
         if (finalizedDates.includes(today)) {
-          localStorage.setItem(DAILY_CLOSE_SYNC_KEY, today);
+          localStorage.setItem(DAILY_CLOSE_SYNC_KEY, `final:${today}`);
         }
         await refreshDailyPrices();
       } catch (_error) {
