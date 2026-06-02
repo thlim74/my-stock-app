@@ -6,7 +6,7 @@ export default function MarketIndexGrid({ items }) {
           key={item.n}
           className="bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm"
         >
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col items-center gap-1.5 text-center">
             <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase leading-tight">
               {item.n}
             </p>
