@@ -23,11 +23,11 @@ export default function TransactionsTab({
 }) {
   return (
     <div>
-      <div className="mb-4 p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 flex items-center justify-between text-[12px]">
+      <div className="mb-4 p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[12px]">
         <div>
           <span className="font-black text-emerald-800">거래관리</span>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button
             onClick={handleDownloadTxCsv}
             className="bg-white text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg font-black hover:bg-emerald-100/50 transition-all"
@@ -55,9 +55,9 @@ export default function TransactionsTab({
           editingId
             ? "bg-amber-50/50 border-amber-300 shadow-md"
             : "bg-slate-50 border-slate-200"
-        } grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end`}
+        } grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end`}
       >
-        <div className="col-span-4 font-black text-[14px] text-slate-700 flex justify-between">
+        <div className="col-span-2 xl:col-span-4 font-black text-[14px] text-slate-700 flex justify-between">
           <span>{editingId ? "매매 내역 수정" : "신규 매매 입력"}</span>
           {editingId && (
             <button onClick={resetForms} className="text-slate-400 underline text-[11px]">
@@ -65,27 +65,27 @@ export default function TransactionsTab({
             </button>
           )}
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">날짜</label>
           <input
             type="date"
             value={newTx.날짜}
             onChange={(e) => setNewTx({ ...newTx, 날짜: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">구분</label>
           <select
             value={newTx.구분}
             onChange={(e) => setNewTx({ ...newTx, 구분: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           >
             <option>매수</option>
             <option>매도</option>
           </select>
         </div>
-        <div className="space-y-1">
+        <div className="col-span-2 sm:col-span-1 min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">종목 선택</label>
           <select
             value={newTx.종목명}
@@ -97,7 +97,7 @@ export default function TransactionsTab({
                 티커: found ? found.티커 : "",
               });
             }}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold bg-white"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold bg-white"
           >
             <option value="">--선택--</option>
             {stockMaster.map((stock) => (
@@ -107,45 +107,45 @@ export default function TransactionsTab({
             ))}
           </select>
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">수량</label>
           <input
             type="text"
             value={newTx.수량}
             onChange={(e) => setNewTx({ ...newTx, 수량: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">단가</label>
           <input
             type="text"
             value={newTx.단가}
             onChange={(e) => setNewTx({ ...newTx, 단가: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">수수료</label>
           <input
             type="text"
             value={newTx.수수료}
             onChange={(e) => setNewTx({ ...newTx, 수수료: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">세금</label>
           <input
             type="text"
             value={newTx.세금}
             onChange={(e) => setNewTx({ ...newTx, 세금: e.target.value })}
-            className="w-full border rounded-xl p-2.5 text-[12px] font-bold"
+            className="w-full min-w-0 border rounded-xl p-2.5 text-[12px] font-bold"
           />
         </div>
         <button
           onClick={saveTx}
-          className={`w-full py-3.5 rounded-xl text-[12px] font-black text-white ${
+          className={`col-span-2 xl:col-span-1 w-full py-3.5 rounded-xl text-[12px] font-black text-white ${
             editingId ? "bg-amber-600" : "bg-slate-900"
           }`}
         >

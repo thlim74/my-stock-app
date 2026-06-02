@@ -19,11 +19,11 @@ export default function StockMasterTab({
 }) {
   return (
     <div>
-      <div className="mb-4 p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex items-center justify-between text-[12px]">
+      <div className="mb-4 p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[12px]">
         <div>
           <span className="font-black text-purple-800">종목마스터 관리</span>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button
             onClick={handleDownloadMasterCsv}
             className="bg-white text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg font-black hover:bg-purple-100/50 transition-all"
@@ -49,7 +49,7 @@ export default function StockMasterTab({
       <div
         className={`mb-8 p-4 sm:p-6 rounded-2xl border transition-all ${masterEditingId ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-slate-50 border-slate-200"} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end`}
       >
-        <div className="col-span-5 font-black text-[13px] text-slate-700 flex justify-between">
+        <div className="col-span-1 sm:col-span-2 xl:col-span-5 font-black text-[13px] text-slate-700 flex justify-between">
           <span>
             {masterEditingId ? "마스터 수정 모드" : "신규 종목 등록"}
           </span>
@@ -60,7 +60,7 @@ export default function StockMasterTab({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">종목명</label>
           <input
             type="text"
@@ -71,7 +71,7 @@ export default function StockMasterTab({
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">티커코드</label>
           <input
             type="text"
@@ -83,7 +83,7 @@ export default function StockMasterTab({
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">시장분류</label>
           <select
             value={newStock.시장}
@@ -98,7 +98,7 @@ export default function StockMasterTab({
           </select>
         </div>
 
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <label className="text-[11px] font-black text-slate-500">섹터분류</label>
           <input
             type="text"
@@ -110,7 +110,7 @@ export default function StockMasterTab({
 
         <button
           onClick={saveMaster}
-          className="bg-purple-700 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md hover:bg-purple-800 transition-all"
+          className="w-full sm:col-span-2 xl:col-span-1 bg-purple-700 text-white py-3.5 rounded-xl text-[12px] font-black shadow-md hover:bg-purple-800 transition-all"
         >
           {masterEditingId ? "수정 저장" : "종목 등록"}
         </button>

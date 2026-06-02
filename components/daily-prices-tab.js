@@ -78,18 +78,18 @@ export default function DailyPricesTab({
 
   return (
     <div>
-      <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+      <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-amber-200 shadow-sm grid grid-cols-1 gap-3 sm:flex sm:items-end sm:gap-4">
         <button
           onClick={handleCollectDailyPriceHistory}
-          className="bg-slate-800 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-slate-700 transition-all"
+          className="w-full sm:w-auto bg-slate-800 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-slate-700 transition-all"
         >
           최초 매수일 이후 종가 수집
         </button>
-        <div className="space-y-1 sm:ml-auto">
+        <div className="min-w-0 space-y-1 sm:ml-auto">
           <select
             value={manualPriceForm.티커}
             onChange={(e) => setManualPriceForm({ ...manualPriceForm, 티커: e.target.value })}
-            className="border rounded-xl px-3 py-1.5 text-[12px] font-bold bg-white"
+            className="w-full min-w-0 border rounded-xl px-3 py-2 text-[12px] font-bold bg-white"
           >
             <option value="">--종목 선택--</option>
             {stockMaster.map((stock) => (
@@ -104,11 +104,11 @@ export default function DailyPricesTab({
           placeholder="현재가 입력"
           value={manualPriceForm.가격}
           onChange={(e) => setManualPriceForm({ ...manualPriceForm, 가격: e.target.value })}
-          className="border rounded-xl px-3 py-1.5 text-[12px] font-bold"
+          className="w-full min-w-0 sm:w-auto border rounded-xl px-3 py-2 text-[12px] font-bold"
         />
         <button
           onClick={handleApplyManualPrice}
-          className="bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-amber-700 transition-all"
+          className="w-full sm:w-auto bg-amber-600 text-white px-4 py-2 rounded-xl text-[12px] font-black shadow hover:bg-amber-700 transition-all"
         >
           현재가 반영
         </button>
