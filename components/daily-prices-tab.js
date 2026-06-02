@@ -168,21 +168,32 @@ export default function DailyPricesTab({
             {sortedStocks.map((stock) => {
               const isForeign = isForeignMarket(stock.시장, stock.티커);
               const snapshot = dailyPriceSnapshots[stock.티커];
-              const isTodaySnapshot = snapshot?.latestDate === today;
+              const latestCloseDate = snapshot?.latestDate || null;
+              const isTodaySnapshot = latestCloseDate === today;
               const previousClose =
                 isTodaySnapshot
                   ? snapshot?.previousPrice ?? null
                   : snapshot?.latestPrice ?? null;
+              const liveRegularPrice =
+                liveStockPrices[stock.티커] !== undefined
+                  ? Number(liveStockPrices[stock.티커])
+                  : null;
               const todayRegularClose =
                 isTodaySnapshot
                   ? snapshot?.latestPrice ?? null
-                  : null;
+                  : Number.isFinite(liveRegularPrice)
+                    ? liveRegularPrice
+                    : null;
               const afterPrice =
                 afterHoursPrices?.[stock.티커] !== undefined
                   ? afterHoursPrices[stock.티커]
                   : liveStockPrices[stock.티커] !== undefined
                     ? liveStockPrices[stock.티커]
                     : null;
+              const basisDate =
+                todayRegularClose !== null || afterPrice !== null
+                  ? today
+                  : latestCloseDate || today;
               const holdingQty = activeHoldingQuantities[stock.종목명] || 0;
               const diff =
                 afterPrice !== null && todayRegularClose !== null
@@ -203,7 +214,7 @@ export default function DailyPricesTab({
                     detailTicker === stock.티커 ? "bg-amber-50" : holdingQty > 0 ? "bg-blue-50/50" : ""
                   }`}
                 >
-                  <td>{snapshot?.latestDate || today}</td>
+                  <td>{basisDate}</td>
                   <td className="text-blue-600 font-black">{stock.티커}</td>
                   <td className="font-black text-slate-800">{stock.종목명}</td>
                   <td>
@@ -227,6 +238,11 @@ export default function DailyPricesTab({
                       : isForeign
                         ? `$ ${formatFloat(todayRegularClose)}`
                         : formatNum(todayRegularClose)}
+                    {todayRegularClose !== null && (
+                      <div className="mt-1 text-[10px] font-bold text-slate-500">
+                        {isTodaySnapshot ? "공식 종가" : "장중 현재가"}
+                      </div>
+                    )}
                   </td>
                   <td className="font-mono font-black text-slate-900">
                     {afterPrice === null

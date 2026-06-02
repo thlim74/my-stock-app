@@ -255,7 +255,7 @@ const fetchDomesticHistory = async (code, startDate) => {
   return [...deduped.values()];
 };
 
-const fetchLatestDomesticClose = async (code) => {
+const fetchLatestDomesticClose = async (code, beforeDate = null) => {
   const response = await fetch(
     `https://finance.naver.com/item/sise_day.naver?code=${encodeURIComponent(code)}&page=1`,
     {
@@ -268,7 +268,9 @@ const fetchLatestDomesticClose = async (code) => {
   const html = new TextDecoder("euc-kr").decode(buffer);
   const rows = extractDomesticRows(html);
   if (!rows.length) return null;
-  return { code, date: rows[0].date, price: rows[0].price };
+  const row = rows.find((item) => !beforeDate || item.date < beforeDate);
+  if (!row) return null;
+  return { code, date: row.date, price: row.price };
 };
 
 const normalizeForeignSymbol = (code) => {
@@ -413,7 +415,10 @@ export async function GET() {
       try {
         let fetchedRow = null;
         if (!isForeignTicker(holding.market, holding.code)) {
-          fetchedRow = await fetchLatestDomesticClose(holding.code);
+          fetchedRow = await fetchLatestDomesticClose(
+            holding.code,
+            marketStatus.closed ? null : marketStatus.tradingDate,
+          );
           if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
             finalizedDates.add(marketStatus.tradingDate);
           }
