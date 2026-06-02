@@ -1,62 +1,76 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-
-const APP_STATE_ID = "default";
-
-const getSupabaseClient = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Supabase environment variables are missing.");
-  }
-
-  return createClient(url, anonKey);
-};
+import { getCurrentUser, getServerSupabase } from "@/lib/server-auth";
+import {
+  canAccessPortfolio,
+  DEFAULT_PORTFOLIO_ID,
+  loadPortfolioRegistry,
+  toPortfolioStateId,
+} from "@/lib/server-portfolios";
 
 const isMissingTableError = (message, table) =>
   message?.includes("Could not find the table") && message?.includes(table);
 
-export async function GET() {
+const getPortfolioId = (request) => {
+  const { searchParams } = new URL(request.url);
+  return String(searchParams.get("portfolioId") || DEFAULT_PORTFOLIO_ID).trim();
+};
+
+const buildEmptyState = (source = "empty") => ({
+  transactions: null,
+  cashFlows: null,
+  stockMaster: null,
+  cashAdjustment: 0,
+  source,
+});
+
+const assertPortfolioAccess = async (supabase, user, portfolioId) => {
+  const registry = await loadPortfolioRegistry(supabase);
+  if (!canAccessPortfolio(user, registry, portfolioId)) {
+    const error = new Error("포트폴리오 접근 권한이 없습니다.");
+    error.status = 403;
+    throw error;
+  }
+};
+
+export async function GET(request) {
   try {
-    const supabase = getSupabaseClient();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+    }
+
+    const portfolioId = getPortfolioId(request);
+    const appStateId = toPortfolioStateId(portfolioId);
+    const supabase = getServerSupabase();
+    await assertPortfolioAccess(supabase, user, portfolioId);
+
     let data = null;
     let error = null;
 
     ({ data, error } = await supabase
       .from("app_state")
       .select("transactions, cash_flows, stock_master, cash_adjustment")
-      .eq("id", APP_STATE_ID)
+      .eq("id", appStateId)
       .maybeSingle());
 
     if (error && error.message?.includes("cash_adjustment")) {
       ({ data, error } = await supabase
         .from("app_state")
         .select("transactions, cash_flows, stock_master")
-        .eq("id", APP_STATE_ID)
+        .eq("id", appStateId)
         .maybeSingle());
     }
 
     if (error) {
       if (isMissingTableError(error.message, "app_state")) {
-        return NextResponse.json({
-          transactions: null,
-          cashFlows: null,
-          stockMaster: null,
-          source: "missing-table",
-        });
+        return NextResponse.json(buildEmptyState("missing-table"));
       }
 
       throw new Error(`Failed to load app state: ${error.message}`);
     }
 
     if (!data) {
-      return NextResponse.json({
-        transactions: null,
-        cashFlows: null,
-        stockMaster: null,
-        source: "empty",
-      });
+      return NextResponse.json(buildEmptyState("empty"));
     }
 
     return NextResponse.json({
@@ -65,23 +79,32 @@ export async function GET() {
       stockMaster: data.stock_master || [],
       cashAdjustment:
         typeof data.cash_adjustment === "number" ? data.cash_adjustment : 0,
+      portfolioId,
       source: "supabase",
     });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Unknown server error" },
-      { status: 500 },
+      { status: error.status || 500 },
     );
   }
 }
 
 export async function POST(request) {
   try {
-    const supabase = getSupabaseClient();
-    const body = await request.json();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+    }
 
+    const portfolioId = getPortfolioId(request);
+    const appStateId = toPortfolioStateId(portfolioId);
+    const supabase = getServerSupabase();
+    await assertPortfolioAccess(supabase, user, portfolioId);
+
+    const body = await request.json();
     const payload = {
-      id: APP_STATE_ID,
+      id: appStateId,
       transactions: Array.isArray(body?.transactions) ? body.transactions : [],
       cash_flows: Array.isArray(body?.cashFlows) ? body.cashFlows : [],
       stock_master: Array.isArray(body?.stockMaster) ? body.stockMaster : [],
@@ -93,7 +116,7 @@ export async function POST(request) {
 
     if (error && error.message?.includes("cash_adjustment")) {
       const fallbackPayload = {
-        id: APP_STATE_ID,
+        id: payload.id,
         transactions: payload.transactions,
         cash_flows: payload.cash_flows,
         stock_master: payload.stock_master,
@@ -113,11 +136,11 @@ export async function POST(request) {
       throw new Error(`Failed to save app state: ${error.message}`);
     }
 
-    return NextResponse.json({ success: true, source: "supabase" });
+    return NextResponse.json({ success: true, portfolioId, source: "supabase" });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Unknown server error" },
-      { status: 500 },
+      { status: error.status || 500 },
     );
   }
 }

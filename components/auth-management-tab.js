@@ -28,6 +28,11 @@ export default function AuthManagementTab({
   onDeleteUser,
   onResetPassword,
   canBootstrap = true,
+  portfolios = [],
+  activePortfolioId = "default",
+  onPortfolioChange,
+  onCreatePortfolio,
+  onUpdatePortfolioUsers,
 }) {
   if (authLoading) {
     return <div className="text-[13px] font-bold text-slate-500">인증 상태 확인 중...</div>;
@@ -119,6 +124,7 @@ export default function AuthManagementTab({
   }
 
   const isAdmin = authUser.role === "admin";
+  const selectableUsers = Array.isArray(users) ? users.filter((user) => user.is_active) : [];
 
   return (
     <div className="space-y-4">
@@ -132,6 +138,79 @@ export default function AuthManagementTab({
         >
           로그아웃
         </button>
+      </div>
+
+      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <h3 className="text-[14px] font-black text-slate-800">포트폴리오 관리</h3>
+          <button
+            onClick={onCreatePortfolio}
+            className="self-start sm:self-auto rounded-xl border border-blue-200 bg-white px-3 py-2 text-[12px] font-black text-blue-700"
+          >
+            포트폴리오 추가
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {portfolios.map((portfolio) => {
+            const assignedIds = Array.isArray(portfolio.userIds) ? portfolio.userIds : [];
+            return (
+              <div key={portfolio.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-[14px] font-black text-slate-900">
+                      {portfolio.name}
+                    </div>
+                    <div className="mt-1 text-[11px] font-bold text-slate-500">
+                      {portfolio.builtIn ? "기본 데이터" : `ID: ${portfolio.id.slice(0, 8)}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onPortfolioChange?.(portfolio.id)}
+                    disabled={activePortfolioId === portfolio.id}
+                    className={`rounded-lg px-3 py-1.5 text-[11px] font-black ${
+                      activePortfolioId === portfolio.id
+                        ? "bg-blue-600 text-white"
+                        : "border border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {activePortfolioId === portfolio.id ? "사용 중" : "선택"}
+                  </button>
+                </div>
+
+                {isAdmin && !portfolio.builtIn && selectableUsers.length > 0 && (
+                  <div className="mt-3">
+                    <div className="mb-2 text-[11px] font-black text-slate-500">
+                      접근 사용자 지정
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectableUsers.map((user) => {
+                        const checked = assignedIds.includes(user.id);
+                        return (
+                          <label
+                            key={user.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const nextIds = checked
+                                  ? assignedIds.filter((id) => id !== user.id)
+                                  : [...assignedIds, user.id];
+                                onUpdatePortfolioUsers?.(portfolio.id, nextIds);
+                              }}
+                            />
+                            {user.display_name || user.username}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {isAdmin ? (
@@ -232,4 +311,3 @@ export default function AuthManagementTab({
     </div>
   );
 }
-

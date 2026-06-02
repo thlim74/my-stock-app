@@ -54,6 +54,7 @@ import {
 } from "@/lib/seed-data";
 
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
+const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
 
 const formatToday = () => {
   const now = new Date();
@@ -84,6 +85,10 @@ export default function StockManagerUltimateV39_11() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null);
   const [authUsers, setAuthUsers] = useState([]);
+  const [portfolios, setPortfolios] = useState([
+    { id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] },
+  ]);
+  const [activePortfolioId, setActivePortfolioId] = useState("default");
   const [bootstrapMode, setBootstrapMode] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [bootstrapForm, setBootstrapForm] = useState({
@@ -312,17 +317,39 @@ export default function StockManagerUltimateV39_11() {
   const getChangeStr = (pct) =>
     pct >= 0 ? `▲ ${pct.toFixed(2)}%` : `▼ ${Math.abs(pct).toFixed(2)}%`;
 
-  // [전제 5 보존] 마운트 시점에 로컬 스토리지 복구
+  const getPortfolioStorageKey = useCallback(
+    (baseKey) => `${baseKey}:${activePortfolioId || "default"}`,
+    [activePortfolioId],
+  );
+
+  // [전제 5 보존] 로그인/포트폴리오 선택 후 로컬 스토리지 및 원격 상태 복구
   useEffect(() => {
+    if (authLoading || !authUser || !activePortfolioId) return;
     let cancelled = false;
 
     const bootstrapState = async () => {
-      const savedTx = localStorage.getItem(STORAGE_KEYS.TX);
-      const savedCash = localStorage.getItem(STORAGE_KEYS.CASH);
-      const savedMaster = localStorage.getItem(STORAGE_KEYS.MASTER);
+      setIsLoaded(false);
+      setTransactions([]);
+      setCashFlows([]);
+      setStockMaster([]);
+      setCashAdjustment(0);
+
+      const portfolioSuffix = activePortfolioId || "default";
+      const savedTx =
+        localStorage.getItem(`${STORAGE_KEYS.TX}:${portfolioSuffix}`) ||
+        (portfolioSuffix === "default" ? localStorage.getItem(STORAGE_KEYS.TX) : null);
+      const savedCash =
+        localStorage.getItem(`${STORAGE_KEYS.CASH}:${portfolioSuffix}`) ||
+        (portfolioSuffix === "default" ? localStorage.getItem(STORAGE_KEYS.CASH) : null);
+      const savedMaster =
+        localStorage.getItem(`${STORAGE_KEYS.MASTER}:${portfolioSuffix}`) ||
+        (portfolioSuffix === "default" ? localStorage.getItem(STORAGE_KEYS.MASTER) : null);
 
       try {
-        const response = await fetch("/api/app-state", { cache: "no-store" });
+        const response = await fetch(
+          `/api/app-state?portfolioId=${encodeURIComponent(portfolioSuffix)}`,
+          { cache: "no-store" },
+        );
 
         if (response.ok) {
           const remoteState = await response.json();
@@ -374,16 +401,17 @@ export default function StockManagerUltimateV39_11() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activePortfolioId, authLoading, authUser]);
 
-  // [전제 5 보존] 상태 변경 시 안전하게 스토리지 업데이트
+  // [전제 5 보존] 상태 변경 시 포트폴리오별 스토리지 업데이트
   useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEYS.TX, JSON.stringify(transactions));
-    localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(cashFlows));
-    localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(stockMaster));
+    if (!isLoaded || !authUser || !activePortfolioId) return;
+    localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.TX), JSON.stringify(transactions));
+    localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.CASH), JSON.stringify(cashFlows));
+    localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.MASTER), JSON.stringify(stockMaster));
+    localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, activePortfolioId);
 
-    fetch("/api/app-state", {
+    fetch(`/api/app-state?portfolioId=${encodeURIComponent(activePortfolioId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -395,7 +423,16 @@ export default function StockManagerUltimateV39_11() {
     }).catch(() => {
       // Keep local storage as a fallback even if remote save fails.
     });
-  }, [transactions, cashFlows, stockMaster, cashAdjustment, isLoaded]);
+  }, [
+    transactions,
+    cashFlows,
+    stockMaster,
+    cashAdjustment,
+    isLoaded,
+    authUser,
+    activePortfolioId,
+    getPortfolioStorageKey,
+  ]);
 
   const formatNum = (n) => (n ? Math.round(Number(n)).toLocaleString() : "0");
   const formatFloat = (n) =>
@@ -449,6 +486,37 @@ export default function StockManagerUltimateV39_11() {
     }
   }, [authUser?.role]);
 
+  const fetchPortfolios = useCallback(async () => {
+    if (!authUser) {
+      setPortfolios([{ id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] }]);
+      setActivePortfolioId("default");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/portfolios", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "포트폴리오 목록 조회 실패");
+      }
+
+      const nextPortfolios = Array.isArray(payload.portfolios) && payload.portfolios.length > 0
+        ? payload.portfolios
+        : [{ id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] }];
+
+      setPortfolios(nextPortfolios);
+      setActivePortfolioId((current) => {
+        const saved = localStorage.getItem(ACTIVE_PORTFOLIO_STORAGE_KEY);
+        const preferred = current || saved || "default";
+        return nextPortfolios.some((portfolio) => portfolio.id === preferred)
+          ? preferred
+          : nextPortfolios[0].id;
+      });
+    } catch (error) {
+      alert(error.message || "포트폴리오 목록 조회 실패");
+    }
+  }, [authUser]);
+
   useEffect(() => {
     fetchAuthMe();
   }, [fetchAuthMe]);
@@ -460,6 +528,10 @@ export default function StockManagerUltimateV39_11() {
   useEffect(() => {
     fetchAdminUsers();
   }, [fetchAdminUsers]);
+
+  useEffect(() => {
+    fetchPortfolios();
+  }, [fetchPortfolios]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -521,6 +593,8 @@ export default function StockManagerUltimateV39_11() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuthUser(null);
     setAuthUsers([]);
+    setPortfolios([{ id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] }]);
+    setActivePortfolioId("default");
   };
 
   const handleBootstrapAdmin = async () => {
@@ -629,6 +703,67 @@ export default function StockManagerUltimateV39_11() {
       await fetchAdminUsers();
     } catch (error) {
       alert(error.message || "사용자 삭제 실패");
+    }
+  };
+
+  const handleCreatePortfolio = async () => {
+    const name = prompt("새 포트폴리오 이름", "새 포트폴리오");
+    if (!name || !name.trim()) return;
+
+    try {
+      const response = await fetch("/api/portfolios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "포트폴리오 추가 실패");
+      }
+
+      const nextPortfolios = Array.isArray(payload.portfolios) ? payload.portfolios : [];
+      if (nextPortfolios.length > 0) {
+        setPortfolios(nextPortfolios);
+      } else {
+        await fetchPortfolios();
+      }
+
+      if (payload.portfolio?.id) {
+        setActivePortfolioId(payload.portfolio.id);
+        localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, payload.portfolio.id);
+      }
+      alert("포트폴리오 추가 완료");
+    } catch (error) {
+      alert(error.message || "포트폴리오 추가 실패");
+    }
+  };
+
+  const handlePortfolioChange = (portfolioId) => {
+    if (!portfolioId || portfolioId === activePortfolioId) return;
+    setActivePortfolioId(portfolioId);
+    localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, portfolioId);
+    setSelectedIds([]);
+    resetForms();
+  };
+
+  const handleUpdatePortfolioUsers = async (portfolioId, userIds) => {
+    try {
+      const response = await fetch("/api/portfolios", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: portfolioId, userIds }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "포트폴리오 사용자 지정 실패");
+      }
+      if (Array.isArray(payload.portfolios)) {
+        setPortfolios(payload.portfolios);
+      } else {
+        await fetchPortfolios();
+      }
+    } catch (error) {
+      alert(error.message || "포트폴리오 사용자 지정 실패");
     }
   };
 
@@ -1475,6 +1610,10 @@ export default function StockManagerUltimateV39_11() {
           lastUpdate={lastUpdate}
           authUser={authUser}
           onLogout={handleLogout}
+          portfolios={portfolios}
+          activePortfolioId={activePortfolioId}
+          onPortfolioChange={handlePortfolioChange}
+          onCreatePortfolio={handleCreatePortfolio}
         />
 
         {errorMessage && (
@@ -1697,6 +1836,11 @@ export default function StockManagerUltimateV39_11() {
                   onDeleteUser={handleDeleteUser}
                   onResetPassword={handleResetPassword}
                   canBootstrap={canBootstrap}
+                  portfolios={portfolios}
+                  activePortfolioId={activePortfolioId}
+                  onPortfolioChange={handlePortfolioChange}
+                  onCreatePortfolio={handleCreatePortfolio}
+                  onUpdatePortfolioUsers={handleUpdatePortfolioUsers}
                 />
               </div>
             )}
