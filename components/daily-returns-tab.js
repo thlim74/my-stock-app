@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 const getDailyFieldBundle = (row) => {
   const keys = Object.keys(row || {});
   return {
@@ -15,7 +19,21 @@ const getDailyFieldBundle = (row) => {
 const buildPath = (points) =>
   points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
 
+const getAxisStep = (limit) => {
+  if (limit <= 4_000_000) return 1_000_000;
+  if (limit <= 10_000_000) return 2_000_000;
+  if (limit <= 25_000_000) return 5_000_000;
+  return 10_000_000;
+};
+
+const formatAxisLabel = (value) => {
+  if (value === 0) return "0";
+  const sign = value > 0 ? "+" : "-";
+  return `${sign}${Math.abs(value) / 10_000}만`;
+};
+
 function DailyProfitChart({ items, formatNum }) {
+  const [activePoint, setActivePoint] = useState(null);
   const chartItems = [...items]
     .filter(({ f }) => !f.isHoliday)
     .sort((a, b) => String(a.f.date).localeCompare(String(b.f.date)))
@@ -24,13 +42,20 @@ function DailyProfitChart({ items, formatNum }) {
   if (chartItems.length === 0) return null;
 
   const width = 920;
-  const height = 280;
-  const padding = { top: 24, right: 24, bottom: 44, left: 62 };
+  const height = 300;
+  const padding = { top: 28, right: 24, bottom: 48, left: 74 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const dayValues = chartItems.map(({ f }) => f.dayProfit);
   const totalValues = chartItems.map(({ f }) => f.totalProfit);
-  const dayLimit = Math.max(1, ...dayValues.map((value) => Math.abs(value)));
+  const rawDayLimit = Math.max(1, ...dayValues.map((value) => Math.abs(value)));
+  const axisStep = getAxisStep(rawDayLimit);
+  const dayLimit = Math.max(axisStep, Math.ceil(rawDayLimit / axisStep) * axisStep);
+  const axisValues = [];
+  for (let value = dayLimit; value >= -dayLimit; value -= axisStep) {
+    axisValues.push(value);
+  }
+
   const totalMin = Math.min(...totalValues);
   const totalMax = Math.max(...totalValues);
   const totalRange = Math.max(1, totalMax - totalMin);
@@ -41,6 +66,8 @@ function DailyProfitChart({ items, formatNum }) {
     x: padding.left + barSlot * index + barSlot / 2,
     y: padding.top + ((totalMax - f.totalProfit) / totalRange) * plotHeight,
   }));
+
+  const getProfitY = (value) => zeroY - (value / dayLimit) * (plotHeight / 2);
 
   return (
     <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
@@ -60,33 +87,59 @@ function DailyProfitChart({ items, formatNum }) {
       </div>
 
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[720px] w-full h-[230px] sm:h-[280px]">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="min-w-[720px] w-full h-[250px] sm:h-[300px]"
+          onMouseLeave={() => setActivePoint(null)}
+        >
           <rect x="0" y="0" width={width} height={height} rx="18" fill="#f8fafc" />
-          <line
-            x1={padding.left}
-            y1={zeroY}
-            x2={width - padding.right}
-            y2={zeroY}
-            stroke="#cbd5e1"
-            strokeDasharray="5 5"
-          />
-          {[0.25, 0.5, 0.75].map((ratio) => (
-            <line
-              key={ratio}
-              x1={padding.left}
-              y1={padding.top + plotHeight * ratio}
-              x2={width - padding.right}
-              y2={padding.top + plotHeight * ratio}
-              stroke="#e2e8f0"
-            />
-          ))}
+
+          {axisValues.map((value) => {
+            const y = getProfitY(value);
+            return (
+              <g key={value}>
+                <line
+                  x1={padding.left}
+                  y1={y}
+                  x2={width - padding.right}
+                  y2={y}
+                  stroke={value === 0 ? "#cbd5e1" : "#e2e8f0"}
+                  strokeDasharray={value === 0 ? "5 5" : "none"}
+                />
+                <text
+                  x={padding.left - 12}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize="10"
+                  fontWeight="900"
+                  fill="#64748b"
+                >
+                  {formatAxisLabel(value)}
+                </text>
+              </g>
+            );
+          })}
 
           {chartItems.map(({ f }, index) => {
-            const x = padding.left + barSlot * index + (barSlot - barWidth) / 2;
-            const barHeight = (Math.abs(f.dayProfit) / dayLimit) * (plotHeight / 2 - 12);
+            const centerX = padding.left + barSlot * index + barSlot / 2;
+            const x = centerX - barWidth / 2;
+            const barHeight = (Math.abs(f.dayProfit) / dayLimit) * (plotHeight / 2);
             const y = f.dayProfit >= 0 ? zeroY - barHeight : zeroY;
+            const point = {
+              x: centerX,
+              y,
+              date: f.date,
+              dayProfit: f.dayProfit,
+              dayRate: f.dayRate,
+              totalProfit: f.totalProfit,
+            };
             return (
-              <g key={f.date}>
+              <g
+                key={f.date}
+                onMouseEnter={() => setActivePoint(point)}
+                onClick={() => setActivePoint(point)}
+                className="cursor-pointer"
+              >
                 <rect
                   x={x}
                   y={y}
@@ -94,10 +147,10 @@ function DailyProfitChart({ items, formatNum }) {
                   height={Math.max(2, barHeight)}
                   rx="5"
                   fill={f.dayProfit >= 0 ? "#f43f5e" : "#2563eb"}
-                  opacity="0.86"
+                  opacity={activePoint?.date === f.date ? "1" : "0.86"}
                 />
                 <text
-                  x={padding.left + barSlot * index + barSlot / 2}
+                  x={centerX}
                   y={height - 18}
                   textAnchor="middle"
                   fontSize="10"
@@ -122,15 +175,56 @@ function DailyProfitChart({ items, formatNum }) {
             <circle key={chartItems[index].f.date} cx={point.x} cy={point.y} r="4" fill="#059669" />
           ))}
 
-          <text x="18" y={padding.top + 4} fontSize="11" fontWeight="900" fill="#64748b">
-            +{formatNum(dayLimit)}
-          </text>
-          <text x="24" y={zeroY + 4} fontSize="11" fontWeight="900" fill="#64748b">
-            0
-          </text>
-          <text x="18" y={padding.top + plotHeight} fontSize="11" fontWeight="900" fill="#64748b">
-            -{formatNum(dayLimit)}
-          </text>
+          {activePoint && (
+            <g>
+              <line
+                x1={activePoint.x}
+                y1={padding.top}
+                x2={activePoint.x}
+                y2={height - padding.bottom}
+                stroke="#94a3b8"
+                strokeDasharray="4 4"
+              />
+              <rect
+                x={Math.min(activePoint.x + 12, width - 226)}
+                y={Math.max(14, activePoint.y - 66)}
+                width="214"
+                height="74"
+                rx="12"
+                fill="#0f172a"
+                opacity="0.94"
+              />
+              <text
+                x={Math.min(activePoint.x + 26, width - 212)}
+                y={Math.max(38, activePoint.y - 42)}
+                fontSize="12"
+                fontWeight="900"
+                fill="#ffffff"
+              >
+                {activePoint.date}
+              </text>
+              <text
+                x={Math.min(activePoint.x + 26, width - 212)}
+                y={Math.max(58, activePoint.y - 22)}
+                fontSize="12"
+                fontWeight="900"
+                fill={activePoint.dayProfit >= 0 ? "#fb7185" : "#60a5fa"}
+              >
+                일간손익: {activePoint.dayProfit >= 0 ? "+" : ""}
+                {formatNum(activePoint.dayProfit)} ({activePoint.dayRate})
+              </text>
+              <text
+                x={Math.min(activePoint.x + 26, width - 212)}
+                y={Math.max(78, activePoint.y - 2)}
+                fontSize="12"
+                fontWeight="900"
+                fill="#34d399"
+              >
+                평가손익: {activePoint.totalProfit >= 0 ? "+" : ""}
+                {formatNum(activePoint.totalProfit)}
+              </text>
+            </g>
+          )}
         </svg>
       </div>
     </div>
