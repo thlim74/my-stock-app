@@ -145,7 +145,7 @@ export default function AuthManagementTab({
           <h3 className="text-[14px] font-black text-slate-800">포트폴리오 관리</h3>
           <button
             onClick={onCreatePortfolio}
-            className="self-start sm:self-auto rounded-xl border border-blue-200 bg-white px-3 py-2 text-[12px] font-black text-blue-700"
+            className={`self-start sm:self-auto rounded-xl border border-blue-200 bg-white px-3 py-2 text-[12px] font-black text-blue-700 ${isAdmin ? "" : "hidden"}`}
           >
             포트폴리오 추가
           </button>

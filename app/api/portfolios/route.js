@@ -64,6 +64,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
 
+    if (user.role !== "admin") {
+      return NextResponse.json(
+        { error: "관리자만 포트폴리오를 추가할 수 있습니다." },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const name = sanitizeName(body?.name);
     if (!name) {

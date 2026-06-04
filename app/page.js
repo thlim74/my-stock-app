@@ -143,6 +143,7 @@ export default function StockManagerUltimateV39_11() {
   const [cashAdjustment, setCashAdjustment] = useState(0);
 
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedPortfolioId, setLoadedPortfolioId] = useState(null);
 
   // --- [개별 입력 폼 상태 구조 정의] ---
   const [newTx, setNewTx] = useState(() => createInitialTx(today));
@@ -329,6 +330,7 @@ export default function StockManagerUltimateV39_11() {
 
     const bootstrapState = async () => {
       setIsLoaded(false);
+      setLoadedPortfolioId(null);
       setTransactions([]);
       setCashFlows([]);
       setStockMaster([]);
@@ -379,6 +381,7 @@ export default function StockManagerUltimateV39_11() {
           setCashAdjustment(Number(remoteState.cashAdjustment) || 0);
 
           setIsLoaded(true);
+          setLoadedPortfolioId(portfolioSuffix);
           return;
         }
       } catch (_error) {
@@ -394,6 +397,7 @@ export default function StockManagerUltimateV39_11() {
       if (savedMaster) setStockMaster(JSON.parse(savedMaster));
       setCashAdjustment(0);
       setIsLoaded(true);
+      setLoadedPortfolioId(portfolioSuffix);
     };
 
     bootstrapState();
@@ -406,6 +410,7 @@ export default function StockManagerUltimateV39_11() {
   // [전제 5 보존] 상태 변경 시 포트폴리오별 스토리지 업데이트
   useEffect(() => {
     if (!isLoaded || !authUser || !activePortfolioId) return;
+    if (loadedPortfolioId !== activePortfolioId) return;
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.TX), JSON.stringify(transactions));
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.CASH), JSON.stringify(cashFlows));
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.MASTER), JSON.stringify(stockMaster));
@@ -429,6 +434,7 @@ export default function StockManagerUltimateV39_11() {
     stockMaster,
     cashAdjustment,
     isLoaded,
+    loadedPortfolioId,
     authUser,
     activePortfolioId,
     getPortfolioStorageKey,
@@ -595,6 +601,7 @@ export default function StockManagerUltimateV39_11() {
     setAuthUsers([]);
     setPortfolios([{ id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] }]);
     setActivePortfolioId("default");
+    setLoadedPortfolioId(null);
   };
 
   const handleBootstrapAdmin = async () => {
@@ -740,6 +747,8 @@ export default function StockManagerUltimateV39_11() {
 
   const handlePortfolioChange = (portfolioId) => {
     if (!portfolioId || portfolioId === activePortfolioId) return;
+    setIsLoaded(false);
+    setLoadedPortfolioId(null);
     setActivePortfolioId(portfolioId);
     localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, portfolioId);
     setSelectedIds([]);

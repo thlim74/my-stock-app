@@ -7,6 +7,8 @@ export default function AppHeader({
   onPortfolioChange,
   onCreatePortfolio,
 }) {
+  const isAdmin = authUser?.role === "admin";
+
   return (
     <div className="mb-4 sm:mb-6 bg-white px-5 py-4 sm:px-7 sm:py-5 xl:px-8 xl:py-6 rounded-2xl sm:rounded-[24px] border border-slate-200 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -37,12 +39,14 @@ export default function AppHeader({
                 </option>
               ))}
             </select>
-            <button
-              onClick={onCreatePortfolio}
-              className="text-[12px] font-black bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl hover:bg-blue-100"
-            >
-              포트폴리오 추가
-            </button>
+            {isAdmin && (
+              <button
+                onClick={onCreatePortfolio}
+                className="text-[12px] font-black bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl hover:bg-blue-100"
+              >
+                포트폴리오 추가
+              </button>
+            )}
             <button
               onClick={onLogout}
               className="text-[12px] font-black bg-slate-100 border border-slate-300 text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-200"
