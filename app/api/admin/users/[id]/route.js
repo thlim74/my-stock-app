@@ -5,6 +5,7 @@ import {
   hashPassword,
   requireAdmin,
 } from "@/lib/server-auth";
+import { clearAuthSecurityForUser } from "@/lib/server-auth-security";
 
 export async function PATCH(request, { params }) {
   try {
@@ -40,7 +41,7 @@ export async function PATCH(request, { params }) {
 
     const { data: target, error: targetError } = await supabase
       .from("app_users")
-      .select("id, role")
+      .select("id, username, role")
       .eq("id", id)
       .maybeSingle();
 
@@ -58,6 +59,13 @@ export async function PATCH(request, { params }) {
     const { error } = await supabase.from("app_users").update(payload).eq("id", id);
     if (error) {
       throw new Error(`Failed to update user: ${error.message}`);
+    }
+    if (body?.unlockAuth || body?.resetPassword) {
+      await clearAuthSecurityForUser(supabase, {
+        username: target.username,
+        userId: target.id,
+        unlockedBy: admin.id,
+      });
     }
     return NextResponse.json({ success: true });
   } catch (error) {

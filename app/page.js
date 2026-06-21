@@ -691,9 +691,29 @@ export default function StockManagerUltimateV39_11() {
       if (!response.ok) {
         throw new Error(payload.error || "비밀번호 초기화 실패");
       }
+      await fetchAdminUsers();
       alert("비밀번호 초기화 완료");
     } catch (error) {
       alert(error.message || "비밀번호 초기화 실패");
+    }
+  };
+
+  const handleUnlockAuth = async (user) => {
+    if (!confirm(`${user.username} 계정의 로그인 차단을 해제하시겠습니까?`)) return;
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unlockAuth: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "차단 해제 실패");
+      }
+      await fetchAdminUsers();
+      alert("로그인 차단 해제 완료");
+    } catch (error) {
+      alert(error.message || "차단 해제 실패");
     }
   };
 
@@ -1605,6 +1625,7 @@ export default function StockManagerUltimateV39_11() {
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
             onResetPassword={handleResetPassword}
+            onUnlockAuth={handleUnlockAuth}
             canBootstrap={canBootstrap}
           />
         </div>
@@ -1844,6 +1865,7 @@ export default function StockManagerUltimateV39_11() {
                   onUpdateUser={handleUpdateUser}
                   onDeleteUser={handleDeleteUser}
                   onResetPassword={handleResetPassword}
+                  onUnlockAuth={handleUnlockAuth}
                   canBootstrap={canBootstrap}
                   portfolios={portfolios}
                   activePortfolioId={activePortfolioId}

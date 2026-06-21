@@ -6,9 +6,30 @@ import {
   setSessionCookie,
   verifyPassword,
 } from "@/lib/server-auth";
+import {
+  AUTH_LOCK_THRESHOLD,
+  clearAuthSecurityForUser,
+  findAuthSecurityRecord,
+  loadAuthSecurityRegistry,
+  recordFailedLogin,
+  shouldBlockForeignIp,
+} from "@/lib/server-auth-security";
+
+const invalidLoginResponse = () =>
+  NextResponse.json(
+    { error: "아이디 또는 비밀번호가 올바르지 않습니다." },
+    { status: 401 },
+  );
 
 export async function POST(request) {
   try {
+    if (shouldBlockForeignIp(request)) {
+      return NextResponse.json(
+        { error: "해외 IP 접속은 차단되었습니다." },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const username = String(body?.username || "").trim().toLowerCase();
     const password = String(body?.password || "");
@@ -23,6 +44,15 @@ export async function POST(request) {
     const supabase = getServerSupabase();
     await ensureUsersTable(supabase);
 
+    const securityRegistry = await loadAuthSecurityRegistry(supabase);
+    const securityRecord = findAuthSecurityRecord(securityRegistry, username);
+    if (securityRecord?.locked) {
+      return NextResponse.json(
+        { error: "패스워드 오류 5회로 계정이 차단되었습니다. 관리자에게 해제를 요청하세요." },
+        { status: 423 },
+      );
+    }
+
     const { data, error } = await supabase
       .from("app_users")
       .select("id, username, display_name, role, is_active, password_hash")
@@ -30,10 +60,8 @@ export async function POST(request) {
       .maybeSingle();
 
     if (error || !data) {
-      return NextResponse.json(
-        { error: "아이디 또는 비밀번호가 올바르지 않습니다." },
-        { status: 401 },
-      );
+      await recordFailedLogin(supabase, { username });
+      return invalidLoginResponse();
     }
 
     if (!data.is_active) {
@@ -44,10 +72,17 @@ export async function POST(request) {
     }
 
     if (!verifyPassword(password, data.password_hash)) {
-      return NextResponse.json(
-        { error: "아이디 또는 비밀번호가 올바르지 않습니다." },
-        { status: 401 },
-      );
+      const failed = await recordFailedLogin(supabase, {
+        username,
+        userId: data.id,
+      });
+      if (failed?.locked) {
+        return NextResponse.json(
+          { error: `패스워드 오류 ${AUTH_LOCK_THRESHOLD}회로 계정이 차단되었습니다.` },
+          { status: 423 },
+        );
+      }
+      return invalidLoginResponse();
     }
 
     const token = buildSessionToken({
@@ -56,6 +91,10 @@ export async function POST(request) {
       role: data.role,
     });
     await setSessionCookie(token);
+    await clearAuthSecurityForUser(supabase, {
+      username,
+      userId: data.id,
+    });
 
     await supabase
       .from("app_users")

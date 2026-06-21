@@ -6,6 +6,7 @@ import {
   hashPassword,
   requireAdmin,
 } from "@/lib/server-auth";
+import { loadAuthSecurityRegistry } from "@/lib/server-auth-security";
 
 export async function GET() {
   try {
@@ -21,7 +22,23 @@ export async function GET() {
     if (error) {
       throw new Error(`Failed to load users: ${error.message}`);
     }
-    return NextResponse.json({ users: data || [] });
+    const securityRegistry = await loadAuthSecurityRegistry(supabase);
+    const users = (data || []).map((user) => {
+      const security = securityRegistry.find(
+        (record) => record.userId === user.id || record.username === user.username,
+      );
+      return {
+        ...user,
+        authSecurity: security || {
+          failedCount: 0,
+          locked: false,
+          lockedAt: null,
+          lastFailedAt: null,
+        },
+      };
+    });
+
+    return NextResponse.json({ users });
   } catch (error) {
     const status = error.message?.includes("권한") || error.message?.includes("로그인") ? 403 : 500;
     return NextResponse.json({ error: error.message }, { status });

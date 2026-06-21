@@ -27,6 +27,7 @@ export default function AuthManagementTab({
   onUpdateUser,
   onDeleteUser,
   onResetPassword,
+  onUnlockAuth,
   canBootstrap = true,
   portfolios = [],
   activePortfolioId = "default",
@@ -43,7 +44,7 @@ export default function AuthManagementTab({
       <div className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 max-w-[520px]">
           <h3 className="text-[14px] font-black text-slate-800 mb-3">
-            {bootstrapMode ? "최초 관리자 생성" : "로그인"}
+            {bootstrapMode ? "최초 관리자 계정 생성" : "로그인"}
           </h3>
           <div className="grid gap-2">
             {!bootstrapMode ? (
@@ -143,12 +144,14 @@ export default function AuthManagementTab({
       <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
           <h3 className="text-[14px] font-black text-slate-800">포트폴리오 관리</h3>
-          <button
-            onClick={onCreatePortfolio}
-            className={`self-start sm:self-auto rounded-xl border border-blue-200 bg-white px-3 py-2 text-[12px] font-black text-blue-700 ${isAdmin ? "" : "hidden"}`}
-          >
-            포트폴리오 추가
-          </button>
+          {isAdmin && (
+            <button
+              onClick={onCreatePortfolio}
+              className="self-start sm:self-auto rounded-xl border border-blue-200 bg-white px-3 py-2 text-[12px] font-black text-blue-700"
+            >
+              포트폴리오 추가
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {portfolios.map((portfolio) => {
@@ -271,7 +274,7 @@ export default function AuthManagementTab({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {users.map((user) => (
                 <div key={user.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="text-[14px] font-black text-slate-800">{user.display_name}</div>
                     <span className="text-[11px] font-black px-2 py-1 rounded bg-white border text-slate-600">
                       {user.role}
@@ -279,18 +282,34 @@ export default function AuthManagementTab({
                   </div>
                   <div className="mt-1 text-[12px] font-bold text-slate-500">{user.username}</div>
                   <div className="mt-2 text-[12px] font-bold text-slate-500">
-                    상태: {user.is_active ? "활성" : "비활성"}
+                    계정상태: {user.is_active ? "활성" : "비활성"}
                   </div>
                   <div className="mt-1 text-[12px] font-bold text-slate-500">
                     최근 로그인: {formatDateTime(user.last_login_at)}
                   </div>
-                  <div className="mt-3 flex gap-3 text-[12px] font-black">
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-slate-600">
+                    <div>로그인 실패: {Number(user.authSecurity?.failedCount || 0)}회</div>
+                    <div className={user.authSecurity?.locked ? "text-rose-600" : "text-emerald-600"}>
+                      보안상태: {user.authSecurity?.locked ? "차단됨" : "정상"}
+                    </div>
+                    {user.authSecurity?.lastFailedAt && (
+                      <div className="text-slate-400">
+                        최근 실패: {formatDateTime(user.authSecurity.lastFailedAt)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-[12px] font-black">
                     <button onClick={() => onUpdateUser(user)} className="text-blue-600 underline">
                       수정
                     </button>
                     <button onClick={() => onResetPassword(user)} className="text-amber-600 underline">
                       비번재설정
                     </button>
+                    {user.authSecurity?.locked && (
+                      <button onClick={() => onUnlockAuth?.(user)} className="text-emerald-600 underline">
+                        차단해제
+                      </button>
+                    )}
                     <button onClick={() => onDeleteUser(user)} className="text-rose-600 underline">
                       삭제
                     </button>
