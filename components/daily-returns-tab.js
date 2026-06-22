@@ -5,14 +5,14 @@ import { useState } from "react";
 const getDailyFieldBundle = (row) => {
   const keys = Object.keys(row || {});
   return {
-    date: row?.기준일 ?? row?.[keys[0]] ?? "",
-    evalAmount: Number((row?.평가금액 ?? row?.[keys[1]]) || 0),
-    cashFlow: Number((row?.당일현금흐름 ?? row?.[keys[2]]) || 0),
-    dayProfit: Number((row?.일간손익 ?? row?.[keys[3]]) || 0),
-    dayRate: row?.일간수익률 ?? row?.[keys[4]] ?? "0.00%",
-    isHoliday: Boolean(row?.휴장 ?? row?.[keys[5]]),
-    totalProfit: Number((row?.평가손익 ?? row?.[keys[6]]) || 0),
-    totalRate: row?.평가수익률 ?? row?.[keys[7]] ?? "0.00%",
+    date: row?.[keys[0]] ?? "",
+    evalAmount: Number(row?.[keys[1]] || 0),
+    cashFlow: Number(row?.[keys[2]] || 0),
+    dayProfit: Number(row?.[keys[3]] || 0),
+    dayRate: row?.[keys[4]] ?? "0.00%",
+    isHoliday: Boolean(row?.[keys[5]]),
+    totalRate: row?.[keys[6]] ?? "0.00%",
+    totalProfit: Number(row?.[keys[7]] || 0),
   };
 };
 
