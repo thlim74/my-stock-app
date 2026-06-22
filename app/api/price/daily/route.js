@@ -1,19 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { getServerSupabase } from "@/lib/server-auth";
 
 const COMMON_HEADERS = {
   "User-Agent": "Mozilla/5.0",
   Referer: "https://finance.naver.com/",
-};
-
-const getSupabaseClient = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Supabase environment variables are missing.");
-  }
-
-  return createClient(url, anonKey);
 };
 
 const isForeignTicker = (market, code) =>
@@ -390,7 +379,7 @@ const loadActiveAssets = async (supabase) => {
 
 export async function GET() {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getServerSupabase();
     const { holdings, missingTable } = await loadActiveAssets(supabase);
 
     if (missingTable) {
@@ -493,7 +482,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getServerSupabase();
     const body = await request.json();
     const transactions = Array.isArray(body?.transactions) ? body.transactions : [];
     const stockMaster = Array.isArray(body?.stockMaster) ? body.stockMaster : [];

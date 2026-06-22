@@ -1,16 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-
-const getSupabaseClient = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Supabase environment variables are missing.");
-  }
-
-  return createClient(url, anonKey);
-};
+import { getServerSupabase } from "@/lib/server-auth";
 
 const DAILY_PRICE_PAGE_SIZE = 1000;
 
@@ -41,7 +30,7 @@ const fetchAllDailyPrices = async (supabase) => {
 
 export async function GET(request) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getServerSupabase();
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
     const date = searchParams.get("date");
