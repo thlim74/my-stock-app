@@ -14,6 +14,8 @@ const getMonthlyFieldBundle = (row) => {
   };
 };
 
+const parsePercentValue = (value) => Number(String(value || "0").replace("%", ""));
+
 export default function MonthlyReturnsTab({ monthlyList, formatNum }) {
   const visibleMonthlyList = (monthlyList || [])
     .map((monthly) => getMonthlyFieldBundle(monthly))
@@ -52,7 +54,7 @@ export default function MonthlyReturnsTab({ monthlyList, formatNum }) {
                   {monthly.monthProfit >= 0 ? "+" : ""}
                   {formatNum(monthly.monthProfit)}
                 </td>
-                <td className={monthly.evalProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
+                <td className={parsePercentValue(monthly.monthRate) >= 0 ? "text-rose-500" : "text-blue-500"}>
                   {monthly.monthRate}
                 </td>
                 <td className={monthly.evalProfit >= 0 ? "text-emerald-600" : "text-rose-500"}>
