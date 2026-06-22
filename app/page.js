@@ -55,6 +55,10 @@ import {
 
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
+const INDEX_REFRESH_MS = 60 * 1000;
+const LIVE_PRICE_REFRESH_MS = 30 * 1000;
+const AFTER_HOURS_REFRESH_MS = 3 * 60 * 1000;
+const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
 
 const formatToday = () => {
   const now = new Date();
@@ -85,6 +89,7 @@ export default function StockManagerUltimateV39_11() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null);
   const [authUsers, setAuthUsers] = useState([]);
+  const [isPageVisible, setIsPageVisible] = useState(true);
   const [portfolios, setPortfolios] = useState([
     { id: "default", name: "기본 포트폴리오", builtIn: true, userIds: [] },
   ]);
@@ -153,6 +158,23 @@ export default function StockManagerUltimateV39_11() {
     createInitialManualPriceForm,
   );
   const [cashTotalInput, setCashTotalInput] = useState("");
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      setIsPageVisible(!document.hidden);
+    };
+
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    window.addEventListener("focus", updateVisibility);
+    window.addEventListener("blur", updateVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", updateVisibility);
+      window.removeEventListener("focus", updateVisibility);
+      window.removeEventListener("blur", updateVisibility);
+    };
+  }, []);
 
   const effectiveLivePrices = useMemo(() => {
     const next = { ...liveStockPrices };
@@ -238,6 +260,7 @@ export default function StockManagerUltimateV39_11() {
 
   // 지수 카드는 실제 API 응답을 주기적으로 반영
   useEffect(() => {
+    if (!authUser || !isPageVisible) return;
     let cancelled = false;
 
     const fetchIndices = async () => {
@@ -282,15 +305,16 @@ export default function StockManagerUltimateV39_11() {
     };
 
     fetchIndices();
-    const timer = setInterval(fetchIndices, 30000);
+    const timer = setInterval(fetchIndices, INDEX_REFRESH_MS);
 
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [authUser, isPageVisible]);
 
   useEffect(() => {
+    if (!authUser || !isPageVisible) return;
     let cancelled = false;
 
     const fetchDailyPrices = async () => {
@@ -305,13 +329,11 @@ export default function StockManagerUltimateV39_11() {
     };
 
     fetchDailyPrices();
-    const timer = setInterval(fetchDailyPrices, 60000);
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
     };
-  }, [refreshDailyPrices]);
+  }, [authUser, isPageVisible, refreshDailyPrices]);
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
@@ -540,7 +562,7 @@ export default function StockManagerUltimateV39_11() {
   }, [fetchPortfolios]);
 
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser || !isPageVisible) return;
 
     let cancelled = false;
     const syncDailyClose = async () => {
@@ -562,12 +584,12 @@ export default function StockManagerUltimateV39_11() {
     };
 
     syncDailyClose();
-    const timer = setInterval(syncDailyClose, 5 * 60 * 1000);
+    const timer = setInterval(syncDailyClose, DAILY_CLOSE_SYNC_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [authUser, refreshDailyPrices, today]);
+  }, [authUser, isPageVisible, refreshDailyPrices, today]);
 
   useEffect(() => {
     if (!authLoading && !authUser) {
@@ -1059,6 +1081,21 @@ export default function StockManagerUltimateV39_11() {
     [stats.holdingList],
   );
 
+  const activeHoldingTargetKey = useMemo(
+    () =>
+      stockMaster
+        .filter((stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0)
+        .map((stock) => `${stock.티커}:${stock.종목명}:${activeHoldingQuantities[stock.종목명]}`)
+        .sort()
+        .join("|"),
+    [stockMaster, activeHoldingQuantities],
+  );
+
+  const activeHoldingStocks = useMemo(
+    () => stockMaster.filter((stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0),
+    [stockMaster, activeHoldingTargetKey],
+  );
+
   useEffect(() => {
     if (activeTab !== "입출금") {
       return;
@@ -1067,12 +1104,11 @@ export default function StockManagerUltimateV39_11() {
   }, [stats.cashBalance, activeTab]);
 
   useEffect(() => {
+    if (!authUser || !isPageVisible) return;
     let cancelled = false;
 
     const fetchLivePrices = async () => {
-      const targetStocks = stockMaster.filter(
-        (stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0,
-      );
+      const targetStocks = activeHoldingStocks;
 
       if (targetStocks.length === 0) {
         return;
@@ -1146,21 +1182,20 @@ export default function StockManagerUltimateV39_11() {
     };
 
     fetchLivePrices();
-    const timer = setInterval(fetchLivePrices, 60000);
+    const timer = setInterval(fetchLivePrices, LIVE_PRICE_REFRESH_MS);
 
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [stockMaster, activeHoldingQuantities]);
+  }, [authUser, isPageVisible, activeHoldingStocks, activeHoldingTargetKey]);
 
   useEffect(() => {
+    if (!authUser || !isPageVisible) return;
     let cancelled = false;
 
     const fetchAfterHours = async () => {
-      const targetStocks = stockMaster.filter(
-        (stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0,
-      );
+      const targetStocks = activeHoldingStocks;
 
       if (targetStocks.length === 0) {
         if (!cancelled) {
@@ -1224,12 +1259,12 @@ export default function StockManagerUltimateV39_11() {
     };
 
     fetchAfterHours();
-    const timer = setInterval(fetchAfterHours, 60000);
+    const timer = setInterval(fetchAfterHours, AFTER_HOURS_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [stockMaster, activeHoldingQuantities]);
+  }, [authUser, isPageVisible, activeHoldingStocks, activeHoldingTargetKey]);
 
   const marketIndexItems = useMemo(
     () => [
