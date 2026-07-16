@@ -25,8 +25,12 @@ export default function DailyPricesTab({
   const [historyRows, setHistoryRows] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const holdingStocks = useMemo(() => {
+    return [...stockMaster].filter((stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0);
+  }, [activeHoldingQuantities, stockMaster]);
+
   const sortedStocks = useMemo(() => {
-    return [...stockMaster]
+    return [...holdingStocks]
       .filter((stock) => {
         const keyword = searchTicker.trim().toUpperCase();
         if (!keyword) return true;
@@ -42,7 +46,7 @@ export default function DailyPricesTab({
         if (qtyA !== qtyB) return qtyB - qtyA;
         return String(a.종목명).localeCompare(String(b.종목명), "ko");
       });
-  }, [activeHoldingQuantities, searchTicker, stockMaster]);
+  }, [activeHoldingQuantities, holdingStocks, searchTicker]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -60,7 +64,12 @@ export default function DailyPricesTab({
         });
         if (!response.ok) throw new Error("종가 이력을 불러오지 못했습니다.");
         const rows = await response.json();
-        setHistoryRows(Array.isArray(rows) ? rows : []);
+        const holdingTickers = new Set(holdingStocks.map((stock) => stock.티커));
+        setHistoryRows(
+          Array.isArray(rows)
+            ? rows.filter((row) => holdingTickers.has(row.code))
+            : [],
+        );
       } catch (_error) {
         setHistoryRows([]);
       } finally {
@@ -68,7 +77,7 @@ export default function DailyPricesTab({
       }
     };
     fetchHistory();
-  }, [detailTicker, searchDate]);
+  }, [detailTicker, holdingStocks, searchDate]);
 
   const detailTitle = detailTicker
     ? stockMaster.find((stock) => stock.티커 === detailTicker)?.종목명 || detailTicker
@@ -92,7 +101,7 @@ export default function DailyPricesTab({
             className="w-full min-w-0 border rounded-xl px-3 py-2 text-[12px] font-bold bg-white"
           >
             <option value="">--종목 선택--</option>
-            {stockMaster.map((stock) => (
+            {holdingStocks.map((stock) => (
               <option key={stock.id} value={stock.티커}>
                 {stock.종목명} ({stock.티커})
               </option>

@@ -487,14 +487,11 @@ export async function POST(request) {
     const transactions = Array.isArray(body?.transactions) ? body.transactions : [];
     const stockMaster = Array.isArray(body?.stockMaster) ? body.stockMaster : [];
     const holdingList = Array.isArray(body?.holdingList) ? body.holdingList : [];
-    const holdingTickers =
-      holdingList.length > 0
-        ? new Set(
-            holdingList
-              .map((holding) => String(holding.티커 || "").trim())
-              .filter(Boolean),
-          )
-        : null;
+    const holdingTickers = new Set(
+      holdingList
+        .map((holding) => String(holding.티커 || "").trim())
+        .filter(Boolean),
+    );
 
     const targets = deriveTargetsFromTransactions(
       transactions,
