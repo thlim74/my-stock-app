@@ -562,36 +562,6 @@ export default function StockManagerUltimateV39_11() {
   }, [fetchPortfolios]);
 
   useEffect(() => {
-    if (!authUser || !isPageVisible) return;
-
-    let cancelled = false;
-    const syncDailyClose = async () => {
-      const syncedDate = localStorage.getItem(DAILY_CLOSE_SYNC_KEY);
-      if (syncedDate === `final:${today}`) return;
-
-      try {
-        const response = await fetch("/api/price/daily", { cache: "no-store" });
-        const payload = await response.json().catch(() => ({}));
-        if (cancelled) return;
-        const finalizedDates = Array.isArray(payload?.finalizedDates) ? payload.finalizedDates : [];
-        if (finalizedDates.includes(today)) {
-          localStorage.setItem(DAILY_CLOSE_SYNC_KEY, `final:${today}`);
-        }
-        await refreshDailyPrices();
-      } catch (_error) {
-        // Try again on next reload if this attempt fails.
-      }
-    };
-
-    syncDailyClose();
-    const timer = setInterval(syncDailyClose, DAILY_CLOSE_SYNC_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [authUser, isPageVisible, refreshDailyPrices, today]);
-
-  useEffect(() => {
     if (!authLoading && !authUser) {
       setActiveTab("관리");
     }
@@ -1095,6 +1065,61 @@ export default function StockManagerUltimateV39_11() {
     () => stockMaster.filter((stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0),
     [stockMaster, activeHoldingTargetKey],
   );
+  const activeHoldingSyncList = useMemo(
+    () => activeHoldingStocks.map((stock) => ({ 티커: stock.티커 })),
+    [activeHoldingStocks],
+  );
+
+  useEffect(() => {
+    if (!authUser || !isPageVisible || activeHoldingStocks.length === 0) return;
+
+    let cancelled = false;
+    const syncDailyClose = async () => {
+      const syncKey = `${DAILY_CLOSE_SYNC_KEY}:${activePortfolioId || "default"}`;
+      const syncedDate = localStorage.getItem(syncKey);
+      if (syncedDate === `final:${today}`) return;
+
+      try {
+        const response = await fetch("/api/price/daily", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            latestOnly: true,
+            transactions,
+            stockMaster,
+            holdingList: activeHoldingSyncList,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        const finalizedDates = Array.isArray(payload?.finalizedDates) ? payload.finalizedDates : [];
+        if (finalizedDates.includes(today)) {
+          localStorage.setItem(syncKey, `final:${today}`);
+        }
+        await refreshDailyPrices();
+      } catch (_error) {
+        // Try again on next visible session if this attempt fails.
+      }
+    };
+
+    syncDailyClose();
+    const timer = setInterval(syncDailyClose, DAILY_CLOSE_SYNC_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [
+    activeHoldingStocks.length,
+    activeHoldingTargetKey,
+    activeHoldingSyncList,
+    activePortfolioId,
+    authUser,
+    isPageVisible,
+    refreshDailyPrices,
+    stockMaster,
+    today,
+    transactions,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "입출금") {

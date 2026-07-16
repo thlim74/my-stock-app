@@ -487,6 +487,7 @@ export async function POST(request) {
     const transactions = Array.isArray(body?.transactions) ? body.transactions : [];
     const stockMaster = Array.isArray(body?.stockMaster) ? body.stockMaster : [];
     const holdingList = Array.isArray(body?.holdingList) ? body.holdingList : [];
+    const latestOnly = body?.latestOnly === true;
     const holdingTickers = new Set(
       holdingList
         .map((holding) => String(holding.티커 || "").trim())
@@ -505,6 +506,66 @@ export async function POST(request) {
         updated: 0,
         targets: 0,
         message: "매수 거래 기준 수집 대상이 없습니다.",
+      });
+    }
+
+    if (latestOnly) {
+      const rows = [];
+      const skipped = [];
+      const finalizedDates = new Set();
+
+      for (const target of targets) {
+        const marketStatus = isMarketClosed(target.market, target.code);
+        try {
+          let fetchedRow = null;
+          if (isForeignTicker(target.market, target.code)) {
+            fetchedRow = await fetchLatestForeignClose(target.code);
+            if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
+              finalizedDates.add(fetchedRow.date);
+            }
+          } else {
+            fetchedRow = await fetchLatestDomesticClose(
+              target.code,
+              marketStatus.closed ? null : marketStatus.tradingDate,
+            );
+            if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
+              finalizedDates.add(marketStatus.tradingDate);
+            }
+          }
+
+          if (!fetchedRow) {
+            skipped.push({
+              code: target.code,
+              market: target.market,
+              reason: marketStatus.closed ? "No price found" : "No latest close found",
+            });
+            continue;
+          }
+
+          rows.push(fetchedRow);
+        } catch (error) {
+          skipped.push({
+            code: target.code,
+            market: target.market,
+            reason: error.message || "Latest close fetch failed",
+          });
+        }
+      }
+
+      if (rows.length > 0) {
+        const { error } = await supabase.from("daily_prices").upsert(rows);
+        if (error) {
+          throw new Error(`Failed to upsert daily prices: ${error.message}`);
+        }
+      }
+
+      return Response.json({
+        success: true,
+        updated: rows.length,
+        targets: targets.length,
+        updatedDates: [...new Set(rows.map((row) => row.date))].sort(),
+        finalizedDates: [...finalizedDates].sort(),
+        skipped,
       });
     }
 
