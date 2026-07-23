@@ -652,6 +652,7 @@ export default function StockManagerUltimateV39_11() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          username: user.username,
           displayName,
           role: role === "admin" ? "admin" : "user",
           isActive: String(activeText).toLowerCase() === "true",
@@ -675,6 +676,7 @@ export default function StockManagerUltimateV39_11() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          username: user.username,
           resetPassword: true,
           newPassword: nextPassword,
         }),
@@ -696,7 +698,7 @@ export default function StockManagerUltimateV39_11() {
       const response = await fetch(`/api/admin/users/${user.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unlockAuth: true }),
+        body: JSON.stringify({ username: user.username, unlockAuth: true }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -714,6 +716,8 @@ export default function StockManagerUltimateV39_11() {
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user.username }),
       });
       const payload = await response.json();
       if (!response.ok) {
