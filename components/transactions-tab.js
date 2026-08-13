@@ -175,14 +175,17 @@ export default function TransactionsTab({
           const price = Number(tx.단가) || 0;
           const fee = Number(tx.수수료) || 0;
           const tax = Number(tx.세금) || 0;
+          const savedTotalKrw = Number(tx.원화계산총액) || 0;
           const activeTotalKrw =
-            tx.구분 === "매수"
-              ? isForeign
-                ? (quantity * price + fee + tax) * exchangeRate
-                : quantity * price + fee + tax
-              : isForeign
-                ? (quantity * price - fee - tax) * exchangeRate
-                : quantity * price - fee - tax;
+            savedTotalKrw > 0
+              ? savedTotalKrw
+              : tx.구분 === "매수"
+                ? isForeign
+                  ? (quantity * price + fee + tax) * exchangeRate
+                  : quantity * price + fee + tax
+                : isForeign
+                  ? (quantity * price - fee - tax) * exchangeRate
+                  : quantity * price - fee - tax;
 
           return (
             <div key={tx.id} className="rounded-xl border border-slate-200 bg-white p-3">
@@ -280,14 +283,17 @@ export default function TransactionsTab({
               const price = Number(tx.단가) || 0;
               const fee = Number(tx.수수료) || 0;
               const tax = Number(tx.세금) || 0;
+              const savedTotalKrw = Number(tx.원화계산총액) || 0;
               const activeTotalKrw =
-                tx.구분 === "매수"
-                  ? isForeign
-                    ? (quantity * price + fee + tax) * exchangeRate
-                    : quantity * price + fee + tax
-                  : isForeign
-                    ? (quantity * price - fee - tax) * exchangeRate
-                    : quantity * price - fee - tax;
+                savedTotalKrw > 0
+                  ? savedTotalKrw
+                  : tx.구분 === "매수"
+                    ? isForeign
+                      ? (quantity * price + fee + tax) * exchangeRate
+                      : quantity * price + fee + tax
+                    : isForeign
+                      ? (quantity * price - fee - tax) * exchangeRate
+                      : quantity * price - fee - tax;
 
               return (
                 <tr

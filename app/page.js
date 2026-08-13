@@ -337,6 +337,49 @@ export default function StockManagerUltimateV39_11() {
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
+  useEffect(() => {
+    if (!authUser || !isLoaded || transactions.length === 0 || !Number.isFinite(EXCHANGE_RATE)) {
+      return;
+    }
+
+    const needsTradeAmountMigration = transactions.some((tx) => {
+      const masterMatch = stockMaster.find(
+        (stock) => stock.티커 === tx.티커 || stock.종목명 === tx.종목명,
+      );
+      const market = masterMatch ? masterMatch.시장 : inferMarketFromTicker(tx.티커);
+      return (
+        isForeignMarket(market, tx.티커) &&
+        (!Number(tx.거래환율) || !Number(tx.원화계산총액))
+      );
+    });
+
+    if (!needsTradeAmountMigration) {
+      return;
+    }
+
+    setTransactions((prev) =>
+      prev.map((tx) => {
+        const masterMatch = stockMaster.find(
+          (stock) => stock.티커 === tx.티커 || stock.종목명 === tx.종목명,
+        );
+        const market = masterMatch ? masterMatch.시장 : inferMarketFromTicker(tx.티커);
+        if (
+          !isForeignMarket(market, tx.티커) ||
+          (Number(tx.거래환율) && Number(tx.원화계산총액))
+        ) {
+          return tx;
+        }
+
+        return buildTransactionPayload({
+          newTx: tx,
+          editingId: tx.id,
+          stockMaster,
+          exchangeRate: EXCHANGE_RATE,
+        });
+      }),
+    );
+  }, [authUser, isLoaded, transactions, stockMaster, EXCHANGE_RATE]);
+
   const getChangeStr = (pct) =>
     pct >= 0 ? `▲ ${pct.toFixed(2)}%` : `▼ ${Math.abs(pct).toFixed(2)}%`;
 
@@ -1424,6 +1467,7 @@ export default function StockManagerUltimateV39_11() {
       newTx,
       editingId,
       stockMaster,
+      exchangeRate: EXCHANGE_RATE,
     });
     setTransactions(upsertTransaction(transactions, editingId, payload));
     resetForms();
