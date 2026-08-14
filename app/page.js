@@ -117,6 +117,7 @@ export default function StockManagerUltimateV39_11() {
   const migratedTradeAmountPortfoliosRef = useRef(new Set());
   const lastSavedAppStateRef = useRef("");
   const appStateSaveTimerRef = useRef(null);
+  const suppressRemoteSaveCountRef = useRef(0);
 
   // --- [조회 기간 필터 및 실동작 트리거 상태] ---
   const [startDate, setStartDate] = useState(defaultStartDate);
@@ -247,6 +248,39 @@ export default function StockManagerUltimateV39_11() {
     setDailyPriceHistoryMap(historyMap);
   }, []);
 
+  const mergeLocalTradeAmounts = useCallback((remoteTransactions, savedTxText) => {
+    if (!Array.isArray(remoteTransactions) || !savedTxText) {
+      return remoteTransactions;
+    }
+
+    try {
+      const localTransactions = JSON.parse(savedTxText);
+      if (!Array.isArray(localTransactions)) {
+        return remoteTransactions;
+      }
+      const localById = new Map(localTransactions.map((tx) => [String(tx.id), tx]));
+
+      return remoteTransactions.map((tx) => {
+        const localTx = localById.get(String(tx.id));
+        if (!localTx) {
+          return tx;
+        }
+        const remoteHasFixedAmounts = Number(tx.거래환율) || Number(tx.원화계산총액);
+        const localHasFixedAmounts = Number(localTx.거래환율) || Number(localTx.원화계산총액);
+        if (remoteHasFixedAmounts || !localHasFixedAmounts) {
+          return tx;
+        }
+        return {
+          ...tx,
+          거래환율: localTx.거래환율,
+          원화계산총액: localTx.원화계산총액,
+        };
+      });
+    } catch (_error) {
+      return remoteTransactions;
+    }
+  }, []);
+
   // 종목 현재가 기본값만 유지하고, 난수 시뮬레이션은 제거
   useEffect(() => {
     setLiveStockPrices((prev) => {
@@ -370,6 +404,7 @@ export default function StockManagerUltimateV39_11() {
     }
 
     migratedTradeAmountPortfoliosRef.current.add(migrationKey);
+    suppressRemoteSaveCountRef.current += 1;
     setTransactions((prev) =>
       prev.map((tx) => {
         const masterMatch = stockMaster.find(
@@ -439,7 +474,7 @@ export default function StockManagerUltimateV39_11() {
           }
 
           if (Array.isArray(remoteState.transactions)) {
-            setTransactions(remoteState.transactions);
+            setTransactions(mergeLocalTradeAmounts(remoteState.transactions, savedTx));
           } else if (savedTx) {
             setTransactions(JSON.parse(savedTx));
           }
@@ -458,6 +493,7 @@ export default function StockManagerUltimateV39_11() {
 
           setCashAdjustment(Number(remoteState.cashAdjustment) || 0);
 
+          suppressRemoteSaveCountRef.current += 1;
           setIsLoaded(true);
           setLoadedPortfolioId(portfolioSuffix);
           return;
@@ -474,6 +510,7 @@ export default function StockManagerUltimateV39_11() {
       if (savedCash) setCashFlows(JSON.parse(savedCash));
       if (savedMaster) setStockMaster(JSON.parse(savedMaster));
       setCashAdjustment(0);
+      suppressRemoteSaveCountRef.current += 1;
       setIsLoaded(true);
       setLoadedPortfolioId(portfolioSuffix);
     };
@@ -483,7 +520,7 @@ export default function StockManagerUltimateV39_11() {
     return () => {
       cancelled = true;
     };
-  }, [activePortfolioId, authLoading, authUser]);
+  }, [activePortfolioId, authLoading, authUser, mergeLocalTradeAmounts]);
 
   // [전제 5 보존] 상태 변경 시 포트폴리오별 스토리지 업데이트
   useEffect(() => {
@@ -493,6 +530,11 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.CASH), JSON.stringify(cashFlows));
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.MASTER), JSON.stringify(stockMaster));
     localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, activePortfolioId);
+
+    if (suppressRemoteSaveCountRef.current > 0) {
+      suppressRemoteSaveCountRef.current -= 1;
+      return;
+    }
 
     const appStateBody = JSON.stringify({
       transactions,
