@@ -114,6 +114,9 @@ export default function StockManagerUltimateV39_11() {
   const tabCashCsvRef = useRef(null);
   const tabTxCsvRef = useRef(null);
   const tabMasterCsvRef = useRef(null);
+  const migratedTradeAmountPortfoliosRef = useRef(new Set());
+  const lastSavedAppStateRef = useRef("");
+  const appStateSaveTimerRef = useRef(null);
 
   // --- [조회 기간 필터 및 실동작 트리거 상태] ---
   const [startDate, setStartDate] = useState(defaultStartDate);
@@ -338,7 +341,15 @@ export default function StockManagerUltimateV39_11() {
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
   useEffect(() => {
-    if (!authUser || !isLoaded || transactions.length === 0 || !Number.isFinite(EXCHANGE_RATE)) {
+    const migrationKey = activePortfolioId || "default";
+    if (
+      !authUser ||
+      !isLoaded ||
+      transactions.length === 0 ||
+      !Number.isFinite(EXCHANGE_RATE) ||
+      EXCHANGE_RATE <= 0 ||
+      migratedTradeAmountPortfoliosRef.current.has(migrationKey)
+    ) {
       return;
     }
 
@@ -354,9 +365,11 @@ export default function StockManagerUltimateV39_11() {
     });
 
     if (!needsTradeAmountMigration) {
+      migratedTradeAmountPortfoliosRef.current.add(migrationKey);
       return;
     }
 
+    migratedTradeAmountPortfoliosRef.current.add(migrationKey);
     setTransactions((prev) =>
       prev.map((tx) => {
         const masterMatch = stockMaster.find(
@@ -378,7 +391,7 @@ export default function StockManagerUltimateV39_11() {
         });
       }),
     );
-  }, [authUser, isLoaded, transactions, stockMaster, EXCHANGE_RATE]);
+  }, [activePortfolioId, authUser, isLoaded, transactions, stockMaster, EXCHANGE_RATE]);
 
   const getChangeStr = (pct) =>
     pct >= 0 ? `▲ ${pct.toFixed(2)}%` : `▼ ${Math.abs(pct).toFixed(2)}%`;
@@ -481,18 +494,41 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.MASTER), JSON.stringify(stockMaster));
     localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, activePortfolioId);
 
-    fetch(`/api/app-state?portfolioId=${encodeURIComponent(activePortfolioId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        transactions,
-        cashFlows,
-        stockMaster,
-        cashAdjustment,
-      }),
-    }).catch(() => {
-      // Keep local storage as a fallback even if remote save fails.
+    const appStateBody = JSON.stringify({
+      transactions,
+      cashFlows,
+      stockMaster,
+      cashAdjustment,
     });
+    const appStateSaveKey = JSON.stringify({
+      portfolioId: activePortfolioId,
+      transactions,
+      cashFlows,
+      stockMaster,
+      cashAdjustment,
+    });
+    if (lastSavedAppStateRef.current === appStateSaveKey) return;
+
+    if (appStateSaveTimerRef.current) {
+      clearTimeout(appStateSaveTimerRef.current);
+    }
+
+    appStateSaveTimerRef.current = setTimeout(() => {
+      fetch(`/api/app-state?portfolioId=${encodeURIComponent(activePortfolioId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: appStateBody,
+      }).catch(() => {
+        // Keep local storage as a fallback even if remote save fails.
+      });
+      lastSavedAppStateRef.current = appStateSaveKey;
+    }, 2000);
+
+    return () => {
+      if (appStateSaveTimerRef.current) {
+        clearTimeout(appStateSaveTimerRef.current);
+      }
+    };
   }, [
     transactions,
     cashFlows,
