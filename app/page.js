@@ -1222,25 +1222,23 @@ export default function StockManagerUltimateV39_11() {
         return;
       }
 
-      const settled = await Promise.allSettled(
-        targetStocks.map(async (stock) => {
-          const response = await fetch(
-            `/api/price?code=${encodeURIComponent(stock.티커)}`,
-            { cache: "no-store" },
-          );
+      const response = await fetch("/api/price/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: targetStocks.map((stock) => stock.티커) }),
+        cache: "no-store",
+      });
 
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || `Failed to fetch ${stock.티커}`);
-          }
+      if (!response.ok) {
+        return;
+      }
 
-          const data = await response.json();
-          return {
-            ticker: stock.티커,
-            price: Number(data.price),
-            sourceCode: data.sourceCode || stock.티커,
-          };
-        }),
+      const payload = await response.json().catch(() => ({}));
+      const priceMap = new Map(
+        (Array.isArray(payload?.prices) ? payload.prices : []).map((item) => [
+          item.code,
+          item,
+        ]),
       );
 
       if (cancelled) {
@@ -1250,9 +1248,10 @@ export default function StockManagerUltimateV39_11() {
       setLiveStockPrices((prev) => {
         const next = { ...prev };
 
-        settled.forEach((result) => {
-          if (result.status === "fulfilled" && Number.isFinite(result.value.price)) {
-            next[result.value.ticker] = result.value.price;
+        targetStocks.forEach((stock) => {
+          const item = priceMap.get(stock.티커);
+          if (item?.ok && Number.isFinite(Number(item.price))) {
+            next[stock.티커] = Number(item.price);
           }
         });
 
@@ -1262,25 +1261,19 @@ export default function StockManagerUltimateV39_11() {
         const next = {};
 
         targetStocks.forEach((stock, index) => {
-          const result = settled[index];
+          const item = priceMap.get(stock.티커);
 
-          if (
-            result?.status === "fulfilled" &&
-            Number.isFinite(result.value.price)
-          ) {
+          if (item?.ok && Number.isFinite(Number(item.price))) {
             next[stock.티커] = {
               ok: true,
-              message: `실시간 수신 (${result.value.sourceCode})`,
+              message: `실시간 수신 (${item.sourceCode || stock.티커})`,
             };
             return;
           }
 
           next[stock.티커] = {
             ok: false,
-            message:
-              result?.status === "rejected"
-                ? result.reason?.message || "실시간 수신 실패"
-                : "실시간 수신 실패",
+            message: item?.error || "실시간 수신 실패",
           };
         });
 
@@ -1313,31 +1306,35 @@ export default function StockManagerUltimateV39_11() {
         return;
       }
 
-      const settled = await Promise.allSettled(
-        targetStocks.map(async (stock) => {
-          const response = await fetch(
-            `/api/price/after?code=${encodeURIComponent(stock.티커)}`,
-            { cache: "no-store" },
-          );
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || `Failed to fetch after-hours for ${stock.티커}`);
-          }
-          return await response.json();
-        }),
+      const response = await fetch("/api/price/after/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: targetStocks.map((stock) => stock.티커) }),
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const quoteMap = new Map(
+        (Array.isArray(payload?.quotes) ? payload.quotes : []).map((item) => [
+          item.code,
+          item,
+        ]),
       );
 
       if (cancelled) return;
 
       setAfterHoursPrices((prev) => {
         const next = { ...prev };
-        targetStocks.forEach((stock, index) => {
-          const result = settled[index];
+        targetStocks.forEach((stock) => {
+          const item = quoteMap.get(stock.티커);
           if (
-            result?.status === "fulfilled" &&
-            Number.isFinite(Number(result.value?.afterPrice))
+            item?.ok &&
+            Number.isFinite(Number(item?.afterPrice))
           ) {
-            next[stock.티커] = Number(result.value.afterPrice);
+            next[stock.티커] = Number(item.afterPrice);
           }
         });
         return next;
@@ -1345,15 +1342,15 @@ export default function StockManagerUltimateV39_11() {
 
       setAfterHoursStatus(() => {
         const next = {};
-        targetStocks.forEach((stock, index) => {
-          const result = settled[index];
+        targetStocks.forEach((stock) => {
+          const item = quoteMap.get(stock.티커);
           if (
-            result?.status === "fulfilled" &&
-            Number.isFinite(Number(result.value?.afterPrice))
+            item?.ok &&
+            Number.isFinite(Number(item?.afterPrice))
           ) {
             next[stock.티커] = {
               ok: true,
-              source: result.value?.source || "after",
+              source: item?.source || "after",
             };
           } else {
             next[stock.티커] = {
