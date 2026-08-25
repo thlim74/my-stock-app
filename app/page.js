@@ -55,9 +55,9 @@ import {
 
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
-const INDEX_REFRESH_MS = 5 * 1000;
-const LIVE_PRICE_REFRESH_MS = 1000;
-const AFTER_HOURS_REFRESH_MS = 5 * 1000;
+const INDEX_REFRESH_MS = 15 * 1000;
+const LIVE_PRICE_REFRESH_MS = 5 * 1000;
+const AFTER_HOURS_REFRESH_MS = 10 * 1000;
 const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
 
 const formatToday = () => {
