@@ -1866,6 +1866,10 @@ export default function StockManagerUltimateV39_11() {
                 formatNum={formatNum}
                 formatFloat={formatFloat}
                 dailyPriceSnapshots={dailyPriceSnapshots}
+                dailyPriceHistoryMap={dailyPriceHistoryMap}
+                liveStockPrices={liveStockPrices}
+                afterHoursPrices={afterHoursPrices}
+                afterHoursStatus={afterHoursStatus}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
               />
