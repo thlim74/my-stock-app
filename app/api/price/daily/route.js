@@ -49,6 +49,61 @@ const tryFetchNaverPrice = async (code, market) => {
   return null;
 };
 
+const parseNumber = (value) => {
+  if (typeof value === "number") return value;
+  if (value === null || value === undefined) return null;
+  const n = Number(String(value).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeDailyPriceRecord = ({
+  code,
+  date,
+  price,
+  regularClose = null,
+  afterClose = null,
+  preOpen = null,
+  regularOpen = null,
+  source = "close",
+}) => ({
+  code,
+  date,
+  price,
+  regular_close: regularClose ?? price,
+  after_close: afterClose,
+  pre_open: preOpen,
+  regular_open: regularOpen,
+  price_source: source,
+});
+
+const stripExtendedDailyPriceColumns = (rows) =>
+  rows.map(({ code, date, price }) => ({ code, date, price }));
+
+const upsertDailyPrices = async (supabase, rows) => {
+  const { error } = await supabase.from("daily_prices").upsert(rows);
+  if (!error) return { usedExtendedColumns: true };
+
+  const missingExtendedColumn =
+    error.message?.includes("regular_close") ||
+    error.message?.includes("after_close") ||
+    error.message?.includes("pre_open") ||
+    error.message?.includes("regular_open") ||
+    error.message?.includes("price_source");
+
+  if (!missingExtendedColumn) {
+    throw error;
+  }
+
+  const fallback = await supabase
+    .from("daily_prices")
+    .upsert(stripExtendedDailyPriceColumns(rows));
+  if (fallback.error) {
+    throw fallback.error;
+  }
+
+  return { usedExtendedColumns: false };
+};
+
 const getPartsInTimeZone = (date, timeZone) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -229,9 +284,13 @@ const fetchDomesticHistory = async (code, startDate) => {
       ...pageRows
         .filter((row) => row.date >= startDate)
         .map((row) => ({
-          code,
-          date: row.date,
-          price: row.price,
+          ...normalizeDailyPriceRecord({
+            code,
+            date: row.date,
+            price: row.price,
+            regularClose: row.price,
+            source: "naver_history_close",
+          }),
         })),
     );
 
@@ -259,7 +318,13 @@ const fetchLatestDomesticClose = async (code, beforeDate = null) => {
   if (!rows.length) return null;
   const row = rows.find((item) => !beforeDate || item.date < beforeDate);
   if (!row) return null;
-  return { code, date: row.date, price: row.price };
+  return normalizeDailyPriceRecord({
+    code,
+    date: row.date,
+    price: row.price,
+    regularClose: row.price,
+    source: "naver_latest_close",
+  });
 };
 
 const normalizeForeignSymbol = (code) => {
@@ -312,9 +377,13 @@ const fetchForeignHistory = async (code, startDate) => {
     if (date < startDate) continue;
 
     rows.push({
-      code,
-      date,
-      price: Number(close),
+      ...normalizeDailyPriceRecord({
+        code,
+        date,
+        price: Number(close),
+        regularClose: Number(close),
+        source: "yahoo_history_close",
+      }),
     });
   }
 
@@ -348,9 +417,81 @@ const fetchLatestForeignClose = async (code) => {
     const ts = timestamps[i];
     const close = closes[i];
     if (!ts || close === null || close === undefined || Number.isNaN(close)) continue;
-    return { code, date: toDateString(ts), price: Number(close) };
+    return normalizeDailyPriceRecord({
+      code,
+      date: toDateString(ts),
+      price: Number(close),
+      regularClose: Number(close),
+      source: "yahoo_latest_close",
+    });
   }
   return null;
+};
+
+const fetchDomesticGapSnapshot = async (code) => {
+  const response = await fetch(
+    `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${encodeURIComponent(code)}`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const data = payload?.result?.areas?.[0]?.datas?.[0];
+  if (!data) return null;
+
+  const over = data?.nxtOverMarketPriceInfo;
+  return {
+    afterClose: parseNumber(over?.overPrice),
+    regularOpen: parseNumber(data?.ov),
+    preOpen: null,
+    source: parseNumber(over?.overPrice) != null ? "naver_after_snapshot" : "naver_regular_snapshot",
+  };
+};
+
+const fetchForeignGapSnapshot = async (code) => {
+  const symbol = normalizeForeignSymbol(code);
+  if (!symbol) return null;
+  const response = await fetch(
+    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const quote = payload?.quoteResponse?.result?.[0];
+  if (!quote) return null;
+
+  return {
+    afterClose: parseNumber(quote.postMarketPrice),
+    preOpen: parseNumber(quote.preMarketPrice),
+    regularOpen: parseNumber(quote.regularMarketOpen),
+    source: quote.postMarketPrice != null
+      ? "yahoo_post_snapshot"
+      : quote.preMarketPrice != null
+        ? "yahoo_pre_snapshot"
+        : "yahoo_regular_snapshot",
+  };
+};
+
+const withGapSnapshot = async (row, market) => {
+  if (!row) return row;
+  const snapshot = isForeignTicker(market, row.code)
+    ? await fetchForeignGapSnapshot(row.code)
+    : await fetchDomesticGapSnapshot(row.code);
+
+  if (!snapshot) return row;
+
+  return {
+    ...row,
+    after_close: snapshot.afterClose ?? row.after_close ?? null,
+    pre_open: snapshot.preOpen ?? row.pre_open ?? null,
+    regular_open: snapshot.regularOpen ?? row.regular_open ?? null,
+    price_source: snapshot.source || row.price_source,
+  };
 };
 
 const loadActiveAssets = async (supabase) => {
@@ -427,6 +568,9 @@ export async function GET() {
           continue;
         }
 
+        if (fetchedRow.date === marketStatus.tradingDate) {
+          fetchedRow = await withGapSnapshot(fetchedRow, holding.market);
+        }
         results.push(fetchedRow);
       } catch (error) {
         skipped.push({
@@ -446,7 +590,15 @@ export async function GET() {
       });
     }
 
-    const { error: upsertError } = await supabase.from("daily_prices").upsert(results);
+    let usedExtendedColumns = true;
+    let upsertError = null;
+
+    try {
+      const upsertResult = await upsertDailyPrices(supabase, results);
+      usedExtendedColumns = upsertResult.usedExtendedColumns;
+    } catch (error) {
+      upsertError = error;
+    }
 
     if (upsertError) {
       const missingDailyPricesTable =
@@ -470,6 +622,7 @@ export async function GET() {
       updated: results.length,
       updatedDates: [...new Set(results.map((row) => row.date))].sort(),
       finalizedDates: [...finalizedDates].sort(),
+      usedExtendedColumns,
       skipped,
     });
   } catch (error) {
@@ -542,6 +695,9 @@ export async function POST(request) {
             continue;
           }
 
+          if (fetchedRow.date === marketStatus.tradingDate) {
+            fetchedRow = await withGapSnapshot(fetchedRow, target.market);
+          }
           rows.push(fetchedRow);
         } catch (error) {
           skipped.push({
@@ -553,8 +709,9 @@ export async function POST(request) {
       }
 
       if (rows.length > 0) {
-        const { error } = await supabase.from("daily_prices").upsert(rows);
-        if (error) {
+        try {
+          await upsertDailyPrices(supabase, rows);
+        } catch (error) {
           throw new Error(`Failed to upsert daily prices: ${error.message}`);
         }
       }
@@ -611,8 +768,9 @@ export async function POST(request) {
       });
     }
 
-    const { error } = await supabase.from("daily_prices").upsert(rows);
-    if (error) {
+    try {
+      await upsertDailyPrices(supabase, rows);
+    } catch (error) {
       throw new Error(`Failed to upsert daily prices: ${error.message}`);
     }
 

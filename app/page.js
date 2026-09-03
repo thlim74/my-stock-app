@@ -143,6 +143,7 @@ export default function StockManagerUltimateV39_11() {
   const [afterHoursStatus, setAfterHoursStatus] = useState({});
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
   const [dailyPriceHistoryMap, setDailyPriceHistoryMap] = useState({});
+  const [dailyPriceDetailMap, setDailyPriceDetailMap] = useState({});
   const [livePriceStatus, setLivePriceStatus] = useState({});
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
@@ -211,6 +212,7 @@ export default function StockManagerUltimateV39_11() {
 
     const snapshotMap = {};
     const historyMap = {};
+    const detailMap = {};
 
     sortedRows.forEach((row) => {
       const code = row.code;
@@ -223,14 +225,49 @@ export default function StockManagerUltimateV39_11() {
         historyMap[code] = {};
       }
       historyMap[code][date] = price;
+      if (!detailMap[code]) {
+        detailMap[code] = {};
+      }
+      detailMap[code][date] = {
+        price,
+        regularClose: Number(row.regular_close ?? row.price),
+        afterClose:
+          row.after_close === null || row.after_close === undefined
+            ? null
+            : Number(row.after_close),
+        preOpen:
+          row.pre_open === null || row.pre_open === undefined
+            ? null
+            : Number(row.pre_open),
+        regularOpen:
+          row.regular_open === null || row.regular_open === undefined
+            ? null
+            : Number(row.regular_open),
+        source: row.price_source || null,
+      };
 
       if (!snapshotMap[code]) {
         snapshotMap[code] = {
           code,
           latestDate: date,
           latestPrice: price,
+          latestRegularClose: Number(row.regular_close ?? row.price),
+          latestAfterClose:
+            row.after_close === null || row.after_close === undefined
+              ? null
+              : Number(row.after_close),
+          latestPreOpen:
+            row.pre_open === null || row.pre_open === undefined
+              ? null
+              : Number(row.pre_open),
+          latestRegularOpen:
+            row.regular_open === null || row.regular_open === undefined
+              ? null
+              : Number(row.regular_open),
           previousDate: null,
           previousPrice: null,
+          previousRegularClose: null,
+          previousAfterClose: null,
           oldestDate: date,
           rowCount: 1,
         };
@@ -240,12 +277,18 @@ export default function StockManagerUltimateV39_11() {
         if (!snapshotMap[code].previousDate) {
           snapshotMap[code].previousDate = date;
           snapshotMap[code].previousPrice = price;
+          snapshotMap[code].previousRegularClose = Number(row.regular_close ?? row.price);
+          snapshotMap[code].previousAfterClose =
+            row.after_close === null || row.after_close === undefined
+              ? null
+              : Number(row.after_close);
         }
       }
     });
 
     setDailyPriceSnapshots(snapshotMap);
     setDailyPriceHistoryMap(historyMap);
+    setDailyPriceDetailMap(detailMap);
   }, []);
 
   const mergeLocalTradeAmounts = useCallback((remoteTransactions, savedTxText) => {
@@ -1867,9 +1910,7 @@ export default function StockManagerUltimateV39_11() {
                 formatFloat={formatFloat}
                 dailyPriceSnapshots={dailyPriceSnapshots}
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
-                liveStockPrices={liveStockPrices}
-                afterHoursPrices={afterHoursPrices}
-                afterHoursStatus={afterHoursStatus}
+                dailyPriceDetailMap={dailyPriceDetailMap}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
               />

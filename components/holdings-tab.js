@@ -175,9 +175,7 @@ function PriceGapChart({ dates, rows, selectedName, formatPrice }) {
 function PriceGapAnalysis({
   holdings,
   dailyPriceHistoryMap,
-  dailyPriceSnapshots,
-  afterHoursPrices,
-  afterHoursStatus,
+  dailyPriceDetailMap,
   today,
   formatNum,
   formatFloat,
@@ -189,6 +187,7 @@ function PriceGapAnalysis({
   const analysis = useMemo(() => {
     if (!selectedHolding) return null;
     const history = dailyPriceHistoryMap?.[selectedHolding.ticker] || {};
+    const detailHistory = dailyPriceDetailMap?.[selectedHolding.ticker] || {};
     const dates = Object.keys(history)
       .filter((date) => date <= today)
       .sort((a, b) => b.localeCompare(a))
@@ -205,19 +204,32 @@ function PriceGapAnalysis({
       const previousDate = Object.keys(history)
         .filter((itemDate) => itemDate < date)
         .sort((a, b) => b.localeCompare(a))[0];
-      rows.prevClose[date] = previousDate ? Number(history[previousDate]) : null;
+      const detail = detailHistory[date] || {};
+      const previousDetail = previousDate ? detailHistory[previousDate] || {} : {};
+      rows.prevClose[date] = previousDate
+        ? Number(previousDetail.regularClose ?? history[previousDate])
+        : null;
+      rows.prevAfter[date] =
+        previousDetail.afterClose === null || previousDetail.afterClose === undefined
+          ? null
+          : Number(previousDetail.afterClose);
+      rows.preOpen[date] =
+        detail.preOpen === null || detail.preOpen === undefined
+          ? null
+          : Number(detail.preOpen);
+      rows.regularOpen[date] =
+        detail.regularOpen === null || detail.regularOpen === undefined
+          ? null
+          : Number(detail.regularOpen);
     });
 
-    const latestDate = dailyPriceSnapshots?.[selectedHolding.ticker]?.latestDate;
-    if (latestDate && dates.includes(latestDate)) {
-      const afterPrice = Number(afterHoursPrices?.[selectedHolding.ticker]);
-      const source = afterHoursStatus?.[selectedHolding.ticker]?.source;
-      const isAfterSource = source === "post" || source === "pre" || source === "naver_after";
-      rows.prevAfter[latestDate] = isAfterSource && Number.isFinite(afterPrice) ? afterPrice : null;
-    }
-
     return { dates, rows };
-  }, [afterHoursPrices, afterHoursStatus, dailyPriceHistoryMap, dailyPriceSnapshots, selectedHolding, today]);
+  }, [
+    dailyPriceDetailMap,
+    dailyPriceHistoryMap,
+    selectedHolding,
+    today,
+  ]);
 
   if (holdings.length === 0 || !selectedHolding || !analysis) return null;
 
@@ -300,9 +312,7 @@ export default function HoldingsTab({
   formatFloat,
   dailyPriceSnapshots,
   dailyPriceHistoryMap,
-  liveStockPrices,
-  afterHoursPrices,
-  afterHoursStatus,
+  dailyPriceDetailMap,
   today,
   exchangeRate,
 }) {
@@ -387,10 +397,7 @@ export default function HoldingsTab({
       <PriceGapAnalysis
         holdings={rows}
         dailyPriceHistoryMap={dailyPriceHistoryMap}
-        dailyPriceSnapshots={dailyPriceSnapshots}
-        liveStockPrices={liveStockPrices}
-        afterHoursPrices={afterHoursPrices}
-        afterHoursStatus={afterHoursStatus}
+        dailyPriceDetailMap={dailyPriceDetailMap}
         today={today}
         formatNum={formatNum}
         formatFloat={formatFloat}
