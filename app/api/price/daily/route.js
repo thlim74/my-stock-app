@@ -79,6 +79,17 @@ const normalizeDailyPriceRecord = ({
 const stripExtendedDailyPriceColumns = (rows) =>
   rows.map(({ code, date, price }) => ({ code, date, price }));
 
+const stripPriceColumn = (rows) =>
+  rows.map(({ code, date, regular_close, after_close, pre_open, regular_open, price_source, price }) => ({
+    code,
+    date,
+    regular_close: regular_close ?? price,
+    after_close,
+    pre_open,
+    regular_open,
+    price_source,
+  }));
+
 const upsertDailyPrices = async (supabase, rows) => {
   const { error } = await supabase.from("daily_prices").upsert(rows);
   if (!error) return { usedExtendedColumns: true };
@@ -89,6 +100,27 @@ const upsertDailyPrices = async (supabase, rows) => {
     error.message?.includes("pre_open") ||
     error.message?.includes("regular_open") ||
     error.message?.includes("price_source");
+  const missingPriceColumn = error.message?.includes('"price"');
+
+  if (missingPriceColumn) {
+    const noPriceFallback = await supabase
+      .from("daily_prices")
+      .upsert(stripPriceColumn(rows));
+
+    if (!noPriceFallback.error) {
+      return { usedExtendedColumns: true, usedPriceColumn: false };
+    }
+
+    if (!missingExtendedColumn && !(
+      noPriceFallback.error.message?.includes("regular_close") ||
+      noPriceFallback.error.message?.includes("after_close") ||
+      noPriceFallback.error.message?.includes("pre_open") ||
+      noPriceFallback.error.message?.includes("regular_open") ||
+      noPriceFallback.error.message?.includes("price_source")
+    )) {
+      throw noPriceFallback.error;
+    }
+  }
 
   if (!missingExtendedColumn) {
     throw error;

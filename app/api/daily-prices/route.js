@@ -4,53 +4,78 @@ import { getServerSupabase } from "@/lib/server-auth";
 const DAILY_PRICE_PAGE_SIZE = 1000;
 const EXTENDED_DAILY_PRICE_COLUMNS =
   "code, date, price, regular_close, after_close, pre_open, regular_open, price_source";
+const EXTENDED_DAILY_PRICE_COLUMNS_WITHOUT_PRICE =
+  "code, date, regular_close, after_close, pre_open, regular_open, price_source";
+const CLOSE_PRICE_DAILY_PRICE_COLUMNS =
+  "code, date, close_price, regular_close, after_close, pre_open, regular_open, price_source";
+const CLOSING_PRICE_DAILY_PRICE_COLUMNS =
+  "code, date, closing_price, regular_close, after_close, pre_open, regular_open, price_source";
+const CLOSE_DAILY_PRICE_COLUMNS =
+  "code, date, close, regular_close, after_close, pre_open, regular_open, price_source";
+const LEGACY_DAILY_PRICE_COLUMNS = "code, date, price";
 
-const isMissingExtendedColumns = (error) =>
-  error?.message?.includes("regular_close") ||
-  error?.message?.includes("after_close") ||
-  error?.message?.includes("pre_open") ||
-  error?.message?.includes("regular_open") ||
-  error?.message?.includes("price_source");
+const isMissingColumnError = (error) =>
+  error?.message?.includes("column") && error?.message?.includes("does not exist");
+
+const getClosePrice = (row) => {
+  const value = row?.price ?? row?.regular_close ?? row?.close_price ?? row?.closing_price ?? row?.close;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 
 const normalizeDailyPriceRow = (row) => ({
   ...row,
-  regular_close: row.regular_close ?? row.price ?? null,
+  price: getClosePrice(row),
+  regular_close: row.regular_close ?? getClosePrice(row),
   after_close: row.after_close ?? null,
   pre_open: row.pre_open ?? null,
   regular_open: row.regular_open ?? null,
   price_source: row.price_source ?? null,
 });
 
-const fetchAllDailyPrices = async (supabase) => {
-  const rows = [];
-  let selectColumns = EXTENDED_DAILY_PRICE_COLUMNS;
+const runDailyPriceQuery = async (buildQuery) => {
+  const selectCandidates = [
+    EXTENDED_DAILY_PRICE_COLUMNS,
+    EXTENDED_DAILY_PRICE_COLUMNS_WITHOUT_PRICE,
+    CLOSE_PRICE_DAILY_PRICE_COLUMNS,
+    CLOSING_PRICE_DAILY_PRICE_COLUMNS,
+    CLOSE_DAILY_PRICE_COLUMNS,
+    LEGACY_DAILY_PRICE_COLUMNS,
+  ];
 
-  for (let from = 0; ; from += DAILY_PRICE_PAGE_SIZE) {
-    const to = from + DAILY_PRICE_PAGE_SIZE - 1;
-    let { data, error } = await supabase
-      .from("daily_prices")
-      .select(selectColumns)
-      .order("date", { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      if (selectColumns !== "code, date, price" && isMissingExtendedColumns(error)) {
-        selectColumns = "code, date, price";
-        const fallback = await supabase
-          .from("daily_prices")
-          .select(selectColumns)
-          .order("date", { ascending: false })
-          .range(from, to);
-        data = fallback.data;
-        error = fallback.error;
-      }
-
-      if (error) {
-        throw error;
-      }
+  let lastError = null;
+  for (const columns of selectCandidates) {
+    const { data, error } = await buildQuery(columns);
+    if (!error) {
+      return { data: (data || []).map(normalizeDailyPriceRow), error: null };
     }
 
-    rows.push(...(data || []).map(normalizeDailyPriceRow));
+    lastError = error;
+    if (!isMissingColumnError(error)) {
+      break;
+    }
+  }
+
+  return { data: null, error: lastError };
+};
+
+const fetchAllDailyPrices = async (supabase) => {
+  const rows = [];
+  for (let from = 0; ; from += DAILY_PRICE_PAGE_SIZE) {
+    const to = from + DAILY_PRICE_PAGE_SIZE - 1;
+    const { data, error } = await runDailyPriceQuery((columns) =>
+      supabase
+        .from("daily_prices")
+        .select(columns)
+        .order("date", { ascending: false })
+        .range(from, to),
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    rows.push(...(data || []));
 
     if (!data || data.length < DAILY_PRICE_PAGE_SIZE) {
       break;
@@ -86,47 +111,30 @@ export async function GET(request) {
     }
 
     if (code || date) {
-      let query = supabase
-        .from("daily_prices")
-        .select(EXTENDED_DAILY_PRICE_COLUMNS)
-        .order("date", { ascending: false });
+      const { data, error } = await runDailyPriceQuery((columns) => {
+        let query = supabase
+          .from("daily_prices")
+          .select(columns)
+          .order("date", { ascending: false });
 
-      if (code) {
-        query = query.eq("code", code);
-      }
-
-      if (date) {
-        query = query.eq("date", date);
-      }
-
-      let { data, error } = await query.limit(500);
-
-      if (error) {
-        if (isMissingExtendedColumns(error)) {
-          let fallbackQuery = supabase
-            .from("daily_prices")
-            .select("code, date, price")
-            .order("date", { ascending: false });
-
-          if (code) {
-            fallbackQuery = fallbackQuery.eq("code", code);
-          }
-
-          if (date) {
-            fallbackQuery = fallbackQuery.eq("date", date);
-          }
-
-          const fallback = await fallbackQuery.limit(500);
-          data = fallback.data;
-          error = fallback.error;
+        if (code) {
+          query = query.eq("code", code);
         }
 
+        if (date) {
+          query = query.eq("date", date);
+        }
+
+        return query.limit(500);
+      });
+
+      if (error) {
         if (error) {
           throw new Error(`Failed to load daily price history: ${error.message}`);
         }
       }
 
-      return NextResponse.json((data || []).map(normalizeDailyPriceRow));
+      return NextResponse.json(data || []);
     }
 
     let data = [];
