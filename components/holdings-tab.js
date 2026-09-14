@@ -38,8 +38,12 @@ const pointLabels = {
 const dateLabel = (date) => String(date || "").slice(5).replace("-", ".");
 
 const formatSignedRate = (current, base) => {
-  if (!Number.isFinite(current) || !Number.isFinite(base) || base <= 0) return "-";
-  const rate = ((current - base) / base) * 100;
+  const currentValue = Number(current);
+  const baseValue = Number(base);
+  if (!Number.isFinite(currentValue) || !Number.isFinite(baseValue) || currentValue <= 0 || baseValue <= 0) {
+    return "-";
+  }
+  const rate = ((currentValue - baseValue) / baseValue) * 100;
   return `${rate >= 0 ? "+" : ""}${rate.toFixed(2)}%`;
 };
 
@@ -286,7 +290,8 @@ function PriceGapAnalysis({
                 {analysis.dates.map((date) => {
                   const value = analysis.rows[key]?.[date];
                   const base = key === "prevClose" ? null : analysis.rows.prevClose?.[date];
-                  const rate = base ? formatSignedRate(Number(value), Number(base)) : "";
+                  const hasValue = Number.isFinite(Number(value)) && Number(value) > 0;
+                  const rate = hasValue && base ? formatSignedRate(value, base) : "";
                   return (
                     <td key={`${key}-${date}`} className="px-3 py-3">
                       <div>{formatPrice(value)}</div>
