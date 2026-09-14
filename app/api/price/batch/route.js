@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 const isForeignTicker = (code) =>
   code && (code.includes(":") || /^[A-Z]+$/.test(code));
 
+const parseNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (value === null || value === undefined) return null;
+  const number = Number(String(value).replace(/,/g, ""));
+  return Number.isFinite(number) ? number : null;
+};
+
 const buildTickerCandidates = (rawCode) => {
   const raw = String(rawCode || "").trim();
   const dotNormalized = raw.split(".")[0];
@@ -34,10 +41,18 @@ const fetchPrice = async (rawCode) => {
     }
 
     const data = await response.json();
-    const price = data?.result?.areas?.[0]?.datas?.[0]?.nv;
+    const quote = data?.result?.areas?.[0]?.datas?.[0];
+    const price = parseNumber(quote?.nv);
 
-    if (price !== undefined && price !== null) {
-      return { code: rawCode, sourceCode: code, price: Number(price), ok: true };
+    if (price !== null) {
+      return {
+        code: rawCode,
+        sourceCode: code,
+        price,
+        regularOpen: parseNumber(quote?.ov),
+        marketState: quote?.ms || null,
+        ok: true,
+      };
     }
   }
 

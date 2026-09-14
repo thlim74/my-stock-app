@@ -37,6 +37,16 @@ const pointLabels = {
 
 const dateLabel = (date) => String(date || "").slice(5).replace("-", ".");
 
+const pickPositiveNumber = (...values) => {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) {
+      return number;
+    }
+  }
+  return null;
+};
+
 const formatSignedRate = (current, base) => {
   const currentValue = Number(current);
   const baseValue = Number(base);
@@ -180,6 +190,7 @@ function PriceGapAnalysis({
   holdings,
   dailyPriceHistoryMap,
   dailyPriceDetailMap,
+  priceGapPointsMap,
   today,
   formatNum,
   formatFloat,
@@ -192,10 +203,34 @@ function PriceGapAnalysis({
     if (!selectedHolding) return null;
     const history = dailyPriceHistoryMap?.[selectedHolding.ticker] || {};
     const detailHistory = dailyPriceDetailMap?.[selectedHolding.ticker] || {};
-    const dates = Object.keys(history)
+    const gapHistory = priceGapPointsMap?.[selectedHolding.ticker] || {};
+    const dates = [
+      ...new Set([
+        ...Object.keys(history),
+        ...Object.keys(detailHistory),
+        ...Object.keys(gapHistory),
+      ]),
+    ]
       .filter((date) => date <= today)
       .sort((a, b) => b.localeCompare(a))
       .slice(0, 5)
+      .sort((a, b) => a.localeCompare(b));
+    const closeDates = [
+      ...new Set([
+        ...Object.keys(history),
+        ...Object.keys(detailHistory),
+        ...Object.keys(gapHistory),
+      ]),
+    ]
+      .filter(
+        (date) =>
+          date <= today &&
+          pickPositiveNumber(
+            gapHistory[date]?.regularClose,
+            detailHistory[date]?.regularClose,
+            history[date],
+          ) !== null,
+      )
       .sort((a, b) => a.localeCompare(b));
     const rows = {
       prevClose: {},
@@ -205,32 +240,33 @@ function PriceGapAnalysis({
     };
 
     dates.forEach((date) => {
-      const previousDate = Object.keys(history)
+      const previousDate = closeDates
         .filter((itemDate) => itemDate < date)
         .sort((a, b) => b.localeCompare(a))[0];
       const detail = detailHistory[date] || {};
+      const gap = gapHistory[date] || {};
       const previousDetail = previousDate ? detailHistory[previousDate] || {} : {};
+      const previousGap = previousDate ? gapHistory[previousDate] || {} : {};
       rows.prevClose[date] = previousDate
-        ? Number(previousDetail.regularClose ?? history[previousDate])
+        ? pickPositiveNumber(
+            previousGap.regularClose,
+            previousDetail.regularClose,
+            history[previousDate],
+          )
         : null;
-      rows.prevAfter[date] =
-        previousDetail.afterClose === null || previousDetail.afterClose === undefined
-          ? null
-          : Number(previousDetail.afterClose);
-      rows.preOpen[date] =
-        detail.preOpen === null || detail.preOpen === undefined
-          ? null
-          : Number(detail.preOpen);
-      rows.regularOpen[date] =
-        detail.regularOpen === null || detail.regularOpen === undefined
-          ? null
-          : Number(detail.regularOpen);
+      rows.prevAfter[date] = pickPositiveNumber(
+        previousGap.afterClose,
+        previousDetail.afterClose,
+      );
+      rows.preOpen[date] = pickPositiveNumber(gap.preOpen, detail.preOpen);
+      rows.regularOpen[date] = pickPositiveNumber(gap.regularOpen, detail.regularOpen);
     });
 
     return { dates, rows };
   }, [
     dailyPriceDetailMap,
     dailyPriceHistoryMap,
+    priceGapPointsMap,
     selectedHolding,
     today,
   ]);
@@ -305,7 +341,7 @@ function PriceGapAnalysis({
         </table>
       </div>
       <p className="mt-3 text-[11px] font-bold text-slate-400">
-        현재 과거 애프터/사전장/시초가는 DB에 별도 저장되지 않아 미수집 구간은 -로 표시됩니다.
+        가격 지점은 접속 중 자동 누적됩니다. 새 Supabase SQL 적용 전 또는 과거 미수집 구간은 -로 표시됩니다.
       </p>
     </section>
   );
@@ -318,6 +354,7 @@ export default function HoldingsTab({
   dailyPriceSnapshots,
   dailyPriceHistoryMap,
   dailyPriceDetailMap,
+  priceGapPointsMap,
   today,
   exchangeRate,
 }) {
@@ -403,6 +440,7 @@ export default function HoldingsTab({
         holdings={rows}
         dailyPriceHistoryMap={dailyPriceHistoryMap}
         dailyPriceDetailMap={dailyPriceDetailMap}
+        priceGapPointsMap={priceGapPointsMap}
         today={today}
         formatNum={formatNum}
         formatFloat={formatFloat}

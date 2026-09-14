@@ -59,6 +59,39 @@ const INDEX_REFRESH_MS = 15 * 1000;
 const LIVE_PRICE_REFRESH_MS = 5 * 1000;
 const AFTER_HOURS_REFRESH_MS = 10 * 1000;
 const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
+const PRICE_GAP_HISTORY_DAYS = 14;
+const PRICE_GAP_AFTER_RECORD_MS = 5 * 60 * 1000;
+
+const gapPointTypeToKey = {
+  regular_close: "regularClose",
+  after_close: "afterClose",
+  pre_open: "preOpen",
+  regular_open: "regularOpen",
+};
+
+const toPositivePrice = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+const buildPriceGapPointMap = (points = []) => {
+  const map = {};
+
+  points.forEach((point) => {
+    const code = point?.code;
+    const date = point?.date;
+    const key = gapPointTypeToKey[point?.pointType || point?.point_type];
+    const price = toPositivePrice(point?.price);
+
+    if (!code || !date || !key || price === null) return;
+
+    if (!map[code]) map[code] = {};
+    if (!map[code][date]) map[code][date] = {};
+    map[code][date][key] = price;
+  });
+
+  return map;
+};
 
 const formatToday = () => {
   const now = new Date();
@@ -144,7 +177,11 @@ export default function StockManagerUltimateV39_11() {
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
   const [dailyPriceHistoryMap, setDailyPriceHistoryMap] = useState({});
   const [dailyPriceDetailMap, setDailyPriceDetailMap] = useState({});
+  const [priceGapPointsMap, setPriceGapPointsMap] = useState({});
   const [livePriceStatus, setLivePriceStatus] = useState({});
+  const recordedGapKeysRef = useRef(new Set());
+  const afterGapLastRecordedRef = useRef({});
+  const priceGapStorageUnavailableRef = useRef(false);
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
   const [transactions, setTransactions] = useState([]);
@@ -1238,6 +1275,112 @@ export default function StockManagerUltimateV39_11() {
     [activeHoldingStocks],
   );
 
+  const refreshPriceGapPoints = useCallback(async (targetStocks = activeHoldingStocks) => {
+    const codes = targetStocks
+      .map((stock) => String(stock.티커 || "").trim())
+      .filter(Boolean);
+
+    if (codes.length === 0) {
+      setPriceGapPointsMap({});
+      return;
+    }
+
+    const response = await fetch(
+      `/api/price/gap?days=${PRICE_GAP_HISTORY_DAYS}&codes=${encodeURIComponent(codes.join(","))}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) return;
+
+    const payload = await response.json().catch(() => ({}));
+    if (payload?.missingTable) {
+      priceGapStorageUnavailableRef.current = true;
+      return;
+    }
+    setPriceGapPointsMap(buildPriceGapPointMap(payload?.points || []));
+  }, [activeHoldingStocks]);
+
+  const recordPriceGapPoints = useCallback(async (points = [], { refresh = false } = {}) => {
+    if (priceGapStorageUnavailableRef.current) return false;
+    if (points.length === 0) return false;
+
+    const response = await fetch("/api/price/gap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => ({}));
+    if (payload?.missingTable) {
+      priceGapStorageUnavailableRef.current = true;
+      return false;
+    }
+
+    if (refresh) {
+      await refreshPriceGapPoints(activeHoldingStocks);
+    }
+    return true;
+  }, [activeHoldingStocks, refreshPriceGapPoints]);
+
+  const buildRecordableGapPoints = useCallback((points = []) => {
+    const now = Date.now();
+    const accepted = [];
+    const successMarks = [];
+
+    points.forEach((point) => {
+      const code = String(point?.code || "").trim();
+      const date = String(point?.date || "").trim();
+      const pointType = String(point?.pointType || "").trim();
+      const price = toPositivePrice(point?.price);
+      if (!code || !date || !pointType || price === null) return;
+
+      const key = `${code}:${date}:${pointType}`;
+      if (pointType === "regular_open" || pointType === "pre_open") {
+        if (recordedGapKeysRef.current.has(key)) return;
+        accepted.push({ ...point, code, date, pointType, price });
+        successMarks.push(() => recordedGapKeysRef.current.add(key));
+        return;
+      }
+
+      if (pointType === "after_close") {
+        const last = afterGapLastRecordedRef.current[key];
+        if (
+          last &&
+          now - last.recordedAt < PRICE_GAP_AFTER_RECORD_MS &&
+          Number(last.price) === price
+        ) {
+          return;
+        }
+        accepted.push({ ...point, code, date, pointType, price });
+        successMarks.push(() => {
+          afterGapLastRecordedRef.current[key] = { price, recordedAt: now };
+        });
+        return;
+      }
+
+      if (pointType === "regular_close") {
+        const closeKey = `${key}:${price}`;
+        if (recordedGapKeysRef.current.has(closeKey)) return;
+        accepted.push({ ...point, code, date, pointType, price });
+        successMarks.push(() => recordedGapKeysRef.current.add(closeKey));
+      }
+    });
+
+    return { points: accepted, markSuccess: () => successMarks.forEach((mark) => mark()) };
+  }, []);
+
+  useEffect(() => {
+    if (!authUser || activeHoldingStocks.length === 0) {
+      setPriceGapPointsMap({});
+      return;
+    }
+
+    refreshPriceGapPoints(activeHoldingStocks).catch(() => {
+      // Keep the chart usable if the optional price-gap table has not been created yet.
+    });
+  }, [authUser, activeHoldingStocks, refreshPriceGapPoints]);
+
   useEffect(() => {
     if (!authUser || !isPageVisible || activeHoldingStocks.length === 0) return;
 
@@ -1265,6 +1408,7 @@ export default function StockManagerUltimateV39_11() {
           localStorage.setItem(syncKey, `final:${today}`);
         }
         await refreshDailyPrices();
+        await refreshPriceGapPoints(activeHoldingStocks);
       } catch (_error) {
         // Try again on next visible session if this attempt fails.
       }
@@ -1278,12 +1422,14 @@ export default function StockManagerUltimateV39_11() {
     };
   }, [
     activeHoldingStocks.length,
+    activeHoldingStocks,
     activeHoldingTargetKey,
     activeHoldingSyncList,
     activePortfolioId,
     authUser,
     isPageVisible,
     refreshDailyPrices,
+    refreshPriceGapPoints,
     stockMaster,
     today,
     transactions,
@@ -1345,7 +1491,7 @@ export default function StockManagerUltimateV39_11() {
       setLivePriceStatus(() => {
         const next = {};
 
-        targetStocks.forEach((stock, index) => {
+        targetStocks.forEach((stock) => {
           const item = priceMap.get(stock.티커);
 
           if (item?.ok && Number.isFinite(Number(item.price))) {
@@ -1365,6 +1511,27 @@ export default function StockManagerUltimateV39_11() {
         return next;
       });
       setLastUpdate(new Date().toLocaleTimeString());
+
+      const candidateGapPoints = [];
+      targetStocks.forEach((stock) => {
+        const item = priceMap.get(stock.티커);
+        const regularOpen = toPositivePrice(item?.regularOpen);
+        if (item?.ok && regularOpen !== null) {
+          candidateGapPoints.push({
+            code: stock.티커,
+            date: today,
+            pointType: "regular_open",
+            price: regularOpen,
+            source: item?.sourceCode ? `live_open:${item.sourceCode}` : "live_open",
+          });
+        }
+      });
+
+      const recordable = buildRecordableGapPoints(candidateGapPoints);
+      if (recordable.points.length > 0) {
+        const saved = await recordPriceGapPoints(recordable.points, { refresh: true });
+        if (saved) recordable.markSuccess();
+      }
     };
 
     fetchLivePrices();
@@ -1374,7 +1541,15 @@ export default function StockManagerUltimateV39_11() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [authUser, isPageVisible, activeHoldingStocks, activeHoldingTargetKey]);
+  }, [
+    authUser,
+    isPageVisible,
+    activeHoldingStocks,
+    activeHoldingTargetKey,
+    buildRecordableGapPoints,
+    recordPriceGapPoints,
+    today,
+  ]);
 
   useEffect(() => {
     if (!authUser || !isPageVisible) return;
@@ -1446,6 +1621,55 @@ export default function StockManagerUltimateV39_11() {
         });
         return next;
       });
+
+      const candidateGapPoints = [];
+      targetStocks.forEach((stock) => {
+        const item = quoteMap.get(stock.티커);
+        if (!item?.ok) return;
+
+        const regularOpen = toPositivePrice(item?.regularOpen);
+        if (regularOpen !== null) {
+          candidateGapPoints.push({
+            code: stock.티커,
+            date: today,
+            pointType: "regular_open",
+            price: regularOpen,
+            source: item?.source ? `after_regular_open:${item.source}` : "after_regular_open",
+          });
+        }
+
+        const preOpen = toPositivePrice(item?.preOpen);
+        const preOpenFallback =
+          item?.source === "pre" ? toPositivePrice(item?.afterPrice) : null;
+        if (preOpen !== null || preOpenFallback !== null) {
+          candidateGapPoints.push({
+            code: stock.티커,
+            date: today,
+            pointType: "pre_open",
+            price: preOpen ?? preOpenFallback,
+            source: item?.source ? `after_pre_open:${item.source}` : "after_pre_open",
+          });
+        }
+
+        const isAfterMarketSource =
+          item?.source === "post" || item?.source === "naver_after";
+        const afterClose = toPositivePrice(item?.afterPrice);
+        if (isAfterMarketSource && afterClose !== null) {
+          candidateGapPoints.push({
+            code: stock.티커,
+            date: today,
+            pointType: "after_close",
+            price: afterClose,
+            source: item?.source || "after_close",
+          });
+        }
+      });
+
+      const recordable = buildRecordableGapPoints(candidateGapPoints);
+      if (recordable.points.length > 0) {
+        const saved = await recordPriceGapPoints(recordable.points, { refresh: true });
+        if (saved) recordable.markSuccess();
+      }
     };
 
     fetchAfterHours();
@@ -1454,7 +1678,15 @@ export default function StockManagerUltimateV39_11() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [authUser, isPageVisible, activeHoldingStocks, activeHoldingTargetKey]);
+  }, [
+    authUser,
+    isPageVisible,
+    activeHoldingStocks,
+    activeHoldingTargetKey,
+    buildRecordableGapPoints,
+    recordPriceGapPoints,
+    today,
+  ]);
 
   const marketIndexItems = useMemo(
     () => [
@@ -1554,6 +1786,7 @@ export default function StockManagerUltimateV39_11() {
       }
 
       await refreshDailyPrices();
+      await refreshPriceGapPoints(activeHoldingStocks);
 
       const messageText = result.message ? `\n사유: ${result.message}` : "";
       const targetText =
@@ -1911,6 +2144,7 @@ export default function StockManagerUltimateV39_11() {
                 dailyPriceSnapshots={dailyPriceSnapshots}
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
                 dailyPriceDetailMap={dailyPriceDetailMap}
+                priceGapPointsMap={priceGapPointsMap}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
               />

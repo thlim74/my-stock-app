@@ -136,6 +136,74 @@ const upsertDailyPrices = async (supabase, rows) => {
   return { usedExtendedColumns: false };
 };
 
+const toPositiveNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+const buildPriceGapRowsFromDailyPrices = (rows) => {
+  const gapRows = [];
+
+  rows.forEach((row) => {
+    const base = {
+      code: row.code,
+      date: row.date,
+      captured_at: new Date().toISOString(),
+    };
+    const candidates = [
+      ["regular_close", row.regular_close ?? row.price, row.price_source || "daily_close"],
+      ["after_close", row.after_close, row.price_source || "daily_after"],
+      ["pre_open", row.pre_open, row.price_source || "daily_pre_open"],
+      ["regular_open", row.regular_open, row.price_source || "daily_regular_open"],
+    ];
+
+    candidates.forEach(([pointType, value, source]) => {
+      const price = toPositiveNumber(value);
+      if (price === null) return;
+      gapRows.push({
+        ...base,
+        point_type: pointType,
+        price,
+        source,
+      });
+    });
+  });
+
+  return gapRows;
+};
+
+const upsertPriceGapRows = async (supabase, rows) => {
+  const gapRows = buildPriceGapRowsFromDailyPrices(rows);
+  if (gapRows.length === 0) return;
+
+  const firstCaptureRows = gapRows.filter((row) =>
+    row.point_type === "pre_open" || row.point_type === "regular_open",
+  );
+  const overwriteRows = gapRows.filter((row) =>
+    row.point_type === "regular_close" || row.point_type === "after_close",
+  );
+
+  const runUpsert = async (targetRows, options) => {
+    if (targetRows.length === 0) return;
+    const { error } = await supabase
+      .from("price_gap_points")
+      .upsert(targetRows, options);
+
+    if (error) {
+      const missingPriceGapTable =
+        error.message?.includes("Could not find the table") &&
+        error.message?.includes("price_gap_points");
+      if (!missingPriceGapTable) return;
+    }
+  };
+
+  await runUpsert(firstCaptureRows, {
+    onConflict: "code,date,point_type",
+    ignoreDuplicates: true,
+  });
+  await runUpsert(overwriteRows, { onConflict: "code,date,point_type" });
+};
+
 const getPartsInTimeZone = (date, timeZone) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -628,6 +696,7 @@ export async function GET() {
     try {
       const upsertResult = await upsertDailyPrices(supabase, results);
       usedExtendedColumns = upsertResult.usedExtendedColumns;
+      await upsertPriceGapRows(supabase, results);
     } catch (error) {
       upsertError = error;
     }
@@ -743,6 +812,7 @@ export async function POST(request) {
       if (rows.length > 0) {
         try {
           await upsertDailyPrices(supabase, rows);
+          await upsertPriceGapRows(supabase, rows);
         } catch (error) {
           throw new Error(`Failed to upsert daily prices: ${error.message}`);
         }
@@ -802,6 +872,7 @@ export async function POST(request) {
 
     try {
       await upsertDailyPrices(supabase, rows);
+      await upsertPriceGapRows(supabase, rows);
     } catch (error) {
       throw new Error(`Failed to upsert daily prices: ${error.message}`);
     }

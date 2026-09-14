@@ -46,6 +46,8 @@ const fetchAfterHours = async (rawCode) => {
       symbol,
       regularClose,
       afterPrice,
+      preOpen: null,
+      regularOpen: parseNumber(data?.ov),
       source,
       marketState: over?.overMarketStatus || data?.ms || null,
       regularMarketTime: null,
@@ -70,6 +72,8 @@ const fetchAfterHours = async (rawCode) => {
   }
 
   const regularClose = quote.regularMarketPrice ?? null;
+  const preOpen = parseNumber(quote.preMarketPrice);
+  const regularOpen = parseNumber(quote.regularMarketOpen);
   const afterPrice =
     quote.postMarketPrice ?? quote.preMarketPrice ?? quote.regularMarketPrice ?? null;
   const source =
@@ -82,8 +86,10 @@ const fetchAfterHours = async (rawCode) => {
   return {
     code: rawCode,
     symbol,
-    regularClose,
-    afterPrice,
+    regularClose: parseNumber(regularClose),
+    afterPrice: parseNumber(afterPrice),
+    preOpen,
+    regularOpen,
     source,
     marketState: quote.marketState || null,
     regularMarketTime: quote.regularMarketTime || null,
