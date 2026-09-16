@@ -9,6 +9,7 @@ const POINT_TYPES = new Set([
   "pre_open",
   "regular_open",
 ]);
+const GAP_CAPTURE_VERSION = "2026-09-16.2";
 const FIRST_CAPTURE_TYPES = new Set(["pre_open", "regular_open"]);
 const PAGE_SIZE = 1000;
 
@@ -237,6 +238,7 @@ export async function GET(request) {
           return NextResponse.json({
             points: fallbackPoints,
             fallback: "daily_prices",
+            version: GAP_CAPTURE_VERSION,
           });
         }
         throw error;
@@ -246,7 +248,7 @@ export async function GET(request) {
       if (!data || data.length < PAGE_SIZE) break;
     }
 
-    return NextResponse.json({ points });
+    return NextResponse.json({ points, version: GAP_CAPTURE_VERSION });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Unknown server error" },
@@ -295,6 +297,7 @@ export async function POST(request) {
             success: true,
             updated: fallbackUpdated,
             fallback: "daily_prices",
+            version: GAP_CAPTURE_VERSION,
           });
         }
         throw error;
@@ -318,6 +321,7 @@ export async function POST(request) {
             success: true,
             updated: fallbackUpdated,
             fallback: "daily_prices",
+            version: GAP_CAPTURE_VERSION,
           });
         }
         throw error;
@@ -325,7 +329,7 @@ export async function POST(request) {
       updated += data?.length || 0;
     }
 
-    return NextResponse.json({ success: true, updated });
+    return NextResponse.json({ success: true, updated, version: GAP_CAPTURE_VERSION });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Unknown server error" },
