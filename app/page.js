@@ -61,6 +61,7 @@ const AFTER_HOURS_REFRESH_MS = 10 * 1000;
 const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
 const PRICE_GAP_HISTORY_DAYS = 14;
 const PRICE_GAP_AFTER_RECORD_MS = 5 * 60 * 1000;
+const PRICE_GAP_RETRY_MS = 60 * 1000;
 
 const gapPointTypeToKey = {
   regular_close: "regularClose",
@@ -181,7 +182,7 @@ export default function StockManagerUltimateV39_11() {
   const [livePriceStatus, setLivePriceStatus] = useState({});
   const recordedGapKeysRef = useRef(new Set());
   const afterGapLastRecordedRef = useRef({});
-  const priceGapStorageUnavailableRef = useRef(false);
+  const priceGapRetryAfterRef = useRef(0);
 
   // --- [핵심 데이터 엔티티 상태 배열] ---
   const [transactions, setTransactions] = useState([]);
@@ -1293,14 +1294,15 @@ export default function StockManagerUltimateV39_11() {
 
     const payload = await response.json().catch(() => ({}));
     if (payload?.missingTable) {
-      priceGapStorageUnavailableRef.current = true;
+      priceGapRetryAfterRef.current = Date.now() + PRICE_GAP_RETRY_MS;
       return;
     }
+    priceGapRetryAfterRef.current = 0;
     setPriceGapPointsMap(buildPriceGapPointMap(payload?.points || []));
   }, [activeHoldingStocks]);
 
   const recordPriceGapPoints = useCallback(async (points = [], { refresh = false } = {}) => {
-    if (priceGapStorageUnavailableRef.current) return false;
+    if (Date.now() < priceGapRetryAfterRef.current) return false;
     if (points.length === 0) return false;
 
     const response = await fetch("/api/price/gap", {
@@ -1313,9 +1315,10 @@ export default function StockManagerUltimateV39_11() {
     if (!response.ok) return false;
     const payload = await response.json().catch(() => ({}));
     if (payload?.missingTable) {
-      priceGapStorageUnavailableRef.current = true;
+      priceGapRetryAfterRef.current = Date.now() + PRICE_GAP_RETRY_MS;
       return false;
     }
+    priceGapRetryAfterRef.current = 0;
 
     if (refresh) {
       await refreshPriceGapPoints(activeHoldingStocks);

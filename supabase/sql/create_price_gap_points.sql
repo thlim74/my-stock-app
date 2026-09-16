@@ -37,6 +37,43 @@ execute function public.set_updated_at();
 
 alter table public.price_gap_points enable row level security;
 
+drop policy if exists "Allow read price gap points" on public.price_gap_points;
+drop policy if exists "Allow insert valid price gap points" on public.price_gap_points;
+drop policy if exists "Allow update valid price gap points" on public.price_gap_points;
+
+create policy "Allow read price gap points"
+on public.price_gap_points
+for select
+to anon, authenticated
+using (
+  point_type in ('regular_close', 'after_close', 'pre_open', 'regular_open')
+);
+
+create policy "Allow insert valid price gap points"
+on public.price_gap_points
+for insert
+to anon, authenticated
+with check (
+  code <> ''
+  and date >= date '2000-01-01'
+  and point_type in ('regular_close', 'after_close', 'pre_open', 'regular_open')
+  and price > 0
+);
+
+create policy "Allow update valid price gap points"
+on public.price_gap_points
+for update
+to anon, authenticated
+using (
+  point_type in ('regular_close', 'after_close', 'pre_open', 'regular_open')
+)
+with check (
+  code <> ''
+  and date >= date '2000-01-01'
+  and point_type in ('regular_close', 'after_close', 'pre_open', 'regular_open')
+  and price > 0
+);
+
 do $$
 declare
   has_daily_prices boolean;
