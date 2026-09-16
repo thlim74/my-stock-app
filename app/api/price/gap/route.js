@@ -16,6 +16,9 @@ const isMissingTableError = (error) =>
   error?.message?.includes("Could not find the table") &&
   error?.message?.includes("price_gap_points");
 
+const isMissingColumnError = (error) =>
+  error?.message?.includes("column") && error?.message?.includes("does not exist");
+
 const normalizeDate = (value) => {
   const raw = String(value || "").trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
@@ -49,6 +52,115 @@ const toResponsePoint = (row) => ({
   source: row.source || null,
   capturedAt: row.captured_at || null,
 });
+
+const dailyPriceRowToPoints = (row) => {
+  const candidates = [
+    ["regular_close", row.regular_close ?? row.price],
+    ["after_close", row.after_close],
+    ["pre_open", row.pre_open],
+    ["regular_open", row.regular_open],
+  ];
+
+  return candidates
+    .map(([pointType, value]) => ({
+      code: row.code,
+      date: row.date,
+      pointType,
+      price: parsePrice(value),
+      source: row.price_source || "daily_prices_fallback",
+      capturedAt: null,
+    }))
+    .filter((point) => point.price !== null);
+};
+
+const fetchDailyPriceFallbackPoints = async (supabase, { codes, days }) => {
+  const selectCandidates = [
+    "code,date,price,regular_close,after_close,pre_open,regular_open,price_source",
+    "code,date,regular_close,after_close,pre_open,regular_open,price_source",
+    "code,date,price",
+  ];
+
+  let lastError = null;
+  for (const columns of selectCandidates) {
+    let query = supabase
+      .from("daily_prices")
+      .select(columns)
+      .gte("date", daysAgo(Number.isFinite(days) ? days : 7))
+      .order("date", { ascending: false })
+      .limit(1000);
+
+    if (codes.length > 0) {
+      query = query.in("code", codes);
+    }
+
+    const { data, error } = await query;
+    if (!error) {
+      return (data || []).flatMap(dailyPriceRowToPoints);
+    }
+
+    lastError = error;
+    if (!isMissingColumnError(error)) break;
+  }
+
+  const missingDailyPricesTable =
+    lastError?.message?.includes("Could not find the table") &&
+    lastError?.message?.includes("daily_prices");
+  if (missingDailyPricesTable) return [];
+  throw lastError;
+};
+
+const dailyPriceColumnByPointType = {
+  regular_close: "regular_close",
+  after_close: "after_close",
+  pre_open: "pre_open",
+  regular_open: "regular_open",
+};
+
+const updateDailyPriceFallbackPoint = async (supabase, row) => {
+  const column = dailyPriceColumnByPointType[row.point_type];
+  if (!column) return false;
+
+  let query = supabase
+    .from("daily_prices")
+    .update({
+      [column]: row.price,
+      price_source: row.source || "price_gap_fallback",
+    })
+    .eq("code", row.code)
+    .eq("date", row.date)
+    .select("code");
+
+  if (row.point_type === "pre_open" || row.point_type === "regular_open") {
+    query = query.is(column, null);
+  }
+
+  const { data, error } = await query;
+  if (!error) {
+    return (data || []).length > 0;
+  }
+
+  if (isMissingColumnError(error)) {
+    return false;
+  }
+
+  const missingDailyPricesTable =
+    error.message?.includes("Could not find the table") &&
+    error.message?.includes("daily_prices");
+  if (missingDailyPricesTable) return false;
+
+  throw error;
+};
+
+const updateDailyPriceFallbackPoints = async (supabase, rows) => {
+  let updated = 0;
+  for (const row of rows) {
+    // Sequential updates keep the fallback simple and avoid overwriting first-captured opens.
+    // eslint-disable-next-line no-await-in-loop
+    const saved = await updateDailyPriceFallbackPoint(supabase, row);
+    if (saved) updated += 1;
+  }
+  return updated;
+};
 
 const normalizeIncomingPoint = (point) => {
   const code = String(point?.code || "").trim();
@@ -97,7 +209,14 @@ export async function GET(request) {
       const { data, error } = await query;
       if (error) {
         if (isMissingTableError(error)) {
-          return NextResponse.json({ points: [], missingTable: true });
+          const fallbackPoints = await fetchDailyPriceFallbackPoints(supabase, {
+            codes,
+            days,
+          });
+          return NextResponse.json({
+            points: fallbackPoints,
+            fallback: "daily_prices",
+          });
         }
         throw error;
       }
@@ -147,7 +266,15 @@ export async function POST(request) {
 
       if (error) {
         if (isMissingTableError(error)) {
-          return NextResponse.json({ success: true, updated: 0, missingTable: true });
+          const fallbackUpdated = await updateDailyPriceFallbackPoints(
+            supabase,
+            rows,
+          );
+          return NextResponse.json({
+            success: true,
+            updated: fallbackUpdated,
+            fallback: "daily_prices",
+          });
         }
         throw error;
       }
@@ -162,7 +289,15 @@ export async function POST(request) {
 
       if (error) {
         if (isMissingTableError(error)) {
-          return NextResponse.json({ success: true, updated, missingTable: true });
+          const fallbackUpdated = await updateDailyPriceFallbackPoints(
+            supabase,
+            rows,
+          );
+          return NextResponse.json({
+            success: true,
+            updated: fallbackUpdated,
+            fallback: "daily_prices",
+          });
         }
         throw error;
       }

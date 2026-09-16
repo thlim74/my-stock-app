@@ -37,6 +37,8 @@ execute function public.set_updated_at();
 
 alter table public.price_gap_points enable row level security;
 
+grant select, insert, update on public.price_gap_points to anon, authenticated;
+
 drop policy if exists "Allow read price gap points" on public.price_gap_points;
 drop policy if exists "Allow insert valid price gap points" on public.price_gap_points;
 drop policy if exists "Allow update valid price gap points" on public.price_gap_points;
