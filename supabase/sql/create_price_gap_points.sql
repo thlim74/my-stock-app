@@ -2,6 +2,13 @@
 -- 전일 정규장 종가, 전일 애프터마켓 종가, 당일 사전장 시초가, 당일 정규장 시초가를
 -- 일자/종목/지점 단위로 보존합니다.
 
+alter table if exists public.daily_prices
+  add column if not exists regular_close numeric(20, 6),
+  add column if not exists after_close numeric(20, 6),
+  add column if not exists pre_open numeric(20, 6),
+  add column if not exists regular_open numeric(20, 6),
+  add column if not exists price_source text;
+
 create table if not exists public.price_gap_points (
   code text not null,
   date date not null,
@@ -175,3 +182,5 @@ end $$;
 
 -- 앱 서버 API는 SUPABASE_SERVICE_ROLE_KEY로 접근하므로 공개 RLS 정책은 만들지 않습니다.
 -- Vercel 환경변수에 SUPABASE_SERVICE_ROLE_KEY가 없으면 기록 API가 RLS에 막힐 수 있습니다.
+
+notify pgrst, 'reload schema';

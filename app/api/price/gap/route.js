@@ -120,23 +120,44 @@ const updateDailyPriceFallbackPoint = async (supabase, row) => {
   const column = dailyPriceColumnByPointType[row.point_type];
   if (!column) return false;
 
-  let query = supabase
-    .from("daily_prices")
-    .update({
-      [column]: row.price,
-      price_source: row.source || "price_gap_fallback",
-    })
-    .eq("code", row.code)
-    .eq("date", row.date)
-    .select("code");
+  const buildUpdateQuery = (payload) => {
+    let query = supabase
+      .from("daily_prices")
+      .update(payload)
+      .eq("code", row.code)
+      .eq("date", row.date)
+      .select("code");
 
-  if (row.point_type === "pre_open" || row.point_type === "regular_open") {
-    query = query.is(column, null);
-  }
+    if (row.point_type === "pre_open" || row.point_type === "regular_open") {
+      query = query.is(column, null);
+    }
 
-  const { data, error } = await query;
+    return query;
+  };
+
+  const updatePayload = {
+    [column]: row.price,
+    price_source: row.source || "price_gap_fallback",
+  };
+  const { data, error } = await buildUpdateQuery(updatePayload);
   if (!error) {
     return (data || []).length > 0;
+  }
+
+  if (
+    isMissingColumnError(error) &&
+    error.message?.includes("price_source")
+  ) {
+    const fallback = await buildUpdateQuery({
+      [column]: row.price,
+    });
+    if (!fallback.error) {
+      return (fallback.data || []).length > 0;
+    }
+    if (isMissingColumnError(fallback.error)) {
+      return false;
+    }
+    throw fallback.error;
   }
 
   if (isMissingColumnError(error)) {
