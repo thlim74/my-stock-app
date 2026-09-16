@@ -124,15 +124,15 @@ begin
   if close_expression is not null then
     execute format(
       'insert into public.price_gap_points (code, date, point_type, price, source)
-       select code, date, %L, %s, %L
-       from public.daily_prices
+       select dp.code, dp.date, %L, %s, %L
+       from public.daily_prices as dp
        where %s is not null
-       on conflict (code, date, point_type)
+       on conflict on constraint price_gap_points_pkey
        do update set price = excluded.price, source = excluded.source, captured_at = now()',
       'regular_close',
-      close_expression,
+      replace(replace(close_expression, 'regular_close', 'dp.regular_close'), 'price', 'dp.price'),
       'daily_prices_migration',
-      close_expression
+      replace(replace(close_expression, 'regular_close', 'dp.regular_close'), 'price', 'dp.price')
     );
   end if;
 
@@ -144,10 +144,10 @@ begin
       and column_name = 'after_close'
   ) then
     insert into public.price_gap_points (code, date, point_type, price, source)
-    select code, date, 'after_close', after_close, 'daily_prices_migration'
-    from public.daily_prices
-    where after_close is not null
-    on conflict (code, date, point_type)
+    select dp.code, dp.date, 'after_close', dp.after_close, 'daily_prices_migration'
+    from public.daily_prices as dp
+    where dp.after_close is not null
+    on conflict on constraint price_gap_points_pkey
     do update set price = excluded.price, source = excluded.source, captured_at = now();
   end if;
 
@@ -159,10 +159,10 @@ begin
       and column_name = 'pre_open'
   ) then
     insert into public.price_gap_points (code, date, point_type, price, source)
-    select code, date, 'pre_open', pre_open, 'daily_prices_migration'
-    from public.daily_prices
-    where pre_open is not null
-    on conflict (code, date, point_type) do nothing;
+    select dp.code, dp.date, 'pre_open', dp.pre_open, 'daily_prices_migration'
+    from public.daily_prices as dp
+    where dp.pre_open is not null
+    on conflict on constraint price_gap_points_pkey do nothing;
   end if;
 
   if exists (
@@ -173,10 +173,10 @@ begin
       and column_name = 'regular_open'
   ) then
     insert into public.price_gap_points (code, date, point_type, price, source)
-    select code, date, 'regular_open', regular_open, 'daily_prices_migration'
-    from public.daily_prices
-    where regular_open is not null
-    on conflict (code, date, point_type) do nothing;
+    select dp.code, dp.date, 'regular_open', dp.regular_open, 'daily_prices_migration'
+    from public.daily_prices as dp
+    where dp.regular_open is not null
+    on conflict on constraint price_gap_points_pkey do nothing;
   end if;
 end $$;
 
