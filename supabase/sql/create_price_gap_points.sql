@@ -86,12 +86,36 @@ with check (
 do $$
 declare
   has_daily_prices boolean;
+  has_code boolean;
+  has_date boolean;
   has_price boolean;
   has_regular_close boolean;
   close_expression text;
 begin
   select to_regclass('public.daily_prices') is not null into has_daily_prices;
   if not has_daily_prices then
+    return;
+  end if;
+
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'daily_prices'
+      and column_name = 'code'
+  ) into has_code;
+
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'daily_prices'
+      and column_name = 'date'
+  ) into has_date;
+
+  -- Some projects may already have a daily_prices table with a different shape.
+  -- In that case create the new schema/permissions, but skip legacy data migration.
+  if not has_code or not has_date then
     return;
   end if;
 
