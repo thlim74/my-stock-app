@@ -136,6 +136,33 @@ const upsertDailyPrices = async (supabase, rows) => {
   return { usedExtendedColumns: false };
 };
 
+const addDays = (dateText, days) => {
+  const date = new Date(`${dateText}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const getLatestStoredDates = async (supabase, codes) => {
+  if (codes.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("daily_prices")
+    .select("code,date")
+    .in("code", codes)
+    .order("date", { ascending: false })
+    .limit(1000);
+
+  if (error) return new Map();
+
+  const latestDates = new Map();
+  (data || []).forEach((row) => {
+    if (row?.code && row?.date && !latestDates.has(row.code)) {
+      latestDates.set(row.code, row.date);
+    }
+  });
+  return latestDates;
+};
+
 const toPositiveNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
@@ -330,54 +357,40 @@ const ensureAssetsExist = async (supabase, targets = []) => {
   }
 };
 
-const normalizeDate = (value) => value.replace(/\./g, "-");
+const DOMESTIC_HISTORY_PAGE_SIZE = 100;
 
-const extractDomesticRows = (html) => {
-  const rows = [];
-  const trMatches = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || [];
+const fetchDomesticHistoryPage = async (code, page) => {
+  const response = await fetch(
+    `https://m.stock.naver.com/api/stock/${encodeURIComponent(code)}/price?pageSize=${DOMESTIC_HISTORY_PAGE_SIZE}&page=${page}`,
+    {
+      headers: COMMON_HEADERS,
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) return [];
 
-  trMatches.forEach((tr) => {
-    const dateMatch = tr.match(/gray03">([0-9]{4}\.[0-9]{2}\.[0-9]{2})<\/span>/);
-    if (!dateMatch) return;
+  const payload = await response.json().catch(() => []);
+  if (!Array.isArray(payload)) return [];
 
-    const nums = [
-      ...tr.matchAll(
-        /<td class="num">\s*(?:<span[^>]*>)?\s*([\d,]+)\s*(?:<\/span>)?\s*<\/td>/g,
-      ),
-    ].map((match) => Number(match[1].replace(/,/g, "")));
-
-    if (nums.length === 0) return;
-
-    const volume = nums[4] || 0;
-    if (volume <= 0) return;
-
-    rows.push({
-      date: normalizeDate(dateMatch[1]),
-      price: nums[0],
-      volume,
-    });
-  });
-
-  return rows;
+  return payload
+    .map((item) => ({
+      date: String(item?.localTradedAt || ""),
+      price: parseNumber(item?.closePrice),
+      volume: parseNumber(item?.accumulatedTradingVolume) || 0,
+    }))
+    .filter(
+      (row) =>
+        /^\d{4}-\d{2}-\d{2}$/.test(row.date) &&
+        Number.isFinite(row.price) &&
+        row.price > 0,
+    );
 };
 
 const fetchDomesticHistory = async (code, startDate) => {
   const rows = [];
 
   for (let page = 1; page <= 200; page += 1) {
-    const response = await fetch(
-      `https://finance.naver.com/item/sise_day.naver?code=${encodeURIComponent(code)}&page=${page}`,
-      {
-        headers: COMMON_HEADERS,
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) break;
-
-    const buffer = await response.arrayBuffer();
-    const html = new TextDecoder("euc-kr").decode(buffer);
-    const pageRows = extractDomesticRows(html);
+    const pageRows = await fetchDomesticHistoryPage(code, page);
     if (pageRows.length === 0) break;
 
     rows.push(
@@ -389,7 +402,7 @@ const fetchDomesticHistory = async (code, startDate) => {
             date: row.date,
             price: row.price,
             regularClose: row.price,
-            source: "naver_history_close",
+            source: "naver_mobile_history_close",
           }),
         })),
     );
@@ -404,27 +417,19 @@ const fetchDomesticHistory = async (code, startDate) => {
 };
 
 const fetchLatestDomesticClose = async (code, beforeDate = null) => {
-  const response = await fetch(
-    `https://finance.naver.com/item/sise_day.naver?code=${encodeURIComponent(code)}&page=1`,
-    {
-      headers: COMMON_HEADERS,
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) return null;
-  const buffer = await response.arrayBuffer();
-  const html = new TextDecoder("euc-kr").decode(buffer);
-  const rows = extractDomesticRows(html);
-  if (!rows.length) return null;
-  const row = rows.find((item) => !beforeDate || item.date < beforeDate);
-  if (!row) return null;
-  return normalizeDailyPriceRecord({
-    code,
-    date: row.date,
-    price: row.price,
-    regularClose: row.price,
-    source: "naver_latest_close",
-  });
+  for (let page = 1; page <= 5; page += 1) {
+    const rows = await fetchDomesticHistoryPage(code, page);
+    const row = rows.find((item) => !beforeDate || item.date < beforeDate);
+    if (!row) continue;
+    return normalizeDailyPriceRecord({
+      code,
+      date: row.date,
+      price: row.price,
+      regularClose: row.price,
+      source: "naver_mobile_latest_close",
+    });
+  }
+  return null;
 };
 
 const normalizeForeignSymbol = (code) => {
@@ -767,6 +772,10 @@ export async function POST(request) {
       const rows = [];
       const skipped = [];
       const finalizedDates = new Set();
+      const latestStoredDates = await getLatestStoredDates(
+        supabase,
+        targets.map((target) => target.code),
+      );
 
       for (const target of targets) {
         const marketStatus = isMarketClosed(target.market, target.code);
@@ -778,13 +787,41 @@ export async function POST(request) {
               finalizedDates.add(fetchedRow.date);
             }
           } else {
+            const latestStoredDate = latestStoredDates.get(target.code);
+            if (latestStoredDate && latestStoredDate >= marketStatus.tradingDate) {
+              if (marketStatus.closed && latestStoredDate === marketStatus.tradingDate) {
+                finalizedDates.add(marketStatus.tradingDate);
+              }
+              continue;
+            }
+            const startDate = latestStoredDate
+              ? addDays(latestStoredDate, 1)
+              : target.startDate;
+            const historyRows =
+              startDate <= marketStatus.tradingDate
+                ? await fetchDomesticHistory(target.code, startDate)
+                : [];
+            const finalizedRows = historyRows.filter((row) =>
+              marketStatus.closed
+                ? row.date <= marketStatus.tradingDate
+                : row.date < marketStatus.tradingDate,
+            );
+
+            if (finalizedRows.length > 0) {
+              rows.push(...finalizedRows);
+              if (
+                marketStatus.closed &&
+                finalizedRows.some((row) => row.date === marketStatus.tradingDate)
+              ) {
+                finalizedDates.add(marketStatus.tradingDate);
+              }
+              continue;
+            }
+
             fetchedRow = await fetchLatestDomesticClose(
               target.code,
               marketStatus.closed ? null : marketStatus.tradingDate,
             );
-            if (marketStatus.closed && fetchedRow?.date === marketStatus.tradingDate) {
-              finalizedDates.add(marketStatus.tradingDate);
-            }
           }
 
           if (!fetchedRow) {

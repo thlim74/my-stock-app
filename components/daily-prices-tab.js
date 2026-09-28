@@ -29,6 +29,17 @@ export default function DailyPricesTab({
     return [...stockMaster].filter((stock) => (activeHoldingQuantities[stock.종목명] || 0) > 0);
   }, [activeHoldingQuantities, stockMaster]);
 
+  // The quantity map is recalculated with each price tick. Keep the history-query
+  // dependency stable unless the actual set of held tickers changes.
+  const holdingTickerKey = useMemo(
+    () => holdingStocks.map((stock) => String(stock.티커 || "")).filter(Boolean).sort().join("|"),
+    [holdingStocks],
+  );
+  const holdingTickerSet = useMemo(
+    () => new Set(holdingTickerKey ? holdingTickerKey.split("|") : []),
+    [holdingTickerKey],
+  );
+
   const sortedStocks = useMemo(() => {
     return [...holdingStocks]
       .filter((stock) => {
@@ -85,10 +96,9 @@ export default function DailyPricesTab({
         });
         if (!response.ok) throw new Error("종가 이력을 불러오지 못했습니다.");
         const rows = await response.json();
-        const holdingTickers = new Set(holdingStocks.map((stock) => stock.티커));
         setHistoryRows(
           Array.isArray(rows)
-            ? rows.filter((row) => holdingTickers.has(row.code))
+            ? rows.filter((row) => holdingTickerSet.has(row.code))
             : [],
         );
       } catch (_error) {
@@ -98,7 +108,7 @@ export default function DailyPricesTab({
       }
     };
     fetchHistory();
-  }, [effectiveDetailTicker, holdingStocks, searchDate]);
+  }, [effectiveDetailTicker, holdingTickerSet, searchDate]);
 
   const detailTitle = effectiveDetailTicker
     ? stockMaster.find((stock) => stock.티커 === effectiveDetailTicker)?.종목명 || effectiveDetailTicker
