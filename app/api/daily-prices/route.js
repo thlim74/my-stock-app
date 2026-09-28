@@ -18,7 +18,8 @@ const isMissingColumnError = (error) =>
   error?.message?.includes("column") && error?.message?.includes("does not exist");
 
 const getClosePrice = (row) => {
-  const value = row?.price ?? row?.regular_close ?? row?.close_price ?? row?.closing_price ?? row?.close;
+  // regular_close is the authoritative regular-session close when the extended schema exists.
+  const value = row?.regular_close ?? row?.price ?? row?.close_price ?? row?.closing_price ?? row?.close;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 };

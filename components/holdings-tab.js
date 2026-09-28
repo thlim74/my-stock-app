@@ -385,9 +385,9 @@ export default function HoldingsTab({
               const snapshot = dailyPriceSnapshots?.[row.ticker];
               const latestDate = snapshot?.latestDate || today;
               const referenceClose =
-                latestDate === today && snapshot?.previousPrice != null
-                  ? Number(snapshot.previousPrice)
-                  : Number(snapshot?.latestPrice);
+                latestDate === today && snapshot?.previousRegularClose != null
+                  ? Number(snapshot.previousRegularClose)
+                  : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
               const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
 
               const dayProfit = hasReference
@@ -411,9 +411,8 @@ export default function HoldingsTab({
                   <td className="text-blue-600">
                     {isForeign ? `$ ${formatFloat(row.currentPrice)}` : formatNum(row.currentPrice)}
                   </td>
-                  <td className={dayRate >= 0 ? "text-rose-500" : "text-blue-500"}>
-                    {dayRate >= 0 ? "+" : ""}
-                    {dayRate.toFixed(2)}%
+                  <td className={hasReference ? (dayRate >= 0 ? "text-rose-500" : "text-blue-500") : "text-amber-600"}>
+                    {hasReference ? `${dayRate >= 0 ? "+" : ""}${dayRate.toFixed(2)}%` : "종가 누락"}
                   </td>
                   <td>{formatNum(row.evalAmount)}</td>
                   <td className={row.evalProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
@@ -421,13 +420,11 @@ export default function HoldingsTab({
                     {formatNum(row.evalProfit)}
                   </td>
                   <td className={row.evalProfit >= 0 ? "text-rose-500" : "text-blue-500"}>{row.evalRate}</td>
-                  <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
-                    {dayProfit >= 0 ? "+" : ""}
-                    {formatNum(dayProfit)}
+                  <td className={hasReference ? (dayProfit >= 0 ? "text-rose-500" : "text-blue-500") : "text-amber-600"}>
+                    {hasReference ? `${dayProfit >= 0 ? "+" : ""}${formatNum(dayProfit)}` : "-"}
                   </td>
-                  <td className={dayProfit >= 0 ? "text-rose-500" : "text-blue-500"}>
-                    {dayRate >= 0 ? "+" : ""}
-                    {dayRate.toFixed(2)}%
+                  <td className={hasReference ? (dayProfit >= 0 ? "text-rose-500" : "text-blue-500") : "text-amber-600"}>
+                    {hasReference ? `${dayRate >= 0 ? "+" : ""}${dayRate.toFixed(2)}%` : "-"}
                   </td>
                 </tr>
               );

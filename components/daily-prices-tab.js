@@ -48,16 +48,37 @@ export default function DailyPricesTab({
       });
   }, [activeHoldingQuantities, holdingStocks, searchTicker]);
 
+  const searchedStock = useMemo(() => {
+    const keyword = searchTicker.trim().toUpperCase();
+    if (!keyword) return null;
+    const exact = holdingStocks.find(
+      (stock) =>
+        String(stock.티커 || "").toUpperCase() === keyword ||
+        String(stock.종목명 || "").toUpperCase() === keyword,
+    );
+    return exact || (sortedStocks.length === 1 ? sortedStocks[0] : null);
+  }, [holdingStocks, searchTicker, sortedStocks]);
+
+  const effectiveDetailTicker = detailTicker || searchedStock?.티커 || "";
+
+  const runDetailSearch = () => {
+    if (searchedStock) {
+      setDetailTicker(searchedStock.티커);
+      return;
+    }
+    alert("보유 종목명 또는 티커를 정확히 입력해 주세요.");
+  };
+
   useEffect(() => {
     const fetchHistory = async () => {
-      if (!detailTicker && !searchDate) {
+      if (!effectiveDetailTicker && !searchDate) {
         setHistoryRows([]);
         return;
       }
       setHistoryLoading(true);
       try {
         const params = new URLSearchParams();
-        if (detailTicker) params.set("code", detailTicker);
+        if (effectiveDetailTicker) params.set("code", effectiveDetailTicker);
         if (searchDate) params.set("date", searchDate);
         const response = await fetch(`/api/daily-prices?${params.toString()}`, {
           cache: "no-store",
@@ -77,10 +98,10 @@ export default function DailyPricesTab({
       }
     };
     fetchHistory();
-  }, [detailTicker, holdingStocks, searchDate]);
+  }, [effectiveDetailTicker, holdingStocks, searchDate]);
 
-  const detailTitle = detailTicker
-    ? stockMaster.find((stock) => stock.티커 === detailTicker)?.종목명 || detailTicker
+  const detailTitle = effectiveDetailTicker
+    ? stockMaster.find((stock) => stock.티커 === effectiveDetailTicker)?.종목명 || effectiveDetailTicker
     : searchDate
       ? `${searchDate} 종가 검색 결과`
       : "종가 상세 이력";
@@ -131,6 +152,12 @@ export default function DailyPricesTab({
               type="text"
               value={searchTicker}
               onChange={(e) => setSearchTicker(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  runDetailSearch();
+                }
+              }}
               placeholder="종목명 또는 티커"
               className="w-full border rounded-xl px-3 py-2 text-[12px] font-bold bg-white"
             />
@@ -144,6 +171,12 @@ export default function DailyPricesTab({
               className="w-full border rounded-xl px-3 py-2 text-[12px] font-bold bg-white"
             />
           </div>
+          <button
+            onClick={runDetailSearch}
+            className="bg-slate-800 text-white px-4 py-2 rounded-xl text-[12px] font-black hover:bg-slate-700 transition-all"
+          >
+            상세 이력 검색
+          </button>
           <button
             onClick={() => {
               setSearchTicker("");
@@ -220,7 +253,7 @@ export default function DailyPricesTab({
                   key={stock.티커}
                   onClick={() => setDetailTicker(stock.티커)}
                   className={`h-11 border-b cursor-pointer hover:bg-slate-50 ${
-                    detailTicker === stock.티커 ? "bg-amber-50" : holdingQty > 0 ? "bg-blue-50/50" : ""
+                    effectiveDetailTicker === stock.티커 ? "bg-amber-50" : holdingQty > 0 ? "bg-blue-50/50" : ""
                   }`}
                 >
                   <td>{basisDate}</td>
