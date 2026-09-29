@@ -1520,6 +1520,19 @@ export default function StockManagerUltimateV39_11() {
       const candidateGapPoints = [];
       targetStocks.forEach((stock) => {
         const item = priceMap.get(stock.티커);
+        const preOpen = toPositivePrice(item?.preOpen);
+        if (item?.ok && preOpen !== null) {
+          candidateGapPoints.push({
+            code: stock.티커,
+            date: today,
+            pointType: "pre_open",
+            price: preOpen,
+            source: item?.sourceCode
+              ? `live_pre_open:${item.sourceCode}`
+              : "live_pre_open",
+          });
+        }
+
         const regularOpen = toPositivePrice(item?.regularOpen);
         if (item?.ok && regularOpen !== null) {
           candidateGapPoints.push({

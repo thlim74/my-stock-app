@@ -16,6 +16,25 @@ const parseNumber = (value) => {
   return Number.isFinite(n) ? n : null;
 };
 
+const isKoreanPreOpenWindow = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, value]),
+  );
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+
+  return !["Sat", "Sun"].includes(values.weekday) && hour === 8 && minute >= 30;
+};
+
 const fetchAfterHours = async (rawCode) => {
   const symbol = normalizeSymbol(rawCode);
   if (!symbol) {
@@ -46,7 +65,8 @@ const fetchAfterHours = async (rawCode) => {
       symbol,
       regularClose,
       afterPrice,
-      preOpen: null,
+      // Before 09:00 Naver's current price is the indicative call-auction price.
+      preOpen: isKoreanPreOpenWindow() ? regularClose : null,
       regularOpen: parseNumber(data?.ov),
       source,
       marketState: over?.overMarketStatus || data?.ms || null,
