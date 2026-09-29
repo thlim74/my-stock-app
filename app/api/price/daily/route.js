@@ -2,7 +2,8 @@ import { getServerSupabase } from "@/lib/server-auth";
 
 const COMMON_HEADERS = {
   "User-Agent": "Mozilla/5.0",
-  Referer: "https://finance.naver.com/",
+  Referer: "https://m.stock.naver.com/",
+  Accept: "application/json, text/plain, */*",
 };
 
 const isForeignTicker = (market, code) =>
@@ -367,10 +368,14 @@ const fetchDomesticHistoryPage = async (code, page) => {
       cache: "no-store",
     },
   );
-  if (!response.ok) return [];
+  if (!response.ok) {
+    throw new Error(`Naver daily-price API returned ${response.status}`);
+  }
 
-  const payload = await response.json().catch(() => []);
-  if (!Array.isArray(payload)) return [];
+  const payload = await response.json().catch(() => null);
+  if (!Array.isArray(payload)) {
+    throw new Error("Naver daily-price API returned an invalid response");
+  }
 
   return payload
     .map((item) => ({
