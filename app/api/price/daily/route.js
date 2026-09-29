@@ -358,7 +358,8 @@ const ensureAssetsExist = async (supabase, targets = []) => {
   }
 };
 
-const DOMESTIC_HISTORY_PAGE_SIZE = 100;
+// Naver mobile price API rejects page sizes above 50 with HTTP 400.
+const DOMESTIC_HISTORY_PAGE_SIZE = 50;
 
 const fetchDomesticHistoryPage = async (code, page) => {
   const response = await fetch(
