@@ -54,6 +54,58 @@ const toResponsePoint = (row) => ({
   capturedAt: row.captured_at || null,
 });
 
+// Korean pre-open call auctions do not have a historical opening trade. When an
+// 08:30 live quote was not captured, carry the latest prior after-hours close
+// (or regular close) so the four-point flow remains continuous without
+// inventing a regular-session price.
+const addPreOpenCarryPoints = (points = []) => {
+  const byCode = new Map();
+  points.forEach((point) => {
+    if (!point?.code || !point?.date) return;
+    const rows = byCode.get(point.code) || [];
+    rows.push(point);
+    byCode.set(point.code, rows);
+  });
+
+  const carryPoints = [];
+  byCode.forEach((codePoints, code) => {
+    const byDate = new Map();
+    codePoints.forEach((point) => {
+      const rows = byDate.get(point.date) || [];
+      rows.push(point);
+      byDate.set(point.date, rows);
+    });
+
+    let previousReference = null;
+    [...byDate.keys()].sort().forEach((date) => {
+      const rows = byDate.get(date) || [];
+      const hasPreOpen = rows.some((point) => point.pointType === "pre_open");
+      const hasRegularOpen = rows.some(
+        (point) => point.pointType === "regular_open",
+      );
+
+      if (!hasPreOpen && hasRegularOpen && previousReference !== null) {
+        carryPoints.push({
+          code,
+          date,
+          pointType: "pre_open",
+          price: previousReference,
+          source: "previous_close_carry",
+          capturedAt: null,
+        });
+      }
+
+      const afterClose = rows.find((point) => point.pointType === "after_close");
+      const regularClose = rows.find(
+        (point) => point.pointType === "regular_close",
+      );
+      previousReference = parsePrice(afterClose?.price) ?? parsePrice(regularClose?.price) ?? previousReference;
+    });
+  });
+
+  return [...points, ...carryPoints];
+};
+
 const dailyPriceRowToPoints = (row) => {
   const candidates = [
     ["regular_close", row.regular_close ?? row.price],
@@ -236,7 +288,7 @@ export async function GET(request) {
             days,
           });
           return NextResponse.json({
-            points: fallbackPoints,
+            points: addPreOpenCarryPoints(fallbackPoints),
             fallback: "daily_prices",
             version: GAP_CAPTURE_VERSION,
           });
@@ -248,7 +300,10 @@ export async function GET(request) {
       if (!data || data.length < PAGE_SIZE) break;
     }
 
-    return NextResponse.json({ points, version: GAP_CAPTURE_VERSION });
+    return NextResponse.json({
+      points: addPreOpenCarryPoints(points),
+      version: GAP_CAPTURE_VERSION,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Unknown server error" },
