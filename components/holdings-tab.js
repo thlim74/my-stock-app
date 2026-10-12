@@ -347,6 +347,83 @@ function PriceGapAnalysis({
   );
 }
 
+function PreMarketQuotes({
+  holdings,
+  preMarketPrices,
+  preMarketStatus,
+  dailyPriceSnapshots,
+  formatNum,
+  formatFloat,
+}) {
+  const rows = holdings.map((holding) => {
+    const price = pickPositiveNumber(preMarketPrices?.[holding.ticker]);
+    const snapshot = dailyPriceSnapshots?.[holding.ticker];
+    const reference = pickPositiveNumber(
+      snapshot?.latestRegularClose,
+      snapshot?.latestPrice,
+    );
+    const isForeign = isForeignMarket(holding.market, holding.ticker);
+    const rate = price && reference ? ((price - reference) / reference) * 100 : null;
+
+    return { ...holding, price, reference, rate, isForeign };
+  });
+  const activeCount = rows.filter((row) => row.price !== null).length;
+  const formatPrice = (row, value) => {
+    if (!value) return "-";
+    return row.isForeign ? `$ ${formatFloat(value)}` : formatNum(value);
+  };
+
+  return (
+    <section className="mb-5 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-[14px] font-black text-sky-950">사전장 예상체결가</h3>
+          <p className="mt-1 text-[11px] font-bold text-sky-700">
+            국내 사전장 평일 08:30~08:59에 5초마다 갱신됩니다. 정규장 시세나 확정 체결가는 아닙니다.
+          </p>
+        </div>
+        <span className={`w-fit rounded-full px-3 py-1 text-[11px] font-black ${activeCount > 0 ? "bg-sky-600 text-white" : "bg-white text-slate-500 border border-sky-200"}`}>
+          {activeCount > 0 ? `${activeCount}종목 사전장 수신 중` : "사전장 외 시간"}
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-sky-100 bg-white/80">
+        <table className="min-w-[700px] w-full text-center text-[12px] font-bold text-slate-800">
+          <thead className="bg-sky-900 text-sky-50 text-[11px]">
+            <tr>
+              <th className="px-3 py-2 text-left">종목</th>
+              <th className="px-3 py-2">전일 정규장 종가</th>
+              <th className="px-3 py-2">사전장 예상체결가</th>
+              <th className="px-3 py-2">전일 종가 대비</th>
+              <th className="px-3 py-2">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const active = Boolean(preMarketStatus?.[row.ticker]?.active);
+              return (
+                <tr key={row.ticker || row.name} className="border-t border-sky-100">
+                  <td className="px-3 py-2 text-left">
+                    <div className="font-black">{row.name}</div>
+                    <div className="text-[10px] text-slate-500">{row.market}:{row.ticker}</div>
+                  </td>
+                  <td>{formatPrice(row, row.reference)}</td>
+                  <td className={active ? "text-sky-700 font-black" : "text-slate-400"}>{formatPrice(row, row.price)}</td>
+                  <td className={row.rate === null ? "text-slate-400" : row.rate >= 0 ? "text-rose-500" : "text-blue-600"}>
+                    {row.rate === null ? "-" : `${row.rate >= 0 ? "+" : ""}${row.rate.toFixed(2)}%`}
+                  </td>
+                  <td className={active ? "text-emerald-600" : "text-slate-400"}>
+                    {preMarketStatus?.[row.ticker]?.message || "사전장 외 시간"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export default function HoldingsTab({
   stats,
   formatNum,
@@ -355,6 +432,8 @@ export default function HoldingsTab({
   dailyPriceHistoryMap,
   dailyPriceDetailMap,
   priceGapPointsMap,
+  preMarketPrices,
+  preMarketStatus,
   today,
   exchangeRate,
 }) {
@@ -362,6 +441,14 @@ export default function HoldingsTab({
 
   return (
     <>
+      <PreMarketQuotes
+        holdings={rows}
+        preMarketPrices={preMarketPrices}
+        preMarketStatus={preMarketStatus}
+        dailyPriceSnapshots={dailyPriceSnapshots}
+        formatNum={formatNum}
+        formatFloat={formatFloat}
+      />
       <div className="data-table-wrap">
         <table className="data-table min-w-[1180px] text-center whitespace-nowrap">
           <thead className="bg-slate-800 text-white text-[11px] font-black">

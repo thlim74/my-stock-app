@@ -173,6 +173,8 @@ export default function StockManagerUltimateV39_11() {
   });
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
+  const [preMarketPrices, setPreMarketPrices] = useState({});
+  const [preMarketStatus, setPreMarketStatus] = useState({});
   const [afterHoursPrices, setAfterHoursPrices] = useState({});
   const [afterHoursStatus, setAfterHoursStatus] = useState({});
   const [dailyPriceSnapshots, setDailyPriceSnapshots] = useState({});
@@ -1515,6 +1517,29 @@ export default function StockManagerUltimateV39_11() {
 
         return next;
       });
+      setPreMarketPrices(() => {
+        const next = {};
+        targetStocks.forEach((stock) => {
+          const preOpen = toPositivePrice(priceMap.get(stock.티커)?.preOpen);
+          if (preOpen !== null) next[stock.티커] = preOpen;
+        });
+        return next;
+      });
+      setPreMarketStatus(() => {
+        const next = {};
+        targetStocks.forEach((stock) => {
+          const item = priceMap.get(stock.티커);
+          const preOpen = toPositivePrice(item?.preOpen);
+          next[stock.티커] = {
+            active: item?.ok && preOpen !== null,
+            message:
+              item?.ok && preOpen !== null
+                ? "사전장 예상체결가 수신"
+                : "사전장 외 시간",
+          };
+        });
+        return next;
+      });
       setLastUpdate(new Date().toLocaleTimeString());
 
       const candidateGapPoints = [];
@@ -2163,6 +2188,8 @@ export default function StockManagerUltimateV39_11() {
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
                 dailyPriceDetailMap={dailyPriceDetailMap}
                 priceGapPointsMap={priceGapPointsMap}
+                preMarketPrices={preMarketPrices}
+                preMarketStatus={preMarketStatus}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
               />
