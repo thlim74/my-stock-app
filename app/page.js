@@ -2188,8 +2188,6 @@ export default function StockManagerUltimateV39_11() {
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
                 dailyPriceDetailMap={dailyPriceDetailMap}
                 priceGapPointsMap={priceGapPointsMap}
-                preMarketPrices={preMarketPrices}
-                preMarketStatus={preMarketStatus}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
               />
@@ -2312,6 +2310,8 @@ export default function StockManagerUltimateV39_11() {
                 handleCollectDailyPriceHistory={handleCollectDailyPriceHistory}
                 activeHoldingQuantities={activeHoldingQuantities}
                 liveStockPrices={liveStockPrices}
+                preMarketPrices={preMarketPrices}
+                preMarketStatus={preMarketStatus}
                 afterHoursPrices={afterHoursPrices}
                 afterHoursStatus={afterHoursStatus}
                 dailyPriceSnapshots={dailyPriceSnapshots}

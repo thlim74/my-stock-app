@@ -11,6 +11,8 @@ export default function DailyPricesTab({
   handleCollectDailyPriceHistory,
   activeHoldingQuantities,
   liveStockPrices,
+  preMarketPrices,
+  preMarketStatus,
   afterHoursPrices,
   afterHoursStatus,
   dailyPriceSnapshots,
@@ -202,7 +204,7 @@ export default function DailyPricesTab({
       </div>
 
       <div className="data-table-wrap">
-        <table className="data-table min-w-[1320px] text-center">
+        <table className="data-table min-w-[1450px] text-center">
           <thead className="bg-slate-800 text-white text-[11px] font-black uppercase">
             <tr>
               <th>기준일</th>
@@ -211,6 +213,7 @@ export default function DailyPricesTab({
               <th>시장구분</th>
               <th>보유수량</th>
               <th>전일 종가</th>
+              <th>사전장 예상체결가</th>
               <th>당일 정규장 종가</th>
               <th>애프터마켓(참고)</th>
               <th>애프터-당일종가</th>
@@ -228,7 +231,11 @@ export default function DailyPricesTab({
                   : snapshot?.latestPrice ?? null;
               const liveRegularPrice =
                 liveStockPrices[stock.티커] !== undefined
-                  ? Number(liveStockPrices[stock.티커])
+                    ? Number(liveStockPrices[stock.티커])
+                    : null;
+              const preMarketPrice =
+                preMarketPrices?.[stock.티커] !== undefined
+                  ? Number(preMarketPrices[stock.티커])
                   : null;
               const todayRegularClose =
                 isTodaySnapshot
@@ -256,6 +263,7 @@ export default function DailyPricesTab({
                   ? (diff / Number(todayRegularClose)) * 100
                   : null;
               const priceStatus = livePriceStatus[stock.티커];
+              const preQuoteStatus = preMarketStatus?.[stock.티커];
               const afterStatus = afterHoursStatus?.[stock.티커];
 
               return (
@@ -283,6 +291,16 @@ export default function DailyPricesTab({
                       : isForeign
                         ? `$ ${formatFloat(previousClose)}`
                         : formatNum(previousClose)}
+                  </td>
+                  <td className="font-mono font-black text-sky-700">
+                    {preMarketPrice === null
+                      ? "-"
+                      : isForeign
+                        ? `$ ${formatFloat(preMarketPrice)}`
+                        : formatNum(preMarketPrice)}
+                    <div className={`mt-1 text-[10px] font-bold ${preQuoteStatus?.active ? "text-emerald-600" : "text-slate-400"}`}>
+                      {preQuoteStatus?.message || "사전장 외 시간"}
+                    </div>
                   </td>
                   <td className="font-mono text-slate-900">
                     {todayRegularClose === null
