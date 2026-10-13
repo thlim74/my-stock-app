@@ -234,8 +234,44 @@ export default function StockManagerUltimateV39_11() {
     return next;
   }, [liveStockPrices, afterHoursPrices, afterHoursStatus]);
 
-  const refreshDailyPrices = useCallback(async () => {
-    const response = await fetch("/api/daily-prices?raw=1", { cache: "no-store" });
+  const refreshDailyPrices = useCallback(async (targetStocks = []) => {
+    const codes = targetStocks
+      .map((stock) => String(stock?.티커 || "").trim())
+      .filter(Boolean);
+    const query = codes.length > 0 ? `&codes=${encodeURIComponent(codes.join(","))}` : "";
+
+    // Load the compact per-ticker summary first so holding returns never wait for
+    // the full historical dataset.
+    const summaryResponse = await fetch(`/api/daily-prices?${query.slice(1)}`, {
+      cache: "no-store",
+    });
+    if (summaryResponse.ok) {
+      const summaries = await summaryResponse.json().catch(() => []);
+      if (Array.isArray(summaries)) {
+        const snapshotMap = {};
+        summaries.forEach((snapshot) => {
+          const code = String(snapshot?.code || "").trim();
+          const latestPrice = Number(snapshot?.latestPrice);
+          if (!code || !Number.isFinite(latestPrice)) return;
+          snapshotMap[code] = {
+            ...snapshot,
+            latestPrice,
+            latestRegularClose: Number(snapshot?.latestRegularClose ?? latestPrice),
+            previousPrice:
+              snapshot?.previousPrice === null || snapshot?.previousPrice === undefined
+                ? null
+                : Number(snapshot.previousPrice),
+            previousRegularClose:
+              snapshot?.previousRegularClose === null || snapshot?.previousRegularClose === undefined
+                ? null
+                : Number(snapshot.previousRegularClose),
+          };
+        });
+        setDailyPriceSnapshots(snapshotMap);
+      }
+    }
+
+    const response = await fetch(`/api/daily-prices?raw=1${query}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("일별 종가 데이터를 불러오지 못했습니다.");
     }
@@ -432,28 +468,6 @@ export default function StockManagerUltimateV39_11() {
       clearInterval(timer);
     };
   }, [authUser, isPageVisible]);
-
-  useEffect(() => {
-    if (!authUser || !isPageVisible) return;
-    let cancelled = false;
-
-    const fetchDailyPrices = async () => {
-      try {
-        await refreshDailyPrices();
-        if (cancelled) {
-          return;
-        }
-      } catch (_error) {
-        // Ignore transient fetch errors and keep the last snapshot.
-      }
-    };
-
-    fetchDailyPrices();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser, isPageVisible, refreshDailyPrices]);
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
@@ -1280,6 +1294,13 @@ export default function StockManagerUltimateV39_11() {
     [activeHoldingStocks],
   );
 
+  useEffect(() => {
+    if (!authUser || !isPageVisible || activeHoldingStocks.length === 0) return;
+    refreshDailyPrices(activeHoldingStocks).catch(() => {
+      // The compact summary may already be available even if historical data is delayed.
+    });
+  }, [authUser, isPageVisible, activeHoldingStocks, activeHoldingTargetKey, refreshDailyPrices]);
+
   const refreshPriceGapPoints = useCallback(async (targetStocks = activeHoldingStocks) => {
     const codes = targetStocks
       .map((stock) => String(stock.티커 || "").trim())
@@ -1414,7 +1435,7 @@ export default function StockManagerUltimateV39_11() {
         if (finalizedDates.includes(today)) {
           localStorage.setItem(syncKey, `final:${today}`);
         }
-        await refreshDailyPrices();
+        await refreshDailyPrices(activeHoldingStocks);
         await refreshPriceGapPoints(activeHoldingStocks);
       } catch (_error) {
         // Try again on next visible session if this attempt fails.
@@ -1828,7 +1849,7 @@ export default function StockManagerUltimateV39_11() {
         throw new Error(result.error || "종가 이력 수집에 실패했습니다.");
       }
 
-      await refreshDailyPrices();
+      await refreshDailyPrices(activeHoldingStocks);
       await refreshPriceGapPoints(activeHoldingStocks);
 
       const messageText = result.message ? `\n사유: ${result.message}` : "";

@@ -60,17 +60,22 @@ const runDailyPriceQuery = async (buildQuery) => {
   return { data: null, error: lastError };
 };
 
-const fetchAllDailyPrices = async (supabase) => {
+const fetchAllDailyPrices = async (supabase, codes = []) => {
   const rows = [];
   for (let from = 0; ; from += DAILY_PRICE_PAGE_SIZE) {
     const to = from + DAILY_PRICE_PAGE_SIZE - 1;
-    const { data, error } = await runDailyPriceQuery((columns) =>
-      supabase
+    const { data, error } = await runDailyPriceQuery((columns) => {
+      let query = supabase
         .from("daily_prices")
         .select(columns)
         .order("date", { ascending: false })
-        .range(from, to),
-    );
+        .range(from, to);
+
+      if (codes.length > 0) {
+        query = query.in("code", codes);
+      }
+      return query;
+    });
 
     if (error) {
       throw error;
@@ -93,10 +98,14 @@ export async function GET(request) {
     const code = searchParams.get("code");
     const date = searchParams.get("date");
     const raw = searchParams.get("raw");
+    const codes = String(searchParams.get("codes") || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     if (raw === "1") {
       try {
-        const data = await fetchAllDailyPrices(supabase);
+        const data = await fetchAllDailyPrices(supabase, codes);
         return NextResponse.json(data);
       } catch (error) {
         const missingDailyPricesTable =
@@ -140,7 +149,7 @@ export async function GET(request) {
 
     let data = [];
     try {
-      data = await fetchAllDailyPrices(supabase);
+      data = await fetchAllDailyPrices(supabase, codes);
     } catch (error) {
       const missingDailyPricesTable =
         error.message?.includes("Could not find the table") &&
