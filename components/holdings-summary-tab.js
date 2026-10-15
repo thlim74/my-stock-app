@@ -52,29 +52,28 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
   ];
 
   return (
-    <section className="mx-auto max-w-3xl">
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40">
-        <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_38%),linear-gradient(135deg,_#020617,_#0f172a)] px-5 pb-6 pt-5 sm:px-7">
-          <p className="text-[11px] font-black tracking-[0.18em] text-cyan-300">PORTFOLIO SNAPSHOT</p>
-          <div className="mt-2 flex items-end justify-between gap-3">
+    <section className="mx-auto max-w-none sm:max-w-3xl">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40 sm:rounded-[28px]">
+        <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_38%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-3 sm:px-7 sm:py-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">보유요약</h2>
-              <p className="mt-1 text-[12px] font-bold text-slate-400">현재가 기준, 보유 종목을 빠르게 확인합니다.</p>
+              <p className="text-[9px] font-black tracking-[0.15em] text-cyan-300 sm:text-[11px]">PORTFOLIO SNAPSHOT</p>
+              <h2 className="mt-0.5 text-lg font-black tracking-tight text-white sm:mt-2 sm:text-2xl">보유요약</h2>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-slate-400">총 평가금액</p>
-              <p className="mt-1 text-base font-black text-cyan-200 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
+              <p className="text-[9px] font-black text-slate-400 sm:text-[10px]">총 평가금액</p>
+              <p className="mt-0.5 text-sm font-black text-cyan-200 sm:mt-1 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
             </div>
           </div>
         </div>
 
-        <div className="border-b border-slate-800 px-4 pt-3 sm:px-6">
+        <div className="border-b border-slate-800 px-3 sm:px-6">
           <div className="flex gap-1 overflow-x-auto">
             {marketTabs.map(([value, label]) => (
               <button
                 key={value}
                 onClick={() => setMarketFilter(value)}
-                className={`shrink-0 border-b-2 px-3 py-3 text-[13px] font-black transition-colors ${
+                className={`shrink-0 border-b-2 px-3 py-2 text-[12px] font-black transition-colors sm:py-3 sm:text-[13px] ${
                   marketFilter === value
                     ? "border-cyan-300 text-white"
                     : "border-transparent text-slate-500 hover:text-slate-300"
@@ -86,25 +85,24 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 bg-slate-900 px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-black text-slate-400">정렬 기준</p>
-          <div className="flex rounded-lg bg-slate-800 p-1 text-[11px] font-black">
+        <div className="flex items-center justify-end bg-slate-900 px-3 py-2 sm:px-6 sm:py-3">
+          <div className="flex rounded-lg bg-slate-800 p-0.5 text-[10px] font-black sm:p-1 sm:text-[11px]">
             <button
               onClick={() => setSortBy("evaluation")}
-              className={`rounded-md px-3 py-1.5 ${sortBy === "evaluation" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
+              className={`rounded-md px-2.5 py-1.5 sm:px-3 ${sortBy === "evaluation" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
             >
               평가금액
             </button>
             <button
               onClick={() => setSortBy("currentPrice")}
-              className={`rounded-md px-3 py-1.5 ${sortBy === "currentPrice" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
+              className={`rounded-md px-2.5 py-1.5 sm:px-3 ${sortBy === "currentPrice" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
             >
               현재가
             </button>
           </div>
         </div>
 
-        <div className="divide-y divide-slate-800 px-4 sm:px-6">
+        <div className="divide-y divide-slate-800 px-3 sm:px-6">
           {visibleHoldings.map((holding) => {
             const foreign = isForeignMarket(holding.market, holding.ticker);
             const positive = holding.profitRate >= 0;
@@ -112,18 +110,18 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
 
             return (
-              <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-5">
+              <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 sm:gap-4 sm:py-5">
                 <div className="min-w-0">
-                  <h3 className="truncate text-[18px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
-                  <p className="mt-1 text-[12px] font-bold text-slate-400">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
-                  <p className="mt-2 text-[13px] font-bold text-slate-400">내 평균 <span className="text-slate-200">{average}</span></p>
+                  <h3 className="truncate text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
+                  <p className="mt-0.5 text-[10px] font-bold text-slate-400 sm:mt-1 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
+                  <p className="mt-1 text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
-                <div className="min-w-[110px] text-right sm:min-w-[145px]">
-                  <span className={`inline-flex rounded-lg px-2.5 py-1.5 text-[15px] font-black ${positive ? "bg-rose-500/15 text-rose-300" : "bg-blue-500/15 text-blue-300"}`}>
+                <div className="min-w-[92px] text-right sm:min-w-[145px]">
+                  <span className={`inline-flex rounded-md px-2 py-1 text-[12px] font-black sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-[15px] ${positive ? "bg-rose-500/15 text-rose-300" : "bg-blue-500/15 text-blue-300"}`}>
                     {positive ? "▲" : "▼"} {formatRate(holding.profitRate)}
                   </span>
-                  <p className="mt-2 text-[17px] font-black text-white sm:text-xl">{price}</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">평가 {formatNum(holding.evaluation)}</p>
+                  <p className="mt-1.5 text-[15px] font-black text-white sm:mt-2 sm:text-xl">{price}</p>
+                  <p className="mt-0.5 text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-[11px]">평가 {formatNum(holding.evaluation)}</p>
                 </div>
               </article>
             );
