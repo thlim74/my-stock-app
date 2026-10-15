@@ -309,27 +309,27 @@ function PriceGapAnalysis({
         formatPrice={formatPrice}
       />
 
-      <div className="mt-4 overflow-x-auto rounded-2xl border border-cyan-400/60 bg-slate-900/80">
-        <table className="min-w-[720px] w-full text-center text-[12px] font-bold text-slate-100">
+      <div className="-mx-4 mt-4 overflow-x-auto rounded-none border-y border-cyan-400/60 bg-slate-900/80 sm:mx-0 sm:rounded-2xl sm:border">
+        <table className="min-w-[590px] table-fixed text-center text-[12px] font-bold text-slate-100 sm:min-w-[720px] sm:w-full">
           <thead className="bg-cyan-500/20 text-cyan-100">
             <tr>
-              <th className="w-[180px] px-3 py-3 text-left">항목</th>
+              <th className="sticky left-0 z-20 w-[112px] bg-[#0f4358] px-2 py-3 text-left sm:w-[180px] sm:px-3">항목</th>
               {analysis.dates.map((date) => (
-                <th key={date} className="px-3 py-3">{dateLabel(date)}</th>
+                <th key={date} className="w-[94px] px-1 py-3 sm:px-3">{dateLabel(date)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {Object.entries(pointLabels).map(([key, label]) => (
               <tr key={key} className="border-t border-cyan-400/20">
-                <td className="px-3 py-3 text-left text-cyan-100">{label}</td>
+                <td className="sticky left-0 z-10 bg-slate-900 px-2 py-3 text-left text-cyan-100 sm:px-3">{label}</td>
                 {analysis.dates.map((date) => {
                   const value = analysis.rows[key]?.[date];
                   const base = key === "prevClose" ? null : analysis.rows.prevClose?.[date];
                   const hasValue = Number.isFinite(Number(value)) && Number(value) > 0;
                   const rate = hasValue && base ? formatSignedRate(value, base) : "";
                   return (
-                    <td key={`${key}-${date}`} className="px-3 py-3">
+                    <td key={`${key}-${date}`} className="px-1 py-3 sm:px-3">
                       <div>{formatPrice(value)}</div>
                       {rate && rate !== "-" && <div className="mt-1 text-[10px] text-slate-400">{rate}</div>}
                     </td>

@@ -8,6 +8,7 @@ import CashFlowsTab from "@/components/cash-flows-tab";
 import DailyPricesTab from "@/components/daily-prices-tab";
 import DailyReturnsTab from "@/components/daily-returns-tab";
 import HoldingsTab from "@/components/holdings-tab";
+import HoldingsSummaryTab from "@/components/holdings-summary-tab";
 import MarketIndexGrid from "@/components/market-index-grid";
 import MonthlyReturnsTab from "@/components/monthly-returns-tab";
 import PivotHistoryTab from "@/components/pivot-history-tab";
@@ -2200,6 +2201,14 @@ export default function StockManagerUltimateV39_11() {
 
           <div className="p-3 sm:p-8">
             {/* 탭 1. 보유현황 */}
+            {activeTab === "보유요약" && (
+              <HoldingsSummaryTab
+                stats={stats}
+                formatNum={formatNum}
+                formatFloat={formatFloat}
+              />
+            )}
+
             {activeTab === "보유현황" && (
               <HoldingsTab
                 stats={stats}
