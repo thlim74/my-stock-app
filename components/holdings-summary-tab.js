@@ -55,6 +55,28 @@ export default function HoldingsSummaryTab({
     [holdings, marketFilter],
   );
 
+  const totalDailyProfit = useMemo(() => {
+    if (holdings.length === 0) return null;
+
+    let total = 0;
+    let availableCount = 0;
+    holdings.forEach((holding) => {
+      const snapshot = dailyPriceSnapshots?.[holding.ticker];
+      const referenceClose =
+        snapshot?.latestDate === today && snapshot?.previousRegularClose != null
+          ? Number(snapshot.previousRegularClose)
+          : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
+      if (!Number.isFinite(referenceClose) || referenceClose <= 0) return;
+
+      const difference = (holding.currentPrice - referenceClose) * holding.quantity;
+      total += isForeignMarket(holding.market, holding.ticker) ? difference * exchangeRate : difference;
+      availableCount += 1;
+    });
+
+    return availableCount === holdings.length ? total : null;
+  }, [dailyPriceSnapshots, exchangeRate, holdings, today]);
+  const totalDailyPositive = totalDailyProfit !== null && totalDailyProfit >= 0;
+
   const marketTabs = [
     ["all", `전체 ${counts.all}`],
     ["domestic", `한국 ${counts.domestic}`],
@@ -73,6 +95,10 @@ export default function HoldingsSummaryTab({
             <div className="text-right">
               <p className="text-[9px] font-black text-slate-400 sm:text-[10px]">총 평가금액</p>
               <p className="mt-0.5 text-sm font-black text-cyan-200 sm:mt-1 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
+              <p className="mt-1 text-[9px] font-black text-slate-400 sm:mt-1.5 sm:text-[10px]">일총수익</p>
+              <p className={`mt-0.5 text-[11px] font-black sm:text-[13px] ${totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}`}>
+                {totalDailyProfit === null ? "-" : `${totalDailyPositive ? "+" : ""}${formatNum(totalDailyProfit)}`}
+              </p>
             </div>
           </div>
         </div>
