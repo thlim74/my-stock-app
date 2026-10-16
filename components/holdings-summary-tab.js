@@ -76,6 +76,8 @@ export default function HoldingsSummaryTab({
     return availableCount === holdings.length ? total : null;
   }, [dailyPriceSnapshots, exchangeRate, holdings, today]);
   const totalDailyPositive = totalDailyProfit !== null && totalDailyProfit >= 0;
+  const totalProfitAmount = holdings.reduce((total, holding) => total + holding.profit, 0);
+  const totalProfitPositive = totalProfitAmount >= 0;
 
   const marketTabs = [
     ["all", `전체 ${counts.all}`],
@@ -87,16 +89,19 @@ export default function HoldingsSummaryTab({
     <section className="mx-auto max-w-none sm:max-w-3xl">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40 sm:rounded-[28px]">
         <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_38%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-3 sm:px-7 sm:py-5">
-          <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-black tracking-tight text-white sm:text-2xl">보유요약</h2>
+          <div className="mt-2 grid grid-cols-3 gap-2 sm:mt-3 sm:gap-4">
             <div>
-              <p className="text-[9px] font-black tracking-[0.15em] text-cyan-300 sm:text-[11px]">PORTFOLIO SNAPSHOT</p>
-              <h2 className="mt-0.5 text-lg font-black tracking-tight text-white sm:mt-2 sm:text-2xl">보유요약</h2>
+              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">총 평가금액</p>
+              <p className="mt-0.5 whitespace-nowrap text-[11px] font-black text-cyan-200 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-[9px] font-black text-slate-400 sm:text-[10px]">총 평가금액</p>
-              <p className="mt-0.5 text-sm font-black text-cyan-200 sm:mt-1 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
-              <p className="mt-1 text-[9px] font-black text-slate-400 sm:mt-1.5 sm:text-[10px]">일총수익</p>
-              <p className={`mt-0.5 text-[11px] font-black sm:text-[13px] ${totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}`}>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">총수익금</p>
+              <p className={`mt-0.5 whitespace-nowrap text-[11px] font-black sm:text-lg ${totalProfitPositive ? "text-rose-300" : "text-blue-300"}`}>{totalProfitPositive ? "+" : ""}{formatNum(totalProfitAmount)}</p>
+            </div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">일총수익</p>
+              <p className={`mt-0.5 whitespace-nowrap text-[11px] font-black sm:text-lg ${totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}`}>
                 {totalDailyProfit === null ? "-" : `${totalDailyPositive ? "+" : ""}${formatNum(totalDailyProfit)}`}
               </p>
             </div>
@@ -149,13 +154,14 @@ export default function HoldingsSummaryTab({
             const dayPositive = dayProfit !== null && dayProfit >= 0;
 
             return (
-              <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_210px] gap-x-3 gap-y-1 py-3 sm:grid-cols-[minmax(0,1fr)_230px] sm:gap-x-4 sm:gap-y-2 sm:py-5">
-                <h3 className="col-span-2 break-keep text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
+              <article key={holding.ticker || holding.name} className="py-3 sm:py-5">
+                <h3 className="break-keep text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
+                <div className="mt-1 grid grid-cols-[minmax(0,1fr)_210px] items-start gap-3 sm:mt-2 sm:grid-cols-[minmax(0,1fr)_230px] sm:gap-4">
                 <div className="min-w-0 self-center">
                   <p className="break-all text-[10px] font-bold leading-snug text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
                   <p className="mt-1 whitespace-nowrap text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
-                <div className="space-y-1 text-left sm:space-y-1.5">
+                <div className="justify-self-end space-y-1 text-left sm:space-y-1.5">
                   <p className="flex items-baseline gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">평가액</span>
                     <span className="text-white">{formatNum(holding.evaluation)}</span>
@@ -175,6 +181,7 @@ export default function HoldingsSummaryTab({
                   <p className={`whitespace-nowrap text-[11px] font-black sm:text-[13px] ${dayProfit === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}`}>
                     {dayProfit === null ? "일수익 -" : `일수익 ${dayPositive ? "+" : ""}${formatNum(dayProfit)}`}
                   </p>
+                </div>
                 </div>
               </article>
             );
