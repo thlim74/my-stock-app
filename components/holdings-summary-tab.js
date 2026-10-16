@@ -122,10 +122,10 @@ export default function HoldingsSummaryTab({
             const dayPositive = dayProfit !== null && dayProfit >= 0;
 
             return (
-              <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_minmax(190px,230px)] gap-3 py-3 sm:gap-4 sm:py-5">
-                <div className="min-w-0">
-                  <h3 className="truncate text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
-                  <p className="mt-0.5 text-[10px] font-bold text-slate-400 sm:mt-1 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
+              <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_minmax(190px,230px)] gap-x-3 gap-y-1 py-3 sm:gap-x-4 sm:gap-y-2 sm:py-5">
+                <h3 className="col-span-2 break-keep text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
+                <div className="min-w-0 self-center">
+                  <p className="whitespace-nowrap text-[10px] font-bold text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
                   <p className="mt-1 text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
                 <div className="space-y-1 text-right sm:space-y-1.5">
