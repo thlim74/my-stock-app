@@ -129,19 +129,19 @@ export default function HoldingsSummaryTab({
                   <p className="whitespace-nowrap text-[10px] font-bold text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
                   <p className="mt-1 whitespace-nowrap text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
-                <div className="space-y-1 text-right sm:space-y-1.5">
-                  <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
+                <div className="space-y-1 text-left sm:space-y-1.5">
+                  <p className="flex items-baseline gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">평가액</span>
                     <span className="text-white">{formatNum(holding.evaluation)}</span>
                   </p>
-                  <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
+                  <p className="flex items-baseline gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">현재가</span>
                     <span className="text-slate-100">{price}</span>
                     <span className={dayRate === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}>
                       ({dayRate === null ? "-" : `${dayPositive ? "+" : "-"}${formatRate(dayRate)}`})
                     </span>
                   </p>
-                  <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
+                  <p className="flex items-baseline gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">총수익</span>
                     <span className={profitPositive ? "text-rose-300" : "text-blue-300"}>{profitPositive ? "+" : ""}{formatNum(holding.profit)}</span>
                     <span className={positive ? "text-rose-300" : "text-blue-300"}>({positive ? "+" : "-"}{formatRate(holding.profitRate)})</span>
