@@ -2204,6 +2204,9 @@ export default function StockManagerUltimateV39_11() {
             {activeTab === "보유요약" && (
               <HoldingsSummaryTab
                 stats={stats}
+                dailyPriceSnapshots={dailyPriceSnapshots}
+                today={today}
+                exchangeRate={EXCHANGE_RATE}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
               />

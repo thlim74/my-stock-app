@@ -20,7 +20,14 @@ const holdingView = (holding) => ({
 
 const formatRate = (value) => `${Math.abs(value).toFixed(2)}%`;
 
-export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
+export default function HoldingsSummaryTab({
+  stats,
+  dailyPriceSnapshots,
+  today,
+  exchangeRate,
+  formatNum,
+  formatFloat,
+}) {
   const [marketFilter, setMarketFilter] = useState("all");
   const [sortBy, setSortBy] = useState("evaluation");
   const holdings = (stats?.holdingList || []).map(holdingView);
@@ -41,7 +48,13 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
         if (marketFilter === "foreign") return isForeignMarket(holding.market, holding.ticker);
         return true;
       })
-      .sort((a, b) => b[sortBy] - a[sortBy]),
+      .sort((a, b) => {
+        const primary = b[sortBy] - a[sortBy];
+        if (primary !== 0) return primary;
+        const evaluation = b.evaluation - a.evaluation;
+        if (evaluation !== 0) return evaluation;
+        return a.name.localeCompare(b.name, "ko");
+      }),
     [holdings, marketFilter, sortBy],
   );
 
@@ -91,13 +104,13 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
               onClick={() => setSortBy("evaluation")}
               className={`rounded-md px-2.5 py-1.5 sm:px-3 ${sortBy === "evaluation" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
             >
-              평가금액
+              평가금액 순
             </button>
             <button
               onClick={() => setSortBy("currentPrice")}
               className={`rounded-md px-2.5 py-1.5 sm:px-3 ${sortBy === "currentPrice" ? "bg-cyan-500 text-slate-950" : "text-slate-400"}`}
             >
-              현재가
+              현재가 순
             </button>
           </div>
         </div>
@@ -108,6 +121,17 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
             const positive = holding.profitRate >= 0;
             const price = foreign ? `$ ${formatFloat(holding.currentPrice)}` : formatNum(holding.currentPrice);
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
+            const snapshot = dailyPriceSnapshots?.[holding.ticker];
+            const referenceClose =
+              snapshot?.latestDate === today && snapshot?.previousRegularClose != null
+                ? Number(snapshot.previousRegularClose)
+                : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
+            const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
+            const dayProfit = hasReference
+              ? foreign
+                ? (holding.currentPrice - referenceClose) * holding.quantity * exchangeRate
+                : (holding.currentPrice - referenceClose) * holding.quantity
+              : null;
 
             return (
               <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 sm:gap-4 sm:py-5">
@@ -122,6 +146,9 @@ export default function HoldingsSummaryTab({ stats, formatNum, formatFloat }) {
                   </span>
                   <p className="mt-1.5 text-[15px] font-black text-white sm:mt-2 sm:text-xl">{price}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-[11px]">평가 {formatNum(holding.evaluation)}</p>
+                  <p className={`mt-0.5 text-[9px] font-black sm:text-[11px] ${dayProfit === null ? "text-slate-600" : dayProfit >= 0 ? "text-rose-300" : "text-blue-300"}`}>
+                    {dayProfit === null ? "일수익 -" : `일수익 ${dayProfit >= 0 ? "+" : ""}${formatNum(dayProfit)}`}
+                  </p>
                 </div>
               </article>
             );
