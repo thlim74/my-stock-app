@@ -158,7 +158,7 @@ export default function HoldingsSummaryTab({
                 <h3 className="break-keep text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
                 <div className="mt-1 grid grid-cols-[minmax(0,1fr)_210px] items-start gap-3 sm:mt-2 sm:grid-cols-[minmax(0,1fr)_230px] sm:gap-4">
                 <div className="min-w-0 self-center">
-                  <p className="break-all text-[10px] font-bold leading-snug text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
+                  <p className="text-[10px] font-bold leading-snug text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주</p>
                   <p className="mt-1 whitespace-nowrap text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
                 <div className="justify-self-end space-y-1 text-left sm:space-y-1.5">
