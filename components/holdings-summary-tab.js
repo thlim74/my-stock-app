@@ -116,6 +116,10 @@ export default function HoldingsSummaryTab({
                 ? (holding.currentPrice - referenceClose) * holding.quantity * exchangeRate
                 : (holding.currentPrice - referenceClose) * holding.quantity
               : null;
+            const dayRate = hasReference
+              ? ((holding.currentPrice - referenceClose) / referenceClose) * 100
+              : null;
+            const dayPositive = dayProfit !== null && dayProfit >= 0;
 
             return (
               <article key={holding.ticker || holding.name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 sm:gap-4 sm:py-5">
@@ -124,14 +128,19 @@ export default function HoldingsSummaryTab({
                   <p className="mt-0.5 text-[10px] font-bold text-slate-400 sm:mt-1 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
                   <p className="mt-1 text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
-                <div className="min-w-[92px] text-right sm:min-w-[145px]">
-                  <span className={`inline-flex rounded-md px-2 py-1 text-[12px] font-black sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-[15px] ${positive ? "bg-rose-500/15 text-rose-300" : "bg-blue-500/15 text-blue-300"}`}>
-                    {positive ? "▲" : "▼"} {formatRate(holding.profitRate)}
-                  </span>
-                  <p className="mt-1.5 text-[15px] font-black text-white sm:mt-2 sm:text-xl">{price}</p>
-                  <p className="mt-0.5 text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-[11px]">평가 {formatNum(holding.evaluation)}</p>
-                  <p className={`mt-0.5 text-[9px] font-black sm:text-[11px] ${dayProfit === null ? "text-slate-600" : dayProfit >= 0 ? "text-rose-300" : "text-blue-300"}`}>
-                    {dayProfit === null ? "일수익 -" : `일수익 ${dayProfit >= 0 ? "+" : ""}${formatNum(dayProfit)}`}
+                <div className="min-w-[138px] space-y-1 text-right sm:min-w-[170px] sm:space-y-1.5">
+                  <p className="text-[9px] font-bold text-slate-500 sm:text-[10px]">
+                    평가금액 <span className={positive ? "text-rose-300" : "text-blue-300"}>({positive ? "+" : "-"}{formatRate(holding.profitRate)})</span>
+                  </p>
+                  <p className="text-[14px] font-black text-white sm:text-lg">{formatNum(holding.evaluation)}</p>
+                  <p className="pt-0.5 text-[9px] font-bold text-slate-500 sm:text-[10px]">
+                    현재가 <span className={dayRate === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}>
+                      ({dayRate === null ? "-" : `${dayPositive ? "+" : "-"}${formatRate(dayRate)}`})
+                    </span>
+                  </p>
+                  <p className="text-[14px] font-black text-slate-100 sm:text-lg">{price}</p>
+                  <p className={`pt-0.5 text-[10px] font-black sm:text-[11px] ${dayProfit === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}`}>
+                    {dayProfit === null ? "일수익 -" : `일수익 ${dayPositive ? "+" : ""}${formatNum(dayProfit)}`}
                   </p>
                 </div>
               </article>
