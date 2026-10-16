@@ -103,6 +103,7 @@ export default function HoldingsSummaryTab({
           {visibleHoldings.map((holding) => {
             const foreign = isForeignMarket(holding.market, holding.ticker);
             const positive = holding.profitRate >= 0;
+            const profitPositive = holding.profit >= 0;
             const price = foreign ? `$ ${formatFloat(holding.currentPrice)}` : formatNum(holding.currentPrice);
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
             const snapshot = dailyPriceSnapshots?.[holding.ticker];
@@ -126,13 +127,12 @@ export default function HoldingsSummaryTab({
                 <h3 className="col-span-2 break-keep text-[15px] font-black tracking-tight text-white sm:text-xl">{holding.name}</h3>
                 <div className="min-w-0 self-center">
                   <p className="whitespace-nowrap text-[10px] font-bold text-slate-400 sm:text-[12px]">{formatNum(holding.quantity)}주 · {holding.market}:{holding.ticker}</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
+                  <p className="mt-1 whitespace-nowrap text-[11px] font-bold text-slate-400 sm:mt-2 sm:text-[13px]">내 평균 <span className="text-slate-200">{average}</span></p>
                 </div>
                 <div className="space-y-1 text-right sm:space-y-1.5">
                   <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">평가액</span>
                     <span className="text-white">{formatNum(holding.evaluation)}</span>
-                    <span className={positive ? "text-rose-300" : "text-blue-300"}>({positive ? "+" : "-"}{formatRate(holding.profitRate)})</span>
                   </p>
                   <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
                     <span className="text-slate-500">현재가</span>
@@ -140,6 +140,11 @@ export default function HoldingsSummaryTab({
                     <span className={dayRate === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}>
                       ({dayRate === null ? "-" : `${dayPositive ? "+" : "-"}${formatRate(dayRate)}`})
                     </span>
+                  </p>
+                  <p className="flex justify-end gap-1 whitespace-nowrap text-[11px] font-bold sm:text-[13px]">
+                    <span className="text-slate-500">총수익</span>
+                    <span className={profitPositive ? "text-rose-300" : "text-blue-300"}>{profitPositive ? "+" : ""}{formatNum(holding.profit)}</span>
+                    <span className={positive ? "text-rose-300" : "text-blue-300"}>({positive ? "+" : "-"}{formatRate(holding.profitRate)})</span>
                   </p>
                   <p className={`whitespace-nowrap text-[11px] font-black sm:text-[13px] ${dayProfit === null ? "text-slate-600" : dayPositive ? "text-rose-300" : "text-blue-300"}`}>
                     {dayProfit === null ? "일수익 -" : `일수익 ${dayPositive ? "+" : ""}${formatNum(dayProfit)}`}
