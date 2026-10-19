@@ -62,8 +62,9 @@ export default function HoldingsSummaryTab({
     let availableCount = 0;
     holdings.forEach((holding) => {
       const snapshot = dailyPriceSnapshots?.[holding.ticker];
+      const latestDate = snapshot?.latestDate || today;
       const referenceClose =
-        snapshot?.latestDate === today && snapshot?.previousRegularClose != null
+        latestDate === today && snapshot?.previousRegularClose != null
           ? Number(snapshot.previousRegularClose)
           : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
       if (!Number.isFinite(referenceClose) || referenceClose <= 0) return;
@@ -138,8 +139,9 @@ export default function HoldingsSummaryTab({
             const price = foreign ? `$ ${formatFloat(holding.currentPrice)}` : formatNum(holding.currentPrice);
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
             const snapshot = dailyPriceSnapshots?.[holding.ticker];
+            const latestDate = snapshot?.latestDate || today;
             const referenceClose =
-              snapshot?.latestDate === today && snapshot?.previousRegularClose != null
+              latestDate === today && snapshot?.previousRegularClose != null
                 ? Number(snapshot.previousRegularClose)
                 : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
             const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
