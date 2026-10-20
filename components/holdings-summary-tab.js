@@ -115,7 +115,7 @@ export default function HoldingsSummaryTab({
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40 sm:rounded-[28px]">
         <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_38%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-3 sm:px-7 sm:py-5">
           <h2 className="text-lg font-black tracking-tight text-white sm:text-2xl">보유요약</h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 sm:gap-4">
+          <div className="mt-2 grid grid-cols-3 gap-2 sm:mt-3 sm:gap-4">
             <div>
               <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">총 평가금액</p>
               <p className="mt-0.5 whitespace-nowrap text-[11px] font-black text-cyan-200 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
@@ -124,22 +124,16 @@ export default function HoldingsSummaryTab({
               <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">총수익금</p>
               <p className={`mt-0.5 whitespace-nowrap text-[11px] font-black sm:text-lg ${totalProfitPositive ? "text-rose-300" : "text-blue-300"}`}>{totalProfitPositive ? "+" : ""}{formatNum(totalProfitAmount)}</p>
             </div>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/70 pt-2 sm:mt-4 sm:gap-4 sm:pt-3">
             <div>
               <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">일수익</p>
               <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}`}>
                 {totalDailyProfit === null ? "종가 누락" : `${totalDailyPositive ? "+" : ""}${formatNum(totalDailyProfit)}`}
               </p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">애프터수익</p>
+              <p className="mt-1 text-[8px] font-black text-slate-400 sm:text-[10px]">애프터수익</p>
               <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${totalAfterProfit === null ? "text-slate-500" : totalAfterPositive ? "text-rose-300" : "text-blue-300"}`}>
                 {totalAfterProfit === null ? "종가 누락" : `${totalAfterPositive ? "+" : ""}${formatNum(totalAfterProfit)}`}
               </p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">판매수익</p>
+              <p className="mt-1 text-[8px] font-black text-slate-400 sm:text-[10px]">판매수익</p>
               <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${salePositive ? "text-rose-300" : "text-blue-300"}`}>{salePositive ? "+" : ""}{formatNum(saleProfit)}</p>
             </div>
           </div>
