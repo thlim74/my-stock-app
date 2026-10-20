@@ -125,16 +125,22 @@ export default function HoldingsSummaryTab({
               <p className={`mt-0.5 whitespace-nowrap text-[11px] font-black sm:text-lg ${totalProfitPositive ? "text-rose-300" : "text-blue-300"}`}>{totalProfitPositive ? "+" : ""}{formatNum(totalProfitAmount)}</p>
             </div>
             <div>
-              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">일수익</p>
-              <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}`}>
-                {totalDailyProfit === null ? "종가 누락" : `${totalDailyPositive ? "+" : ""}${formatNum(totalDailyProfit)}`}
+              <p className="flex items-baseline gap-1 whitespace-nowrap text-[8px] font-black sm:text-[10px]">
+                <span className="text-slate-400">일수익</span>
+                <span className={totalDailyProfit === null ? "text-slate-500" : totalDailyPositive ? "text-rose-300" : "text-blue-300"}>
+                  {totalDailyProfit === null ? "종가 누락" : `${totalDailyPositive ? "+" : ""}${formatNum(totalDailyProfit)}`}
+                </span>
               </p>
-              <p className="mt-1 text-[8px] font-black text-slate-400 sm:text-[10px]">애프터수익</p>
-              <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${totalAfterProfit === null ? "text-slate-500" : totalAfterPositive ? "text-rose-300" : "text-blue-300"}`}>
-                {totalAfterProfit === null ? "종가 누락" : `${totalAfterPositive ? "+" : ""}${formatNum(totalAfterProfit)}`}
+              <p className="mt-1 flex items-baseline gap-1 whitespace-nowrap text-[8px] font-black sm:text-[10px]">
+                <span className="text-slate-400">애프터수익</span>
+                <span className={totalAfterProfit === null ? "text-slate-500" : totalAfterPositive ? "text-rose-300" : "text-blue-300"}>
+                  {totalAfterProfit === null ? "종가 누락" : `${totalAfterPositive ? "+" : ""}${formatNum(totalAfterProfit)}`}
+                </span>
               </p>
-              <p className="mt-1 text-[8px] font-black text-slate-400 sm:text-[10px]">판매수익</p>
-              <p className={`mt-0.5 whitespace-nowrap text-[10px] font-black sm:text-base ${salePositive ? "text-rose-300" : "text-blue-300"}`}>{salePositive ? "+" : ""}{formatNum(saleProfit)}</p>
+              <p className="mt-1 flex items-baseline gap-1 whitespace-nowrap text-[8px] font-black sm:text-[10px]">
+                <span className="text-slate-400">판매수익</span>
+                <span className={salePositive ? "text-rose-300" : "text-blue-300"}>{salePositive ? "+" : ""}{formatNum(saleProfit)}</span>
+              </p>
             </div>
           </div>
         </div>
