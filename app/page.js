@@ -95,31 +95,12 @@ const buildPriceGapPointMap = (points = []) => {
   return map;
 };
 
-const getKoreaDateParts = (date = new Date()) =>
-  Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      hourCycle: "h23",
-    })
-      .formatToParts(date)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-
 const formatToday = () => {
-  const { year, month, day } = getKoreaDateParts();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const formatProfitReferenceDate = () => {
-  const { year, month, day, hour } = getKoreaDateParts();
-  const reference = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  if (Number(hour) < 7) reference.setUTCDate(reference.getUTCDate() - 1);
-  return reference.toISOString().slice(0, 10);
 };
 
 /**
@@ -131,7 +112,6 @@ const formatProfitReferenceDate = () => {
 
 export default function StockManagerUltimateV39_11() {
   const today = formatToday();
-  const profitReferenceDate = formatProfitReferenceDate();
   const defaultStartDate = "";
 
   const [activeTab, setActiveTab] = useState("보유현황");
@@ -1192,7 +1172,6 @@ export default function StockManagerUltimateV39_11() {
         dailyPriceHistoryMap,
         stockMaster,
         today,
-        profitReferenceDate,
         cashAdjustment,
       }),
     [
@@ -1203,7 +1182,6 @@ export default function StockManagerUltimateV39_11() {
       dailyPriceHistoryMap,
       stockMaster,
       today,
-      profitReferenceDate,
       cashAdjustment,
     ],
   );
@@ -2228,7 +2206,6 @@ export default function StockManagerUltimateV39_11() {
                 stats={stats}
                 dailyPriceSnapshots={dailyPriceSnapshots}
                 today={today}
-                profitReferenceDate={profitReferenceDate}
                 exchangeRate={EXCHANGE_RATE}
                 formatNum={formatNum}
                 formatFloat={formatFloat}
@@ -2245,7 +2222,6 @@ export default function StockManagerUltimateV39_11() {
                 dailyPriceDetailMap={dailyPriceDetailMap}
                 priceGapPointsMap={priceGapPointsMap}
                 today={today}
-                profitReferenceDate={profitReferenceDate}
                 exchangeRate={EXCHANGE_RATE}
               />
             )}

@@ -356,68 +356,12 @@ export default function HoldingsTab({
   dailyPriceDetailMap,
   priceGapPointsMap,
   today,
-  profitReferenceDate = today,
   exchangeRate,
 }) {
   const rows = (stats?.holdingList || []).map(holdingView);
-  const profitSummary = useMemo(() => {
-    let dailyProfit = 0;
-    let afterProfit = 0;
-    let dailyCount = 0;
-    let afterCount = 0;
-
-    rows.forEach((row) => {
-      const snapshot = dailyPriceSnapshots?.[row.ticker];
-      const latestDate = snapshot?.latestDate || profitReferenceDate;
-      const regularReference =
-        latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
-          ? Number(snapshot.previousRegularClose)
-          : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
-      const afterReference =
-        latestDate === profitReferenceDate && snapshot?.previousAfterClose != null
-          ? Number(snapshot.previousAfterClose)
-          : Number(snapshot?.latestAfterClose);
-      const multiplier = isForeignMarket(row.market, row.ticker) ? exchangeRate : 1;
-
-      if (Number.isFinite(regularReference) && regularReference > 0) {
-        dailyProfit += (row.currentPrice - regularReference) * row.qty * multiplier;
-        dailyCount += 1;
-      }
-      if (Number.isFinite(afterReference) && afterReference > 0) {
-        afterProfit += (row.currentPrice - afterReference) * row.qty * multiplier;
-        afterCount += 1;
-      }
-    });
-
-    return {
-      dailyProfit: dailyCount === rows.length && rows.length > 0 ? Math.round(dailyProfit) : null,
-      afterProfit: afterCount === rows.length && rows.length > 0 ? Math.round(afterProfit) : null,
-      saleProfit: Number(stats?.todayRealizedProfit) || 0,
-    };
-  }, [dailyPriceSnapshots, exchangeRate, profitReferenceDate, rows, stats?.todayRealizedProfit]);
-
-  const summaryItems = [
-    ["일수익", profitSummary.dailyProfit],
-    ["애프터수익", profitSummary.afterProfit],
-    ["판매수익", profitSummary.saleProfit],
-  ];
 
   return (
     <>
-      <section className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
-        {summaryItems.map(([label, amount]) => {
-          const available = amount !== null;
-          const positive = available && amount >= 0;
-          return (
-            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center sm:rounded-2xl sm:px-4 sm:py-3">
-              <p className="text-[9px] font-black text-slate-500 sm:text-[11px]">{label}</p>
-              <p className={`mt-1 whitespace-nowrap text-[11px] font-black sm:text-base ${!available ? "text-slate-400" : positive ? "text-rose-500" : "text-blue-600"}`}>
-                {available ? `${positive ? "+" : ""}${formatNum(amount)}` : "종가 누락"}
-              </p>
-            </div>
-          );
-        })}
-      </section>
       <div className="data-table-wrap">
         <table className="data-table min-w-[1180px] text-center whitespace-nowrap">
           <thead className="bg-slate-800 text-white text-[11px] font-black">
@@ -439,9 +383,9 @@ export default function HoldingsTab({
             {rows.map((row) => {
               const isForeign = isForeignMarket(row.market, row.ticker);
               const snapshot = dailyPriceSnapshots?.[row.ticker];
-              const latestDate = snapshot?.latestDate || profitReferenceDate;
+              const latestDate = snapshot?.latestDate || today;
               const referenceClose =
-                latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
+                latestDate === today && snapshot?.previousRegularClose != null
                   ? Number(snapshot.previousRegularClose)
                   : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
               const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
