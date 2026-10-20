@@ -121,7 +121,7 @@ export default function HoldingsSummaryTab({
               <p className="mt-0.5 whitespace-nowrap text-[11px] font-black text-cyan-200 sm:text-lg">{formatNum(stats?.totalEvaluation || 0)}</p>
             </div>
             <div>
-              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">총수익금</p>
+              <p className="text-[8px] font-black text-slate-400 sm:text-[10px]">보유 평가손익</p>
               <p className={`mt-0.5 whitespace-nowrap text-[11px] font-black sm:text-lg ${totalProfitPositive ? "text-rose-300" : "text-blue-300"}`}>{totalProfitPositive ? "+" : ""}{formatNum(totalProfitAmount)}</p>
             </div>
             <div>
