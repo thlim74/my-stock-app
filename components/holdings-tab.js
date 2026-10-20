@@ -356,6 +356,7 @@ export default function HoldingsTab({
   dailyPriceDetailMap,
   priceGapPointsMap,
   today,
+  profitReferenceDate = today,
   exchangeRate,
 }) {
   const rows = (stats?.holdingList || []).map(holdingView);
@@ -367,13 +368,13 @@ export default function HoldingsTab({
 
     rows.forEach((row) => {
       const snapshot = dailyPriceSnapshots?.[row.ticker];
-      const latestDate = snapshot?.latestDate || today;
+      const latestDate = snapshot?.latestDate || profitReferenceDate;
       const regularReference =
-        latestDate === today && snapshot?.previousRegularClose != null
+        latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
           ? Number(snapshot.previousRegularClose)
           : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
       const afterReference =
-        latestDate === today && snapshot?.previousAfterClose != null
+        latestDate === profitReferenceDate && snapshot?.previousAfterClose != null
           ? Number(snapshot.previousAfterClose)
           : Number(snapshot?.latestAfterClose);
       const multiplier = isForeignMarket(row.market, row.ticker) ? exchangeRate : 1;
@@ -393,7 +394,7 @@ export default function HoldingsTab({
       afterProfit: afterCount === rows.length && rows.length > 0 ? Math.round(afterProfit) : null,
       saleProfit: Number(stats?.todayRealizedProfit) || 0,
     };
-  }, [dailyPriceSnapshots, exchangeRate, rows, stats?.todayRealizedProfit, today]);
+  }, [dailyPriceSnapshots, exchangeRate, profitReferenceDate, rows, stats?.todayRealizedProfit]);
 
   const summaryItems = [
     ["일수익", profitSummary.dailyProfit],
@@ -438,9 +439,9 @@ export default function HoldingsTab({
             {rows.map((row) => {
               const isForeign = isForeignMarket(row.market, row.ticker);
               const snapshot = dailyPriceSnapshots?.[row.ticker];
-              const latestDate = snapshot?.latestDate || today;
+              const latestDate = snapshot?.latestDate || profitReferenceDate;
               const referenceClose =
-                latestDate === today && snapshot?.previousRegularClose != null
+                latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
                   ? Number(snapshot.previousRegularClose)
                   : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
               const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;

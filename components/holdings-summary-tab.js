@@ -24,6 +24,7 @@ export default function HoldingsSummaryTab({
   stats,
   dailyPriceSnapshots,
   today,
+  profitReferenceDate = today,
   exchangeRate,
   formatNum,
   formatFloat,
@@ -62,9 +63,9 @@ export default function HoldingsSummaryTab({
     let availableCount = 0;
     holdings.forEach((holding) => {
       const snapshot = dailyPriceSnapshots?.[holding.ticker];
-      const latestDate = snapshot?.latestDate || today;
+      const latestDate = snapshot?.latestDate || profitReferenceDate;
       const referenceClose =
-        latestDate === today && snapshot?.previousRegularClose != null
+        latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
           ? Number(snapshot.previousRegularClose)
           : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
       if (!Number.isFinite(referenceClose) || referenceClose <= 0) return;
@@ -75,7 +76,7 @@ export default function HoldingsSummaryTab({
     });
 
     return availableCount === holdings.length ? total : null;
-  }, [dailyPriceSnapshots, exchangeRate, holdings, today]);
+  }, [dailyPriceSnapshots, exchangeRate, holdings, profitReferenceDate]);
   const totalDailyPositive = totalDailyProfit !== null && totalDailyProfit >= 0;
   const totalProfitAmount = holdings.reduce((total, holding) => total + holding.profit, 0);
   const totalProfitPositive = totalProfitAmount >= 0;
@@ -139,9 +140,9 @@ export default function HoldingsSummaryTab({
             const price = foreign ? `$ ${formatFloat(holding.currentPrice)}` : formatNum(holding.currentPrice);
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
             const snapshot = dailyPriceSnapshots?.[holding.ticker];
-            const latestDate = snapshot?.latestDate || today;
+            const latestDate = snapshot?.latestDate || profitReferenceDate;
             const referenceClose =
-              latestDate === today && snapshot?.previousRegularClose != null
+              latestDate === profitReferenceDate && snapshot?.previousRegularClose != null
                 ? Number(snapshot.previousRegularClose)
                 : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
             const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
