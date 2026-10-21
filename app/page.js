@@ -9,6 +9,7 @@ import DailyPricesTab from "@/components/daily-prices-tab";
 import DailyReturnsTab from "@/components/daily-returns-tab";
 import HoldingsTab from "@/components/holdings-tab";
 import HoldingsSummaryTab from "@/components/holdings-summary-tab";
+import InvestorTrendsTab from "@/components/investor-trends-tab";
 import MarketIndexGrid from "@/components/market-index-grid";
 import MonthlyReturnsTab from "@/components/monthly-returns-tab";
 import PivotHistoryTab from "@/components/pivot-history-tab";
@@ -57,6 +58,7 @@ import {
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
 const INDEX_REFRESH_MS = 15 * 1000;
+const INVESTOR_TREND_REFRESH_MS = 20 * 60 * 1000;
 const LIVE_PRICE_REFRESH_MS = 5 * 1000;
 const AFTER_HOURS_REFRESH_MS = 10 * 1000;
 const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
@@ -173,6 +175,9 @@ export default function StockManagerUltimateV39_11() {
     sp500: 0,
     exchangeRate: 0,
   });
+  const [investorTrendData, setInvestorTrendData] = useState(null);
+  const [investorTrendLoading, setInvestorTrendLoading] = useState(false);
+  const [investorTrendError, setInvestorTrendError] = useState(false);
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
   const [preMarketPrices, setPreMarketPrices] = useState({});
@@ -470,6 +475,36 @@ export default function StockManagerUltimateV39_11() {
       clearInterval(timer);
     };
   }, [authUser, isPageVisible]);
+
+  useEffect(() => {
+    if (!authUser || !isPageVisible || activeTab !== "수급동향") return;
+    let cancelled = false;
+
+    const fetchInvestorTrends = async () => {
+      setInvestorTrendLoading(true);
+      try {
+        const response = await fetch("/api/investor-trends", { cache: "no-store" });
+        if (!response.ok) throw new Error("Investor trend request failed");
+        const data = await response.json();
+        if (!cancelled) {
+          setInvestorTrendData(data);
+          setInvestorTrendError(false);
+        }
+      } catch (_error) {
+        if (!cancelled) setInvestorTrendError(true);
+      } finally {
+        if (!cancelled) setInvestorTrendLoading(false);
+      }
+    };
+
+    fetchInvestorTrends();
+    const timer = setInterval(fetchInvestorTrends, INVESTOR_TREND_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeTab, authUser, isPageVisible]);
 
   const EXCHANGE_RATE = liveTicks.exchangeRate;
 
@@ -2230,6 +2265,14 @@ export default function StockManagerUltimateV39_11() {
                 priceGapPointsMap={priceGapPointsMap}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
+              />
+            )}
+
+            {activeTab === "수급동향" && (
+              <InvestorTrendsTab
+                data={investorTrendData}
+                loading={investorTrendLoading}
+                error={investorTrendError}
               />
             )}
 
