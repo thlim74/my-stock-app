@@ -6,150 +6,118 @@ const DOMESTIC_SYMBOLS = [
 ];
 
 const WORLD_SYMBOLS = [
-  { key: "dow", name: "DOW JONES", symbol: "DJI@DJI" },
-  { key: "nasdaq", name: "NASDAQ", symbol: "NAS@IXIC" },
-  { key: "sp500", name: "S&P 500", symbol: "SPI@SPX" },
+  { key: "dow", name: "DOW JONES", code: ".DJI" },
+  { key: "nasdaq", name: "NASDAQ", code: ".IXIC" },
+  { key: "sp500", name: "S&P 500", code: ".SPX" },
 ];
 
 const COMMON_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  Referer: "https://finance.naver.com/",
+  Referer: "https://stock.naver.com/",
+  Accept: "application/json",
 };
 
-const parseWorldIndex = (html, symbol, key, name) => {
-  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = html.match(
-    new RegExp(
-      `"${escaped}":\\{[^}]*"last":([0-9.]+),[^}]*"rate":(-?[0-9.]+)`,
-    ),
+const emptyItem = (key, name) => ({
+  key,
+  name,
+  value: null,
+  changePercent: null,
+  isUp: null,
+});
+
+const toNumber = (value) => Number(String(value ?? "").replace(/,/g, ""));
+
+const toQuoteItem = (source, key, name) => {
+  const value = toNumber(source?.closePriceRaw ?? source?.closePrice);
+  const changePercent = toNumber(
+    source?.fluctuationsRatioRaw ?? source?.fluctuationsRatio,
   );
 
-  if (!match) {
-    return {
-      key,
-      name,
-      value: null,
-      changePercent: null,
-      isUp: null,
-    };
+  if (!Number.isFinite(value) || !Number.isFinite(changePercent)) {
+    return emptyItem(key, name);
   }
 
-  const value = Number(match[1]);
-  const changePercent = Number(match[2]);
-
-  return {
-    key,
-    name,
-    value,
-    changePercent,
-    isUp: changePercent >= 0,
-  };
+  return { key, name, value, changePercent, isUp: changePercent >= 0 };
 };
 
-const parseUsdKrw = (html) => {
-  const blockMatch = html.match(
-    /marketindexCd=FX_USDKRW[\s\S]*?<td>([0-9,]+(?:\.[0-9]+)?)<\/td>[\s\S]*?<em class="bu_p ([^"]+)">[\s\S]*?<\/em>\s*([0-9,]+(?:\.[0-9]+)?)/,
-  );
+const fetchJson = async (url) => {
+  const response = await fetch(url, {
+    headers: COMMON_HEADERS,
+    cache: "no-store",
+  });
 
-  if (!blockMatch) {
-    return {
-      key: "exchangeRate",
-      name: "USD/KRW",
-      value: null,
-      changePercent: null,
-      isUp: null,
-    };
+  if (!response.ok) {
+    throw new Error(`Quote request failed: ${response.status}`);
   }
 
-  const current = Number(blockMatch[1].replace(/,/g, ""));
-  const directionClass = blockMatch[2];
-  const absDiff = Number(blockMatch[3].replace(/,/g, ""));
-  const signedDiff = directionClass.includes("up") ? absDiff : -absDiff;
-  const previous = current - signedDiff;
-  const changePercent = previous ? (signedDiff / previous) * 100 : 0;
+  return response.json();
+};
 
-  return {
-    key: "exchangeRate",
-    name: "USD/KRW",
-    value: current,
-    changePercent,
-    isUp: signedDiff >= 0,
-  };
+const fetchDomesticItem = async (item) => {
+  try {
+    const data = await fetchJson(
+      `https://polling.finance.naver.com/api/realtime/domestic/index/${item.code}`,
+    );
+    return toQuoteItem(data?.datas?.[0], item.key, item.name);
+  } catch (_error) {
+    return emptyItem(item.key, item.name);
+  }
+};
+
+const fetchWorldItems = async () => {
+  try {
+    const codes = WORLD_SYMBOLS.map((item) => item.code).join(",");
+    const data = await fetchJson(
+      `https://stock.naver.com/api/polling/worldstock/index?reutersCodes=${encodeURIComponent(codes)}`,
+    );
+    const sources = new Map(
+      (data?.datas ?? []).map((item) => [item.reutersCode, item]),
+    );
+
+    return WORLD_SYMBOLS.map((item) =>
+      toQuoteItem(sources.get(item.code), item.key, item.name),
+    );
+  } catch (_error) {
+    return WORLD_SYMBOLS.map((item) => emptyItem(item.key, item.name));
+  }
+};
+
+const fetchNasdaq100Futures = async () => {
+  try {
+    const data = await fetchJson(
+      "https://stock.naver.com/api/polling/worldstock/futures?reutersCodes=NQcv1",
+    );
+    return toQuoteItem(data?.datas?.[0], "nasdaq100Futures", "NASDAQ 100 FUTURES");
+  } catch (_error) {
+    return emptyItem("nasdaq100Futures", "NASDAQ 100 FUTURES");
+  }
+};
+
+const fetchUsdKrw = async () => {
+  try {
+    const data = await fetchJson(
+      "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW",
+    );
+    return toQuoteItem(data?.exchangeInfo, "exchangeRate", "USD/KRW");
+  } catch (_error) {
+    return emptyItem("exchangeRate", "USD/KRW");
+  }
 };
 
 export async function GET() {
-  try {
-    const [domesticResponses, worldResponse, homeResponse] = await Promise.all([
-      Promise.all(
-        DOMESTIC_SYMBOLS.map((item) =>
-          fetch(
-            `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${item.code}`,
-            {
-              headers: COMMON_HEADERS,
-              cache: "no-store",
-            },
-          ),
-        ),
-      ),
-      fetch("https://finance.naver.com/world/", {
-        headers: COMMON_HEADERS,
-        cache: "no-store",
-      }),
-      fetch("https://finance.naver.com/", {
-        headers: COMMON_HEADERS,
-        cache: "no-store",
-      }),
+  const [domesticItems, worldItems, nasdaq100Futures, exchangeItem] =
+    await Promise.all([
+      Promise.all(DOMESTIC_SYMBOLS.map(fetchDomesticItem)),
+      fetchWorldItems(),
+      fetchNasdaq100Futures(),
+      fetchUsdKrw(),
     ]);
 
-    const domesticItems = await Promise.all(
-      domesticResponses.map(async (response, index) => {
-        const item = DOMESTIC_SYMBOLS[index];
-
-        if (!response.ok) {
-          return {
-            key: item.key,
-            name: item.name,
-            value: null,
-            changePercent: null,
-            isUp: null,
-          };
-        }
-
-        const data = await response.json();
-        const source = data?.result?.areas?.[0]?.datas?.[0];
-
-        if (!source) {
-          return {
-            key: item.key,
-            name: item.name,
-            value: null,
-            changePercent: null,
-            isUp: null,
-          };
-        }
-
-        return {
-          key: item.key,
-          name: item.name,
-          value: Number(source.nv) / 100,
-          changePercent: Number(source.cr),
-          isUp: Number(source.cr) >= 0,
-        };
-      }),
-    );
-
-    const worldHtml = await worldResponse.text();
-    const homeBuffer = Buffer.from(await homeResponse.arrayBuffer());
-    const homeHtml = new TextDecoder("euc-kr").decode(homeBuffer);
-
-    const worldItems = WORLD_SYMBOLS.map((item) =>
-      parseWorldIndex(worldHtml, item.symbol, item.key, item.name),
-    );
-    const exchangeItem = parseUsdKrw(homeHtml);
-
-    return NextResponse.json([...domesticItems, ...worldItems, exchangeItem]);
-  } catch (_error) {
-    return NextResponse.json({ error: "Failed to fetch indices" }, { status: 500 });
-  }
+  return NextResponse.json([
+    ...domesticItems,
+    ...worldItems,
+    nasdaq100Futures,
+    exchangeItem,
+  ]);
 }

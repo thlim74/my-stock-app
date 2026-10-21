@@ -169,6 +169,7 @@ export default function StockManagerUltimateV39_11() {
     kosdaq: 0,
     dow: 0,
     nasdaq: 0,
+    nasdaq100Futures: 0,
     sp500: 0,
     exchangeRate: 0,
   });
@@ -1778,6 +1779,12 @@ export default function StockManagerUltimateV39_11() {
         v: liveTicks.nasdaq.toLocaleString(),
         d: getChangeStr(indexChangePercents.nasdaq),
         up: indexChangePercents.nasdaq >= 0,
+      },
+      {
+        n: "나스닥100 선물",
+        v: liveTicks.nasdaq100Futures.toLocaleString(),
+        d: getChangeStr(indexChangePercents.nasdaq100Futures),
+        up: indexChangePercents.nasdaq100Futures >= 0,
       },
       {
         n: "S&P 500 지수",
