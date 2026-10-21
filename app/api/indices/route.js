@@ -8,7 +8,7 @@ const DOMESTIC_SYMBOLS = [
 const WORLD_SYMBOLS = [
   { key: "dow", name: "DOW JONES", code: ".DJI" },
   { key: "nasdaq", name: "NASDAQ", code: ".IXIC" },
-  { key: "sp500", name: "S&P 500", code: ".SPX" },
+  { key: "sp500", name: "S&P 500", code: ".INX" },
 ];
 
 const COMMON_HEADERS = {
