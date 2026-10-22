@@ -17,7 +17,7 @@ const formatAmount = (value) => {
   const amount = Number(value) || 0;
   const sign = amount > 0 ? "+" : amount < 0 ? "-" : "";
   const eok = Math.round(Math.abs(amount) / 100_000_000);
-  return `${sign}${eok.toLocaleString()}억원`;
+  return `${sign}${eok.toLocaleString()}`;
 };
 
 const formatDate = (value) => {
@@ -48,26 +48,26 @@ export default function InvestorTrendsTab({ data, loading, error }) {
   const trend = data?.markets?.[market];
 
   return (
-    <section className="space-y-5">
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-5 text-white sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="space-y-3 sm:space-y-5">
+      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-3.5 text-white sm:p-7">
+        <div className="flex items-start justify-between gap-3 sm:gap-4">
           <div>
-            <p className="text-xs font-black tracking-[0.2em] text-cyan-300">MARKET FLOW</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">투자자별 매매동향</h2>
-            <p className="mt-2 text-xs font-bold text-slate-300 sm:text-sm">장중 순매수와 5·20거래일 누적 수급을 함께 확인합니다.</p>
+            <p className="hidden text-xs font-black tracking-[0.2em] text-cyan-300 sm:block">MARKET FLOW</p>
+            <h2 className="text-lg font-black tracking-tight sm:mt-1 sm:text-3xl">투자자별 매매동향</h2>
+            <p className="hidden mt-2 text-xs font-bold text-slate-300 sm:block">장중 순매수와 5·20거래일 누적 수급을 함께 확인합니다.</p>
           </div>
-          <p className="rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-cyan-100">
+          <p className="rounded-lg bg-white/10 px-2 py-1 text-[9px] font-bold text-cyan-100 sm:px-3 sm:py-2 sm:text-xs">
             {formatAsOf(trend?.today?.asOf, trend?.today?.time)}
           </p>
         </div>
 
-        <div className="mt-5 flex w-fit rounded-xl bg-white/10 p-1">
+        <div className="mt-3 flex w-full rounded-xl bg-white/10 p-1 sm:mt-5 sm:w-fit">
           {["KOSPI", "KOSDAQ"].map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => setMarket(item)}
-              className={`rounded-lg px-5 py-2 text-sm font-black transition-colors ${market === item ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}
+              className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-black transition-colors sm:flex-none sm:px-5 sm:py-2 sm:text-sm ${market === item ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}
             >
               {item}
             </button>
@@ -84,31 +84,30 @@ export default function InvestorTrendsTab({ data, loading, error }) {
 
       {trend ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {INVESTORS.map((investor) => {
               const amount = trend.today?.[investor.key] || 0;
               return (
-                <article key={investor.key} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className={`text-sm font-black ${investor.tone}`}>{investor.label}</p>
-                  <p className="mt-2 text-xs font-bold text-slate-400">당일 순매수</p>
-                  <p className={`mt-1 text-2xl font-black tracking-tight ${amountTone(amount)}`}>{formatAmount(amount)}</p>
+                <article key={investor.key} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-5">
+                  <p className={`text-[11px] font-black sm:text-sm ${investor.tone}`}>{investor.label}</p>
+                  <p className="mt-0.5 text-[9px] font-bold text-slate-400 sm:mt-2 sm:text-xs">당일 순매수</p>
+                  <p className={`mt-1 whitespace-nowrap text-[17px] font-black tracking-tight sm:text-2xl ${amountTone(amount)}`}>{formatAmount(amount)}</p>
                 </article>
               );
             })}
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-              <h3 className="font-black text-slate-800">누적 순매수</h3>
-              <p className="mt-1 text-xs font-bold text-slate-500">양수는 순매수, 음수는 순매도입니다.</p>
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:block sm:px-5 sm:py-4">
+              <h3 className="text-sm font-black text-slate-800 sm:text-base">누적 순매수</h3>
+              <p className="text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-xs">단위: 억원</p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-[620px] w-full text-center text-sm">
+            <div>
+              <table className="w-full table-fixed text-center text-[10px] sm:text-sm">
                 <thead className="bg-slate-900 text-white">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-black">기간</th>
-                    {INVESTORS.map((investor) => <th key={investor.key} className="px-5 py-3 text-xs font-black">{investor.label}</th>)}
-                    <th className="px-5 py-3 text-xs font-black">집계 기간</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">기간</th>
+                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -116,9 +115,8 @@ export default function InvestorTrendsTab({ data, loading, error }) {
                     const values = trend[period.key] || {};
                     return (
                       <tr key={period.key} className="border-t border-slate-100">
-                        <td className="px-5 py-4 text-left font-black text-slate-800">{period.label}</td>
-                        {INVESTORS.map((investor) => <td key={investor.key} className={`px-5 py-4 font-black ${amountTone(values[investor.key])}`}>{formatAmount(values[investor.key])}</td>)}
-                        <td className="px-5 py-4 text-xs font-bold text-slate-500">{values.bizdate || "-"}</td>
+                        <td className="px-2 py-2.5 text-left font-black text-slate-800 sm:px-5 sm:py-4"><span className="sm:hidden">{period.key === "fiveDays" ? "5일" : "20일"}</span><span className="hidden sm:inline">{period.label}</span></td>
+                        {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2.5 font-black whitespace-nowrap sm:px-5 sm:py-4 ${amountTone(values[investor.key])}`}>{formatAmount(values[investor.key])}</td>)}
                       </tr>
                     );
                   })}
@@ -128,23 +126,23 @@ export default function InvestorTrendsTab({ data, loading, error }) {
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-              <h3 className="font-black text-slate-800">최근 5거래일 일별 수급</h3>
-              <p className="mt-1 text-xs font-bold text-slate-500">일자별 순매수 흐름을 비교합니다.</p>
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:block sm:px-5 sm:py-4">
+              <h3 className="text-sm font-black text-slate-800 sm:text-base">최근 5거래일 일별 수급</h3>
+              <p className="text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-xs">단위: 억원</p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-[620px] w-full text-center text-sm">
+            <div>
+              <table className="w-full table-fixed text-center text-[10px] sm:text-sm">
                 <thead className="bg-slate-900 text-white">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-black">일자</th>
-                    {INVESTORS.map((investor) => <th key={investor.key} className="px-5 py-3 text-xs font-black">{investor.label}</th>)}
+                    <th className="px-2 py-2 text-left text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">일자</th>
+                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {(trend.daily || []).map((day) => (
                     <tr key={day.date} className="border-t border-slate-100">
-                      <td className="px-5 py-4 text-left font-black text-slate-800">{formatDate(day.date)}</td>
-                      {INVESTORS.map((investor) => <td key={investor.key} className={`px-5 py-4 font-black ${amountTone(day[investor.key])}`}>{formatAmount(day[investor.key])}</td>)}
+                      <td className="px-2 py-2 text-left font-black text-slate-800 sm:px-5 sm:py-4">{formatDate(day.date)}</td>
+                      {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2 font-black whitespace-nowrap sm:px-5 sm:py-4 ${amountTone(day[investor.key])}`}>{formatAmount(day[investor.key])}</td>)}
                     </tr>
                   ))}
                 </tbody>
@@ -152,7 +150,7 @@ export default function InvestorTrendsTab({ data, loading, error }) {
             </div>
           </div>
 
-          <p className="px-1 text-xs font-bold text-slate-400">장중 수급은 잠정치이며 마감 후 집계값으로 갱신됩니다. 데이터: 네이버 증권 KRX 시장 수급.</p>
+          <p className="hidden px-1 text-xs font-bold text-slate-400 sm:block">장중 수급은 잠정치이며 마감 후 집계값으로 갱신됩니다. 데이터: 네이버 증권 KRX 시장 수급.</p>
         </>
       ) : null}
     </section>
