@@ -13,11 +13,11 @@ const PERIODS = [
   { key: "twentyDays", label: "20거래일 누적" },
 ];
 
-const formatAmount = (value) => {
+const formatAmount = (value, withUnit = false) => {
   const amount = Number(value) || 0;
   const sign = amount > 0 ? "+" : amount < 0 ? "-" : "";
   const eok = Math.round(Math.abs(amount) / 100_000_000);
-  return `${sign}${eok.toLocaleString()}`;
+  return `${sign}${eok.toLocaleString()}${withUnit ? "억원" : ""}`;
 };
 
 const formatDate = (value) => {
@@ -91,7 +91,7 @@ export default function InvestorTrendsTab({ data, loading, error }) {
                 <article key={investor.key} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-5">
                   <p className={`text-[11px] font-black sm:text-sm ${investor.tone}`}>{investor.label}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-slate-400 sm:mt-2 sm:text-xs">당일 순매수</p>
-                  <p className={`mt-1 whitespace-nowrap text-[17px] font-black tracking-tight sm:text-2xl ${amountTone(amount)}`}>{formatAmount(amount)}</p>
+                  <p className={`mt-1 whitespace-nowrap text-[16px] font-black tracking-tight sm:text-2xl ${amountTone(amount)}`}>{formatAmount(amount, true)}</p>
                 </article>
               );
             })}
@@ -103,11 +103,11 @@ export default function InvestorTrendsTab({ data, loading, error }) {
               <p className="text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-xs">단위: 억원</p>
             </div>
             <div>
-              <table className="w-full table-fixed text-center text-[10px] sm:text-sm">
+              <table className="w-full table-fixed text-center text-[12px] sm:text-sm">
                 <thead className="bg-slate-900 text-white">
                   <tr>
-                    <th className="px-2 py-2 text-left text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">기간</th>
-                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
+                    <th className="px-2 py-2 text-left text-[11px] font-black sm:px-5 sm:py-3 sm:text-xs">기간</th>
+                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[11px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -116,7 +116,7 @@ export default function InvestorTrendsTab({ data, loading, error }) {
                     return (
                       <tr key={period.key} className="border-t border-slate-100">
                         <td className="px-2 py-2.5 text-left font-black text-slate-800 sm:px-5 sm:py-4"><span className="sm:hidden">{period.key === "fiveDays" ? "5일" : "20일"}</span><span className="hidden sm:inline">{period.label}</span></td>
-                        {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2.5 font-black whitespace-nowrap sm:px-5 sm:py-4 ${amountTone(values[investor.key])}`}>{formatAmount(values[investor.key])}</td>)}
+                        {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2.5 text-[13px] font-black whitespace-nowrap sm:px-5 sm:py-4 sm:text-sm ${amountTone(values[investor.key])}`}>{formatAmount(values[investor.key])}</td>)}
                       </tr>
                     );
                   })}
@@ -131,18 +131,18 @@ export default function InvestorTrendsTab({ data, loading, error }) {
               <p className="text-[9px] font-bold text-slate-500 sm:mt-1 sm:text-xs">단위: 억원</p>
             </div>
             <div>
-              <table className="w-full table-fixed text-center text-[10px] sm:text-sm">
+              <table className="w-full table-fixed text-center text-[12px] sm:text-sm">
                 <thead className="bg-slate-900 text-white">
                   <tr>
-                    <th className="px-2 py-2 text-left text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">일자</th>
-                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[10px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
+                    <th className="px-2 py-2 text-left text-[11px] font-black sm:px-5 sm:py-3 sm:text-xs">일자</th>
+                    {INVESTORS.map((investor) => <th key={investor.key} className="px-1 py-2 text-[11px] font-black sm:px-5 sm:py-3 sm:text-xs">{investor.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {(trend.daily || []).map((day) => (
                     <tr key={day.date} className="border-t border-slate-100">
                       <td className="px-2 py-2 text-left font-black text-slate-800 sm:px-5 sm:py-4">{formatDate(day.date)}</td>
-                      {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2 font-black whitespace-nowrap sm:px-5 sm:py-4 ${amountTone(day[investor.key])}`}>{formatAmount(day[investor.key])}</td>)}
+                      {INVESTORS.map((investor) => <td key={investor.key} className={`px-1 py-2 text-[13px] font-black whitespace-nowrap sm:px-5 sm:py-4 sm:text-sm ${amountTone(day[investor.key])}`}>{formatAmount(day[investor.key])}</td>)}
                     </tr>
                   ))}
                 </tbody>
