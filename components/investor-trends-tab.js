@@ -20,6 +20,11 @@ const formatAmount = (value) => {
   return `${sign}${eok.toLocaleString()}억원`;
 };
 
+const formatDate = (value) => {
+  const date = String(value || "");
+  return date.length === 8 ? `${date.slice(4, 6)}.${date.slice(6, 8)}` : "-";
+};
+
 const amountTone = (value) =>
   Number(value) > 0 ? "text-rose-600" : Number(value) < 0 ? "text-blue-600" : "text-slate-500";
 
@@ -117,6 +122,31 @@ export default function InvestorTrendsTab({ data, loading, error }) {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+              <h3 className="font-black text-slate-800">최근 5거래일 일별 수급</h3>
+              <p className="mt-1 text-xs font-bold text-slate-500">일자별 순매수 흐름을 비교합니다.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-[620px] w-full text-center text-sm">
+                <thead className="bg-slate-900 text-white">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-xs font-black">일자</th>
+                    {INVESTORS.map((investor) => <th key={investor.key} className="px-5 py-3 text-xs font-black">{investor.label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(trend.daily || []).map((day) => (
+                    <tr key={day.date} className="border-t border-slate-100">
+                      <td className="px-5 py-4 text-left font-black text-slate-800">{formatDate(day.date)}</td>
+                      {INVESTORS.map((investor) => <td key={investor.key} className={`px-5 py-4 font-black ${amountTone(day[investor.key])}`}>{formatAmount(day[investor.key])}</td>)}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
