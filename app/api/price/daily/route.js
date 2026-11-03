@@ -1,4 +1,5 @@
 import { getServerSupabase } from "@/lib/server-auth";
+import { fetchNaverWorldStockQuote } from "@/lib/world-stock-quote";
 
 const COMMON_HEADERS = {
   "User-Agent": "Mozilla/5.0",
@@ -562,29 +563,14 @@ const fetchDomesticGapSnapshot = async (code) => {
 };
 
 const fetchForeignGapSnapshot = async (code) => {
-  const symbol = normalizeForeignSymbol(code);
-  if (!symbol) return null;
-  const response = await fetch(
-    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`,
-    {
-      headers: COMMON_HEADERS,
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) return null;
-  const payload = await response.json();
-  const quote = payload?.quoteResponse?.result?.[0];
+  const quote = await fetchNaverWorldStockQuote(code);
   if (!quote) return null;
 
   return {
-    afterClose: parseNumber(quote.postMarketPrice),
-    preOpen: parseNumber(quote.preMarketPrice),
-    regularOpen: parseNumber(quote.regularMarketOpen),
-    source: quote.postMarketPrice != null
-      ? "yahoo_post_snapshot"
-      : quote.preMarketPrice != null
-        ? "yahoo_pre_snapshot"
-        : "yahoo_regular_snapshot",
+    afterClose: quote.afterPrice,
+    preOpen: quote.preOpen,
+    regularOpen: quote.regularOpen,
+    source: `${quote.source}_snapshot`,
   };
 };
 

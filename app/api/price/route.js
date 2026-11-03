@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { fetchNaverWorldStockQuote } from "@/lib/world-stock-quote";
 
 const isForeignTicker = (code) =>
-  code && (code.includes(":") || /^[A-Z]+$/.test(code));
+  code && (code.includes(":") || /^[A-Z]+(?:\.(?:O|N|A))?$/.test(code));
 
 const buildTickerCandidates = (rawCode) => {
   const raw = String(rawCode || "").trim();
@@ -25,6 +26,18 @@ export async function GET(request) {
   }
 
   try {
+    if (isForeignTicker(rawCode)) {
+      const quote = await fetchNaverWorldStockQuote(rawCode);
+      if (!quote) {
+        return NextResponse.json({ error: "Price not found" }, { status: 404 });
+      }
+      return NextResponse.json({
+        code: rawCode,
+        sourceCode: quote.reutersCode,
+        price: quote.regularClose,
+      });
+    }
+
     for (const code of buildTickerCandidates(rawCode)) {
       const response = await fetch(
         `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${code}`,

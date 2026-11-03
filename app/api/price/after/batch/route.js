@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchNaverWorldStockQuote } from "@/lib/world-stock-quote";
 
 const normalizeSymbol = (rawCode) => {
   const raw = String(rawCode || "").trim().toUpperCase();
@@ -76,44 +77,22 @@ const fetchAfterHours = async (rawCode) => {
     };
   }
 
-  const response = await fetch(
-    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`,
-    { cache: "no-store" },
-  );
-
-  if (!response.ok) {
-    return { code: rawCode, symbol, ok: false, error: "Quote fetch failed" };
-  }
-
-  const payload = await response.json();
-  const quote = payload?.quoteResponse?.result?.[0];
+  const quote = await fetchNaverWorldStockQuote(rawCode);
   if (!quote) {
     return { code: rawCode, symbol, ok: false, error: "Quote not found" };
   }
 
-  const regularClose = quote.regularMarketPrice ?? null;
-  const preOpen = parseNumber(quote.preMarketPrice);
-  const regularOpen = parseNumber(quote.regularMarketOpen);
-  const afterPrice =
-    quote.postMarketPrice ?? quote.preMarketPrice ?? quote.regularMarketPrice ?? null;
-  const source =
-    quote.postMarketPrice != null
-      ? "post"
-      : quote.preMarketPrice != null
-        ? "pre"
-        : "regular";
-
   return {
     code: rawCode,
-    symbol,
-    regularClose: parseNumber(regularClose),
-    afterPrice: parseNumber(afterPrice),
-    preOpen,
-    regularOpen,
-    source,
-    marketState: quote.marketState || null,
-    regularMarketTime: quote.regularMarketTime || null,
-    postMarketTime: quote.postMarketTime || null,
+    symbol: quote.symbol,
+    regularClose: quote.regularClose,
+    afterPrice: quote.afterPrice,
+    preOpen: quote.preOpen,
+    regularOpen: quote.regularOpen,
+    source: quote.source,
+    marketState: quote.marketState,
+    regularMarketTime: quote.regularMarketTime,
+    postMarketTime: quote.postMarketTime,
     ok: true,
   };
 };

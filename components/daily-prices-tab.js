@@ -238,10 +238,10 @@ export default function DailyPricesTab({
                   ? Number(preMarketPrices[stock.티커])
                   : null;
               const todayRegularClose =
-                isTodaySnapshot
-                  ? snapshot?.latestPrice ?? null
-                  : Number.isFinite(liveRegularPrice)
-                    ? liveRegularPrice
+                Number.isFinite(liveRegularPrice)
+                  ? liveRegularPrice
+                  : isTodaySnapshot
+                    ? snapshot?.latestPrice ?? null
                     : null;
               const afterPrice =
                 afterHoursPrices?.[stock.티커] !== undefined

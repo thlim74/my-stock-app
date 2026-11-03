@@ -233,7 +233,11 @@ export default function StockManagerUltimateV39_11() {
     Object.keys(afterHoursPrices || {}).forEach((ticker) => {
       const source = afterHoursStatus?.[ticker]?.source;
       const isAfterSource =
-        source === "post" || source === "pre" || source === "naver_after";
+        source === "post" ||
+        source === "pre" ||
+        source === "naver_after" ||
+        source === "naver_world_after" ||
+        source === "naver_world_pre";
       if (isAfterSource && Number.isFinite(Number(afterHoursPrices[ticker]))) {
         next[ticker] = Number(afterHoursPrices[ticker]);
       }
@@ -406,20 +410,6 @@ export default function StockManagerUltimateV39_11() {
       return remoteTransactions;
     }
   }, []);
-
-  // 종목 현재가 기본값만 유지하고, 난수 시뮬레이션은 제거
-  useEffect(() => {
-    setLiveStockPrices((prev) => {
-      const updated = { ...prev };
-      stockMaster.forEach((sm) => {
-        if (updated[sm.티커] === undefined) {
-          const isForeign = isForeignMarket(sm.시장, sm.티커);
-          updated[sm.티커] = isForeign ? 10.0 : 10000;
-        }
-      });
-      return updated;
-    });
-  }, [stockMaster]);
 
   // 지수 카드는 실제 API 응답을 주기적으로 반영
   useEffect(() => {
