@@ -507,20 +507,15 @@ export default function StockManagerUltimateV39_11() {
     const fetchKisInvestorTime = async () => {
       setKisInvestorTimeLoading(true);
       try {
-        const responses = await Promise.all(
-          ["KOSPI", "KOSDAQ"].map(async (market) => {
-            const response = await fetch(`/api/investor-trends/intraday?market=${market}`, {
-              cache: "no-store",
-            });
-            const payload = await response.json();
-            if (!response.ok) {
-              throw new Error(payload?.error || "한투 시장 수급 요청에 실패했습니다.");
-            }
-            return payload;
-          }),
-        );
+        const response = await fetch("/api/investor-trends/intraday?market=ALL", {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error || "한투 시장 수급 요청에 실패했습니다.");
+        }
         if (!cancelled) {
-          setKisInvestorTimeData(Object.fromEntries(responses.map((item) => [item.market, item])));
+          setKisInvestorTimeData(payload.markets || {});
           setKisInvestorTimeError("");
         }
       } catch (error) {

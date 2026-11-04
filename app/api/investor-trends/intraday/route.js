@@ -88,11 +88,23 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const market = searchParams.get("market") === "KOSDAQ" ? "KOSDAQ" : "KOSPI";
-    const data = await fetchKisMarketInvestorTime(market);
-    const history = await storeAndLoadHistory(market, data.netValues);
+    const requestedMarket = searchParams.get("market");
+    const markets = requestedMarket === "ALL" ? ["KOSPI", "KOSDAQ"] : [requestedMarket === "KOSDAQ" ? "KOSDAQ" : "KOSPI"];
+    const results = [];
+    for (const market of markets) {
+      const data = await fetchKisMarketInvestorTime(market);
+      const history = await storeAndLoadHistory(market, data.netValues);
+      results.push([market, { ...data, history }]);
+    }
 
-    return NextResponse.json({ ...data, history }, {
+    if (requestedMarket === "ALL") {
+      return NextResponse.json(
+        { markets: Object.fromEntries(results) },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+
+    return NextResponse.json(results[0][1], {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
