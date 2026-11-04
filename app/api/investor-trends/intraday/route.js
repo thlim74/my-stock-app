@@ -52,7 +52,7 @@ const isKoreanInvestorRefreshWindow = () => {
   const { weekday, hour, minute } = getKstParts();
   if (["Sat", "Sun"].includes(weekday)) return false;
   const currentMinute = hour * 60 + minute;
-  return currentMinute >= 8 * 60 + 30 && currentMinute <= 18 * 60;
+  return currentMinute >= 8 * 60 + 30 && currentMinute <= 20 * 60;
 };
 
 const getKstDayRange = () => {
