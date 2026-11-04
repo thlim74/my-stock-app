@@ -28,21 +28,33 @@ const formatDate = (value) => {
 const amountTone = (value) =>
   Number(value) > 0 ? "text-rose-600" : Number(value) < 0 ? "text-blue-600" : "text-slate-500";
 
-const KIS_DETAIL_ROWS = [
+const KIS_COLUMNS = [
+  ["foreign", "외국인"],
+  ["individual", "개인"],
+  ["institution", "기관종합"],
   ["securities", "금융투자"],
   ["investmentTrust", "투신"],
   ["privateFund", "사모"],
   ["bank", "은행"],
   ["insurance", "보험"],
-  ["finance", "종금"],
-  ["pension", "연기금"],
   ["otherInstitution", "기타금융"],
-  ["otherCorporation", "기타법인"],
+  ["pension", "연기금"],
+  ["otherCorporation", "기타"],
 ];
 
 const formatKisAmount = (value) => {
   const amount = Number(value) || 0;
   return `${amount > 0 ? "+" : amount < 0 ? "-" : ""}${Math.abs(amount).toLocaleString()}`;
+};
+
+const formatKstTime = (value) => {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
 };
 
 const formatAsOf = (asOf, time) => {
@@ -71,6 +83,21 @@ export default function InvestorTrendsTab({
   const [market, setMarket] = useState("KOSPI");
   const trend = data?.markets?.[market];
   const intraday = intradayData?.[market];
+  const intervalRows = [...(intraday?.history || [])]
+    .sort((a, b) => new Date(a.captured_at) - new Date(b.captured_at))
+    .map((snapshot, index, snapshots) => {
+      const previous = snapshots[index - 1]?.net_values;
+      return {
+        time: snapshot.captured_at,
+        values: Object.fromEntries(
+          KIS_COLUMNS.map(([key]) => [
+            key,
+            previous ? Number(snapshot.net_values?.[key] || 0) - Number(previous?.[key] || 0) : null,
+          ]),
+        ),
+      };
+    })
+    .reverse();
 
   return (
     <section className="space-y-3 sm:space-y-5">
@@ -113,7 +140,7 @@ export default function InvestorTrendsTab({
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-5 sm:py-4">
               <div>
                 <h3 className="text-sm font-black sm:text-base">한투 시장별 시간 동향</h3>
-                <p className="mt-0.5 text-[10px] font-bold text-slate-400">장중 누적 거래대금, 1분마다 갱신</p>
+                <p className="mt-0.5 text-[10px] font-bold text-slate-400">5분 구간 순매수, 장중 1분마다 수집</p>
               </div>
               <p className="rounded-md bg-cyan-400/15 px-2 py-1 text-[10px] font-black text-cyan-200">
                 {intraday ? formatAsOf(intraday.fetchedAt, true) : "연결 중"}
@@ -128,29 +155,33 @@ export default function InvestorTrendsTab({
             ) : null}
             {intraday ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] text-right text-[11px] sm:text-xs">
+                <table className="w-full min-w-[1060px] text-right text-[11px] sm:text-xs">
                   <thead className="bg-white/10 text-slate-200">
                     <tr>
-                      <th className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-left font-black">구분</th>
-                      <th className="px-2 py-2 font-black">매도</th>
-                      <th className="px-2 py-2 font-black">매수</th>
-                      <th className="px-3 py-2 font-black">순매수</th>
+                      <th className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-left font-black">시간</th>
+                      {KIS_COLUMNS.map(([, label]) => (
+                        <th key={label} className="px-2 py-2 font-black whitespace-nowrap">{label}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      ["외국인", intraday.summary.foreign],
-                      ["개인", intraday.summary.individual],
-                      ["기관종합", intraday.summary.institution],
-                      ...KIS_DETAIL_ROWS.map(([key, label]) => [label, intraday.institutionDetails[key]]),
-                    ].map(([label, values]) => (
-                      <tr key={label} className="border-t border-white/10">
-                        <th className="sticky left-0 z-10 bg-slate-950 px-3 py-2 text-left font-bold text-slate-200">{label}</th>
-                        <td className="px-2 py-2 text-slate-300">{formatKisAmount(values.sell)}</td>
-                        <td className="px-2 py-2 text-slate-300">{formatKisAmount(values.buy)}</td>
-                        <td className={`px-3 py-2 font-black ${amountTone(values.net)}`}>{formatKisAmount(values.net)}</td>
+                    {intervalRows.map((row) => (
+                      <tr key={row.time} className="border-t border-white/10">
+                        <th className="sticky left-0 z-10 bg-slate-950 px-3 py-2 text-left font-bold text-slate-200">{formatKstTime(row.time)}</th>
+                        {KIS_COLUMNS.map(([key]) => (
+                          <td key={key} className={`px-2 py-2 font-black ${row.values[key] === null ? "text-slate-500" : amountTone(row.values[key])}`}>
+                            {row.values[key] === null ? "-" : formatKisAmount(row.values[key])}
+                          </td>
+                        ))}
                       </tr>
                     ))}
+                    {intervalRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={KIS_COLUMNS.length + 1} className="px-3 py-6 text-center text-xs font-bold text-slate-400">
+                          장중에 수집된 5분 구간 데이터가 아직 없습니다.
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>
