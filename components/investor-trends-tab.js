@@ -124,7 +124,7 @@ export default function InvestorTrendsTab({
               <p className="px-3 py-5 text-center text-xs font-bold text-slate-400">한투 수급을 불러오는 중입니다.</p>
             ) : null}
             {intradayError ? (
-              <p className="px-3 py-4 text-center text-xs font-bold text-amber-300">한투 수급 연결을 확인 중입니다. App Key 권한을 확인해 주세요.</p>
+              <p className="px-3 py-4 text-center text-xs font-bold text-amber-300">{intradayError}</p>
             ) : null}
             {intraday ? (
               <div className="overflow-x-auto">

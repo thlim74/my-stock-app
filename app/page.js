@@ -181,7 +181,7 @@ export default function StockManagerUltimateV39_11() {
   const [investorTrendError, setInvestorTrendError] = useState(false);
   const [kisInvestorTimeData, setKisInvestorTimeData] = useState(null);
   const [kisInvestorTimeLoading, setKisInvestorTimeLoading] = useState(false);
-  const [kisInvestorTimeError, setKisInvestorTimeError] = useState(false);
+  const [kisInvestorTimeError, setKisInvestorTimeError] = useState("");
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
   const [preMarketPrices, setPreMarketPrices] = useState({});
@@ -512,16 +512,19 @@ export default function StockManagerUltimateV39_11() {
             const response = await fetch(`/api/investor-trends/intraday?market=${market}`, {
               cache: "no-store",
             });
-            if (!response.ok) throw new Error("KIS investor time request failed");
-            return response.json();
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.error || "한투 시장 수급 요청에 실패했습니다.");
+            }
+            return payload;
           }),
         );
         if (!cancelled) {
           setKisInvestorTimeData(Object.fromEntries(responses.map((item) => [item.market, item])));
-          setKisInvestorTimeError(false);
+          setKisInvestorTimeError("");
         }
-      } catch (_error) {
-        if (!cancelled) setKisInvestorTimeError(true);
+      } catch (error) {
+        if (!cancelled) setKisInvestorTimeError(error.message || "한투 수급 연결에 실패했습니다.");
       } finally {
         if (!cancelled) setKisInvestorTimeLoading(false);
       }
