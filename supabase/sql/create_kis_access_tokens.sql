@@ -9,3 +9,6 @@ create table if not exists public.kis_access_tokens (
 alter table public.kis_access_tokens enable row level security;
 
 revoke all on table public.kis_access_tokens from anon, authenticated;
+
+-- Make the newly created table available to the Supabase REST API immediately.
+notify pgrst, 'reload schema';
