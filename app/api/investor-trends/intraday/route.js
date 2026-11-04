@@ -42,10 +42,11 @@ const getFiveMinuteBucket = () => {
   return `${parts.year}-${parts.month}-${parts.day}T${String(parts.hour).padStart(2, "0")}:${minute}:00+09:00`;
 };
 
-const isKoreanRegularSession = () => {
+const isKoreanInvestorStorageWindow = () => {
   const { weekday, hour, minute } = getKstParts();
   if (["Sat", "Sun"].includes(weekday)) return false;
-  return (hour > 9 || (hour === 9 && minute >= 0)) && (hour < 15 || (hour === 15 && minute <= 30));
+  const currentMinute = hour * 60 + minute;
+  return currentMinute >= 8 * 60 + 30 && currentMinute <= 20 * 60;
 };
 
 const isKoreanInvestorRefreshWindow = () => {
@@ -67,7 +68,7 @@ const getKstDayRange = () => {
 const storeAndLoadHistory = async (market, netValues) => {
   try {
     const supabase = getServerSupabase();
-    if (isKoreanRegularSession()) {
+    if (netValues && isKoreanInvestorStorageWindow()) {
       const { error } = await supabase
         .from("market_investor_snapshots")
         .upsert(
