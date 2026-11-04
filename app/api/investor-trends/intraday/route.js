@@ -48,6 +48,13 @@ const isKoreanRegularSession = () => {
   return (hour > 9 || (hour === 9 && minute >= 0)) && (hour < 15 || (hour === 15 && minute <= 30));
 };
 
+const isKoreanInvestorRefreshWindow = () => {
+  const { weekday, hour, minute } = getKstParts();
+  if (["Sat", "Sun"].includes(weekday)) return false;
+  const currentMinute = hour * 60 + minute;
+  return currentMinute >= 8 * 60 + 30 && currentMinute <= 18 * 60;
+};
+
 const getKstDayRange = () => {
   const { year, month, day } = getKstParts();
   const date = `${year}-${month}-${day}`;
@@ -103,6 +110,11 @@ export async function GET(request) {
     const markets = requestedMarket === "ALL" ? ["KOSPI", "KOSDAQ"] : [requestedMarket === "KOSDAQ" ? "KOSDAQ" : "KOSPI"];
     const results = [];
     for (const market of markets) {
+      if (!isKoreanInvestorRefreshWindow()) {
+        const history = await storeAndLoadHistory(market, null);
+        results.push([market, { market, fetchedAt: null, netValues: null, history }]);
+        continue;
+      }
       await waitForKisRateLimit();
       const data = await fetchKisMarketInvestorTime(market);
       const history = await storeAndLoadHistory(market, data.netValues);
