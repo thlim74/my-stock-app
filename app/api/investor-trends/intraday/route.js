@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getServerSupabase } from "@/lib/server-auth";
 import { fetchKisMarketInvestorTime } from "@/lib/kis-market-investor";
 
+const KIS_REQUEST_INTERVAL_MS = 1100;
+let lastKisRequestAt = 0;
+
+const waitForKisRateLimit = async () => {
+  const waitMs = Math.max(0, KIS_REQUEST_INTERVAL_MS - (Date.now() - lastKisRequestAt));
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  lastKisRequestAt = Date.now();
+};
+
 const getKstParts = (date = new Date()) => {
   const values = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
@@ -92,6 +103,7 @@ export async function GET(request) {
     const markets = requestedMarket === "ALL" ? ["KOSPI", "KOSDAQ"] : [requestedMarket === "KOSDAQ" ? "KOSDAQ" : "KOSPI"];
     const results = [];
     for (const market of markets) {
+      await waitForKisRateLimit();
       const data = await fetchKisMarketInvestorTime(market);
       const history = await storeAndLoadHistory(market, data.netValues);
       results.push([market, { ...data, history }]);
