@@ -59,6 +59,7 @@ const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
 const INDEX_REFRESH_MS = 15 * 1000;
 const INVESTOR_TREND_REFRESH_MS = 20 * 60 * 1000;
+const KIS_INVESTOR_TIME_REFRESH_MS = 60 * 1000;
 const LIVE_PRICE_REFRESH_MS = 5 * 1000;
 const AFTER_HOURS_REFRESH_MS = 10 * 1000;
 const DAILY_CLOSE_SYNC_MS = 60 * 60 * 1000;
@@ -178,6 +179,9 @@ export default function StockManagerUltimateV39_11() {
   const [investorTrendData, setInvestorTrendData] = useState(null);
   const [investorTrendLoading, setInvestorTrendLoading] = useState(false);
   const [investorTrendError, setInvestorTrendError] = useState(false);
+  const [kisInvestorTimeData, setKisInvestorTimeData] = useState(null);
+  const [kisInvestorTimeLoading, setKisInvestorTimeLoading] = useState(false);
+  const [kisInvestorTimeError, setKisInvestorTimeError] = useState(false);
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
   const [preMarketPrices, setPreMarketPrices] = useState({});
@@ -489,6 +493,42 @@ export default function StockManagerUltimateV39_11() {
 
     fetchInvestorTrends();
     const timer = setInterval(fetchInvestorTrends, INVESTOR_TREND_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeTab, authUser, isPageVisible]);
+
+  useEffect(() => {
+    if (!authUser || !isPageVisible || activeTab !== "수급동향") return;
+    let cancelled = false;
+
+    const fetchKisInvestorTime = async () => {
+      setKisInvestorTimeLoading(true);
+      try {
+        const responses = await Promise.all(
+          ["KOSPI", "KOSDAQ"].map(async (market) => {
+            const response = await fetch(`/api/investor-trends/intraday?market=${market}`, {
+              cache: "no-store",
+            });
+            if (!response.ok) throw new Error("KIS investor time request failed");
+            return response.json();
+          }),
+        );
+        if (!cancelled) {
+          setKisInvestorTimeData(Object.fromEntries(responses.map((item) => [item.market, item])));
+          setKisInvestorTimeError(false);
+        }
+      } catch (_error) {
+        if (!cancelled) setKisInvestorTimeError(true);
+      } finally {
+        if (!cancelled) setKisInvestorTimeLoading(false);
+      }
+    };
+
+    fetchKisInvestorTime();
+    const timer = setInterval(fetchKisInvestorTime, KIS_INVESTOR_TIME_REFRESH_MS);
 
     return () => {
       cancelled = true;
@@ -2263,6 +2303,9 @@ export default function StockManagerUltimateV39_11() {
                 data={investorTrendData}
                 loading={investorTrendLoading}
                 error={investorTrendError}
+                intradayData={kisInvestorTimeData}
+                intradayLoading={kisInvestorTimeLoading}
+                intradayError={kisInvestorTimeError}
               />
             )}
 
