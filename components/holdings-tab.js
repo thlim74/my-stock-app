@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { isForeignMarket } from "@/lib/market-utils";
+import { calculateHoldingDailyProfit } from "@/lib/holding-daily-profit";
 
 const findFirst = (obj, keys, fallback = undefined) => {
   for (const key of keys) {
@@ -352,6 +353,7 @@ export default function HoldingsTab({
   formatNum,
   formatFloat,
   dailyPriceSnapshots,
+  transactions,
   dailyPriceHistoryMap,
   dailyPriceDetailMap,
   priceGapPointsMap,
@@ -388,14 +390,19 @@ export default function HoldingsTab({
                 latestDate === today && snapshot?.previousRegularClose != null
                   ? Number(snapshot.previousRegularClose)
                   : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
-              const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
-
+              const daily = calculateHoldingDailyProfit({
+                holding: row,
+                transactions,
+                today,
+                referenceClose,
+              });
+              const hasReference = daily !== null;
               const dayProfit = hasReference
                 ? isForeign
-                  ? (row.currentPrice - referenceClose) * row.qty * exchangeRate
-                  : (row.currentPrice - referenceClose) * row.qty
+                  ? daily.profit * exchangeRate
+                  : daily.profit
                 : 0;
-              const dayRate = hasReference ? ((row.currentPrice - referenceClose) / referenceClose) * 100 : 0;
+              const dayRate = hasReference ? daily.rate : 0;
 
               return (
                 <tr key={row.ticker || row.name} className="h-11 border-b hover:bg-slate-50">

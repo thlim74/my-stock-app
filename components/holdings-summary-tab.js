@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { isForeignMarket } from "@/lib/market-utils";
+import { calculateHoldingDailyProfit } from "@/lib/holding-daily-profit";
 
 const toNumber = (value) => Number(value) || 0;
 
@@ -23,6 +24,7 @@ const formatRate = (value) => `${Math.abs(value).toFixed(2)}%`;
 export default function HoldingsSummaryTab({
   stats,
   dailyPriceSnapshots,
+  transactions,
   today,
   exchangeRate,
   formatNum,
@@ -67,15 +69,19 @@ export default function HoldingsSummaryTab({
         latestDate === today && snapshot?.previousRegularClose != null
           ? Number(snapshot.previousRegularClose)
           : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
-      if (!Number.isFinite(referenceClose) || referenceClose <= 0) return;
-
-      const difference = (holding.currentPrice - referenceClose) * holding.quantity;
-      total += isForeignMarket(holding.market, holding.ticker) ? difference * exchangeRate : difference;
+      const daily = calculateHoldingDailyProfit({
+        holding,
+        transactions,
+        today,
+        referenceClose,
+      });
+      if (!daily) return;
+      total += isForeignMarket(holding.market, holding.ticker) ? daily.profit * exchangeRate : daily.profit;
       availableCount += 1;
     });
 
     return availableCount === holdings.length ? total : null;
-  }, [dailyPriceSnapshots, exchangeRate, holdings, today]);
+  }, [dailyPriceSnapshots, exchangeRate, holdings, today, transactions]);
   const totalDailyPositive = totalDailyProfit !== null && totalDailyProfit >= 0;
   const totalAfterProfit = useMemo(() => {
     if (holdings.length === 0) return null;
@@ -180,15 +186,9 @@ export default function HoldingsSummaryTab({
               latestDate === today && snapshot?.previousRegularClose != null
                 ? Number(snapshot.previousRegularClose)
                 : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
-            const hasReference = Number.isFinite(referenceClose) && referenceClose > 0;
-            const dayProfit = hasReference
-              ? foreign
-                ? (holding.currentPrice - referenceClose) * holding.quantity * exchangeRate
-                : (holding.currentPrice - referenceClose) * holding.quantity
-              : null;
-            const dayRate = hasReference
-              ? ((holding.currentPrice - referenceClose) / referenceClose) * 100
-              : null;
+            const daily = calculateHoldingDailyProfit({ holding, transactions, today, referenceClose });
+            const dayProfit = daily ? (foreign ? daily.profit * exchangeRate : daily.profit) : null;
+            const dayRate = daily?.rate ?? null;
             const dayPositive = dayProfit !== null && dayProfit >= 0;
 
             return (

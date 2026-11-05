@@ -2275,6 +2275,7 @@ export default function StockManagerUltimateV39_11() {
               <HoldingsSummaryTab
                 stats={stats}
                 dailyPriceSnapshots={dailyPriceSnapshots}
+                transactions={transactions}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
                 formatNum={formatNum}
@@ -2288,6 +2289,7 @@ export default function StockManagerUltimateV39_11() {
                 formatNum={formatNum}
                 formatFloat={formatFloat}
                 dailyPriceSnapshots={dailyPriceSnapshots}
+                transactions={transactions}
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
                 dailyPriceDetailMap={dailyPriceDetailMap}
                 priceGapPointsMap={priceGapPointsMap}
