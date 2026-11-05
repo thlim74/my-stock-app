@@ -38,6 +38,11 @@ const getKstParts = (date = new Date()) => {
 
 const getFiveMinuteBucket = () => {
   const parts = getKstParts();
+  // The quote endpoint keeps its last cumulative value after close. Store it at
+  // the market close rather than creating misleading late-night time buckets.
+  if (parts.hour * 60 + parts.minute > 20 * 60) {
+    return `${parts.year}-${parts.month}-${parts.day}T20:00:00+09:00`;
+  }
   const minute = String(Math.floor(parts.minute / 5) * 5).padStart(2, "0");
   return `${parts.year}-${parts.month}-${parts.day}T${String(parts.hour).padStart(2, "0")}:${minute}:00+09:00`;
 };
@@ -46,7 +51,12 @@ const isKoreanInvestorStorageWindow = () => {
   const { weekday, hour, minute } = getKstParts();
   if (["Sat", "Sun"].includes(weekday)) return false;
   const currentMinute = hour * 60 + minute;
-  return currentMinute >= 8 * 60 + 30 && currentMinute <= 20 * 60;
+  return currentMinute >= 8 * 60 + 30;
+};
+
+const isBeforeKoreanInvestorSession = () => {
+  const { weekday, hour, minute } = getKstParts();
+  return ["Sat", "Sun"].includes(weekday) || hour * 60 + minute < 8 * 60 + 30;
 };
 
 const isKoreanInvestorRefreshWindow = () => {
@@ -114,15 +124,20 @@ export async function GET(request) {
     const markets = requestedMarket === "ALL" ? ["KOSPI", "KOSDAQ"] : [requestedMarket === "KOSDAQ" ? "KOSDAQ" : "KOSPI"];
     const results = [];
     for (const market of markets) {
+      // Outside the live window, load today's collected history first. When the
+      // page opens after the close with no history, save the API's final
+      // cumulative value once so the day is not blank.
+      const stored = await storeAndLoadHistory(market, null);
       if (!isKoreanInvestorRefreshWindow()) {
-        const stored = await storeAndLoadHistory(market, null);
-        results.push([market, { market, fetchedAt: null, netValues: null, ...stored }]);
-        continue;
+        if (stored.history.length > 0 || isBeforeKoreanInvestorSession()) {
+          results.push([market, { market, fetchedAt: null, netValues: null, ...stored }]);
+          continue;
+        }
       }
       await waitForKisRateLimit();
       const data = await fetchKisMarketInvestorTime(market);
-      const stored = await storeAndLoadHistory(market, data.netValues);
-      results.push([market, { ...data, ...stored }]);
+      const saved = await storeAndLoadHistory(market, data.netValues);
+      results.push([market, { ...data, ...saved, error: saved.error || stored.error }]);
     }
 
     if (requestedMarket === "ALL") {

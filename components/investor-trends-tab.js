@@ -117,6 +117,20 @@ export default function InvestorTrendsTab({
     })
     .filter((row) => Object.values(row.values).some((value) => value !== null && value !== 0))
     .reverse();
+  const latestSnapshot = [...(intraday?.history || [])]
+    .sort((a, b) => new Date(b.captured_at) - new Date(a.captured_at))[0];
+  // The KIS endpoint provides a current cumulative figure, not historical
+  // intraday records. Show that first captured figure until a 5-minute delta
+  // can be calculated from the next snapshot.
+  const rowsToDisplay = intervalRows.length > 0
+    ? intervalRows
+    : intraday?.netValues || latestSnapshot?.net_values
+      ? [{
+          time: intraday?.fetchedAt || latestSnapshot?.captured_at,
+          session: "누적",
+          values: intraday?.netValues || latestSnapshot?.net_values,
+        }]
+      : [];
 
   return (
     <section className="space-y-3 sm:space-y-5">
@@ -190,10 +204,10 @@ export default function InvestorTrendsTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {intervalRows.map((row) => (
+                    {rowsToDisplay.map((row) => (
                       <tr key={row.time} className="border-t border-white/10">
                         <th className="sticky left-0 z-10 bg-slate-950 px-3 py-2 text-left font-bold text-slate-200">{formatKstTime(row.time)}</th>
-                        <td className="px-2 py-2 text-center font-bold text-cyan-200">{getSessionLabel(row.time)}</td>
+                        <td className="px-2 py-2 text-center font-bold text-cyan-200">{row.session || getSessionLabel(row.time)}</td>
                         {KIS_COLUMNS.map(([key]) => (
                           <td key={key} className={`px-2 py-2 font-black ${row.values[key] === null ? "text-slate-500" : amountTone(row.values[key])}`}>
                             {row.values[key] === null ? "-" : formatKisAmount(row.values[key])}
@@ -201,12 +215,10 @@ export default function InvestorTrendsTab({
                         ))}
                       </tr>
                     ))}
-                    {intervalRows.length === 0 ? (
+                    {rowsToDisplay.length === 0 ? (
                       <tr>
                         <td colSpan={KIS_COLUMNS.length + 2} className="px-3 py-6 text-center text-xs font-bold text-slate-400">
-                          {intraday.history?.length === 1
-                            ? "첫 수집값을 저장했습니다. 5분 뒤부터 직전 5분 대비 순매수가 표시됩니다."
-                            : "장중에 수집된 5분 구간 데이터가 아직 없습니다."}
+                          장중에 수집된 5분 구간 데이터가 아직 없습니다.
                         </td>
                       </tr>
                     ) : null}
