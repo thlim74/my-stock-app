@@ -79,7 +79,9 @@ const storeAndLoadHistory = async (market, netValues) => {
           },
           { onConflict: "market,captured_at" },
         );
-      if (error) return [];
+      if (error) {
+        return { history: [], error: `시간별 수급 저장 실패: ${error.message}` };
+      }
     }
 
     const { start, end } = getKstDayRange();
@@ -91,11 +93,12 @@ const storeAndLoadHistory = async (market, netValues) => {
       .lte("captured_at", end)
       .order("captured_at", { ascending: false });
 
-    if (error) return [];
-    return data || [];
-  } catch (_error) {
-    // The real-time quote remains available before the optional history table is created.
-    return [];
+    if (error) {
+      return { history: [], error: `시간별 수급 이력 조회 실패: ${error.message}` };
+    }
+    return { history: data || [], error: null };
+  } catch (error) {
+    return { history: [], error: `시간별 수급 저장소 연결 실패: ${error.message}` };
   }
 };
 
@@ -112,14 +115,14 @@ export async function GET(request) {
     const results = [];
     for (const market of markets) {
       if (!isKoreanInvestorRefreshWindow()) {
-        const history = await storeAndLoadHistory(market, null);
-        results.push([market, { market, fetchedAt: null, netValues: null, history }]);
+        const stored = await storeAndLoadHistory(market, null);
+        results.push([market, { market, fetchedAt: null, netValues: null, ...stored }]);
         continue;
       }
       await waitForKisRateLimit();
       const data = await fetchKisMarketInvestorTime(market);
-      const history = await storeAndLoadHistory(market, data.netValues);
-      results.push([market, { ...data, history }]);
+      const stored = await storeAndLoadHistory(market, data.netValues);
+      results.push([market, { ...data, ...stored }]);
     }
 
     if (requestedMarket === "ALL") {

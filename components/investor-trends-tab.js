@@ -172,6 +172,11 @@ export default function InvestorTrendsTab({
             {intradayError ? (
               <p className="px-3 py-4 text-center text-xs font-bold text-amber-300">{intradayError}</p>
             ) : null}
+            {intraday?.error ? (
+              <p className="border-t border-amber-300/20 bg-amber-300/10 px-3 py-3 text-center text-xs font-bold text-amber-200">
+                {intraday.error} `supabase/sql/create_market_investor_snapshots.sql`을 현재 연결된 Supabase 프로젝트에서 실행해 주세요.
+              </p>
+            ) : null}
             {intraday ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1120px] text-right text-[11px] sm:text-xs">
@@ -199,7 +204,9 @@ export default function InvestorTrendsTab({
                     {intervalRows.length === 0 ? (
                       <tr>
                         <td colSpan={KIS_COLUMNS.length + 2} className="px-3 py-6 text-center text-xs font-bold text-slate-400">
-                          장중에 수집된 5분 구간 데이터가 아직 없습니다.
+                          {intraday.history?.length === 1
+                            ? "첫 수집값을 저장했습니다. 5분 뒤부터 직전 5분 대비 순매수가 표시됩니다."
+                            : "장중에 수집된 5분 구간 데이터가 아직 없습니다."}
                         </td>
                       </tr>
                     ) : null}
