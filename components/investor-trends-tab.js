@@ -43,8 +43,12 @@ const KIS_COLUMNS = [
 ];
 
 const formatKisAmount = (value) => {
-  const amount = Number(value) || 0;
-  return `${amount > 0 ? "+" : amount < 0 ? "-" : ""}${Math.abs(amount).toLocaleString()}`;
+  // KIS market-investor transaction amounts are delivered in KRW millions.
+  // Present every column in the same eok (100 million KRW) unit as the
+  // investor summary cards and HTS market-flow screen.
+  const amountInEok = (Number(value) || 0) / 100;
+  const rounded = Math.round(Math.abs(amountInEok) * 10) / 10;
+  return `${amountInEok > 0 ? "+" : amountInEok < 0 ? "-" : ""}${rounded.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}`;
 };
 
 const formatKstTime = (value) => {
@@ -173,7 +177,7 @@ export default function InvestorTrendsTab({
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-5 sm:py-4">
               <div>
                 <h3 className="text-sm font-black sm:text-base">한투 시장별 시간 동향</h3>
-                <p className="mt-0.5 text-[10px] font-bold text-slate-400">{market} · 순매수 거래대금(백만원) · 5분 구간</p>
+                <p className="mt-0.5 text-[10px] font-bold text-slate-400">{market} · 순매수 거래대금(억원) · 5분 구간</p>
               </div>
               <p className="rounded-md bg-cyan-400/15 px-2 py-1 text-[10px] font-black text-cyan-200">
                 {intraday ? formatAsOf(intraday.fetchedAt, true) : "연결 중"}
