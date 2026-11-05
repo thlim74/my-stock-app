@@ -37,7 +37,7 @@ const KIS_COLUMNS = [
   ["privateFund", "사모"],
   ["bank", "은행"],
   ["insurance", "보험"],
-  ["otherInstitution", "기타금융"],
+  ["finance", "기타금융"],
   ["pension", "연기금"],
   ["otherCorporation", "기타"],
 ];
@@ -173,7 +173,7 @@ export default function InvestorTrendsTab({
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-5 sm:py-4">
               <div>
                 <h3 className="text-sm font-black sm:text-base">한투 시장별 시간 동향</h3>
-                <p className="mt-0.5 text-[10px] font-bold text-slate-400">5분 구간 순매수, 사전장부터 시간외까지 수집</p>
+                <p className="mt-0.5 text-[10px] font-bold text-slate-400">{market} · 순매수 거래대금(백만원) · 5분 구간</p>
               </div>
               <p className="rounded-md bg-cyan-400/15 px-2 py-1 text-[10px] font-black text-cyan-200">
                 {intraday ? formatAsOf(intraday.fetchedAt, true) : "연결 중"}
