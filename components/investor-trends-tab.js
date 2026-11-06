@@ -126,15 +126,16 @@ export default function InvestorTrendsTab({
   // The KIS endpoint provides a current cumulative figure, not historical
   // intraday records. Show that first captured figure until a 5-minute delta
   // can be calculated from the next snapshot.
-  const rowsToDisplay = intervalRows.length > 0
-    ? intervalRows
-    : intraday?.netValues || latestSnapshot?.net_values
-      ? [{
-          time: intraday?.fetchedAt || latestSnapshot?.captured_at,
-          session: "누적",
-          values: intraday?.netValues || latestSnapshot?.net_values,
-        }]
-      : [];
+  const cumulativeRow = intraday?.netValues || latestSnapshot?.net_values
+    ? [{
+        time: intraday?.fetchedAt || latestSnapshot?.captured_at,
+        session: "누적",
+        values: intraday?.netValues || latestSnapshot?.net_values,
+      }]
+    : [];
+  // The top row is always the latest day-to-date total; remaining rows are
+  // independent five-minute changes so both views are available together.
+  const rowsToDisplay = [...cumulativeRow, ...intervalRows];
 
   return (
     <section className="space-y-3 sm:space-y-5">
