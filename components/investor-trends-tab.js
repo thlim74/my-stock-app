@@ -214,8 +214,8 @@ export default function InvestorTrendsTab({
                       const rowBackground = isRegularInterval ? "bg-slate-800/90" : "bg-slate-950";
                       return (
                       <tr key={`${row.session || "interval"}-${row.time}`} className={`border-t border-white/10 ${rowBackground}`}>
-                        <th className={`sticky left-0 z-10 px-3 py-2 text-center font-bold text-slate-200 ${rowBackground}`}>{formatKstTime(row.time)}</th>
-                        <td className="px-2 py-2 text-center font-bold text-cyan-200">{row.session || getSessionLabel(row.time)}</td>
+                        <th className={`sticky left-0 z-10 px-3 py-2 text-center font-bold text-slate-200 ${rowBackground}`}>{row.session === "누적" ? "-" : formatKstTime(row.time)}</th>
+                        <td className={`px-2 py-2 text-center font-bold ${row.session === "누적" ? "text-amber-200" : "text-cyan-200"}`}>{row.session || getSessionLabel(row.time)}</td>
                         {KIS_COLUMNS.map(([key]) => (
                           <td key={key} className={`px-2 py-2 font-black ${row.values[key] === null ? "text-slate-500" : amountTone(row.values[key])}`}>
                             {row.values[key] === null ? "-" : formatKisAmount(row.values[key])}
