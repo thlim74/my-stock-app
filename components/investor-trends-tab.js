@@ -210,8 +210,7 @@ export default function InvestorTrendsTab({
                   </thead>
                   <tbody>
                     {rowsToDisplay.map((row) => {
-                      const isRegularInterval = !row.session && getSessionLabel(row.time) === "정규장";
-                      const rowBackground = isRegularInterval ? "bg-slate-800/90" : "bg-slate-950";
+                      const rowBackground = row.session === "누적" ? "bg-cyan-950/70" : "bg-slate-950";
                       return (
                       <tr key={`${row.session || "interval"}-${row.time}`} className={`border-t border-white/10 ${rowBackground}`}>
                         <th className={`sticky left-0 z-10 px-3 py-2 text-center font-bold text-slate-200 ${rowBackground}`}>{row.session === "누적" ? "-" : formatKstTime(row.time)}</th>
