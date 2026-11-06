@@ -201,7 +201,7 @@ export default function InvestorTrendsTab({
                 <table className="w-full min-w-[1120px] text-right text-[11px] sm:text-xs">
                   <thead className="sticky top-0 z-20 bg-slate-800 text-slate-200">
                     <tr>
-                      <th className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-center font-black">시간</th>
+                      <th className="sticky left-0 z-30 bg-slate-900 px-3 py-2 text-center font-black">시간</th>
                       <th className="px-2 py-2 text-center font-black whitespace-nowrap">구간</th>
                       {KIS_COLUMNS.map(([, label]) => (
                         <th key={label} className="px-2 py-2 font-black whitespace-nowrap">{label}</th>
@@ -210,11 +210,12 @@ export default function InvestorTrendsTab({
                   </thead>
                   <tbody>
                     {rowsToDisplay.map((row) => {
-                      const rowBackground = row.session === "누적" ? "bg-cyan-950/70" : "bg-slate-950";
+                      const isCumulative = row.session === "누적";
+                      const rowBackground = isCumulative ? "bg-cyan-950" : "bg-slate-950";
                       return (
-                      <tr key={`${row.session || "interval"}-${row.time}`} className={`border-t border-white/10 ${rowBackground}`}>
-                        <th className={`sticky left-0 z-10 px-3 py-2 text-center font-bold text-slate-200 ${rowBackground}`}>{row.session === "누적" ? "-" : formatKstTime(row.time)}</th>
-                        <td className={`px-2 py-2 text-center font-bold ${row.session === "누적" ? "text-amber-200" : "text-cyan-200"}`}>{row.session || getSessionLabel(row.time)}</td>
+                      <tr key={`${row.session || "interval"}-${row.time}`} className={`border-t border-white/10 ${rowBackground} ${isCumulative ? "sticky top-8 z-20" : ""}`}>
+                        <th className={`sticky left-0 ${isCumulative ? "z-30" : "z-10"} px-3 py-2 text-center font-bold text-slate-200 ${rowBackground}`}>{isCumulative ? "-" : formatKstTime(row.time)}</th>
+                        <td className={`px-2 py-2 text-center font-bold ${isCumulative ? "text-amber-200" : "text-cyan-200"}`}>{row.session || getSessionLabel(row.time)}</td>
                         {KIS_COLUMNS.map(([key]) => (
                           <td key={key} className={`px-2 py-2 font-black ${row.values[key] === null ? "text-slate-500" : amountTone(row.values[key])}`}>
                             {row.values[key] === null ? "-" : formatKisAmount(row.values[key])}
