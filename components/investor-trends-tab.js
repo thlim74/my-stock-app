@@ -197,9 +197,9 @@ export default function InvestorTrendsTab({
               </p>
             ) : null}
             {intraday ? (
-              <div className="overflow-x-auto">
+              <div className="max-h-[226px] overflow-auto">
                 <table className="w-full min-w-[1120px] text-right text-[11px] sm:text-xs">
-                  <thead className="bg-white/10 text-slate-200">
+                  <thead className="sticky top-0 z-20 bg-slate-800 text-slate-200">
                     <tr>
                       <th className="sticky left-0 z-10 bg-slate-900 px-3 py-2 text-center font-black">시간</th>
                       <th className="px-2 py-2 text-center font-black whitespace-nowrap">구간</th>
@@ -241,7 +241,7 @@ export default function InvestorTrendsTab({
             {INVESTORS.map((investor) => {
               const amount = trend.today?.[investor.key] || 0;
               return (
-                <article key={investor.key} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-5">
+                <article key={investor.key} className="rounded-xl border border-slate-200 bg-white p-2.5 text-center shadow-sm sm:rounded-2xl sm:p-5">
                   <p className={`text-[11px] font-black sm:text-sm ${investor.tone}`}>{investor.label}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-slate-400 sm:mt-2 sm:text-xs">당일 순매수</p>
                   <p className={`mt-1 whitespace-nowrap text-[16px] font-black tracking-tight sm:text-2xl ${amountTone(amount)}`}>{formatAmount(amount, true)}</p>
