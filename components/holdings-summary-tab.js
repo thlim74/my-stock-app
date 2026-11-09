@@ -24,6 +24,7 @@ const formatRate = (value) => `${Math.abs(value).toFixed(2)}%`;
 export default function HoldingsSummaryTab({
   stats,
   dailyPriceSnapshots,
+  liveStockPreviousCloses,
   transactions,
   today,
   exchangeRate,
@@ -65,10 +66,13 @@ export default function HoldingsSummaryTab({
     holdings.forEach((holding) => {
       const snapshot = dailyPriceSnapshots?.[holding.ticker];
       const latestDate = snapshot?.latestDate || today;
-      const referenceClose =
+      const savedReferenceClose =
         latestDate === today && snapshot?.previousRegularClose != null
           ? Number(snapshot.previousRegularClose)
           : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
+      const referenceClose = isForeignMarket(holding.market, holding.ticker)
+        ? savedReferenceClose
+        : Number(liveStockPreviousCloses?.[holding.ticker]) || savedReferenceClose;
       const daily = calculateHoldingDailyProfit({
         holding,
         transactions,
@@ -81,7 +85,7 @@ export default function HoldingsSummaryTab({
     });
 
     return availableCount === holdings.length ? total : null;
-  }, [dailyPriceSnapshots, exchangeRate, holdings, today, transactions]);
+  }, [dailyPriceSnapshots, exchangeRate, holdings, liveStockPreviousCloses, today, transactions]);
   const totalDailyPositive = totalDailyProfit !== null && totalDailyProfit >= 0;
   const totalAfterProfit = useMemo(() => {
     if (holdings.length === 0) return null;
@@ -182,10 +186,13 @@ export default function HoldingsSummaryTab({
             const average = foreign ? `$ ${formatFloat(holding.averageUsd)}` : formatNum(holding.averagePrice);
             const snapshot = dailyPriceSnapshots?.[holding.ticker];
             const latestDate = snapshot?.latestDate || today;
-            const referenceClose =
+            const savedReferenceClose =
               latestDate === today && snapshot?.previousRegularClose != null
                 ? Number(snapshot.previousRegularClose)
                 : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
+            const referenceClose = foreign
+              ? savedReferenceClose
+              : Number(liveStockPreviousCloses?.[holding.ticker]) || savedReferenceClose;
             const daily = calculateHoldingDailyProfit({ holding, transactions, today, referenceClose });
             const dayProfit = daily ? (foreign ? daily.profit * exchangeRate : daily.profit) : null;
             const dayRate = daily?.rate ?? null;

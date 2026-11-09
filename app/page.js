@@ -184,6 +184,7 @@ export default function StockManagerUltimateV39_11() {
   const [kisInvestorTimeError, setKisInvestorTimeError] = useState("");
 
   const [liveStockPrices, setLiveStockPrices] = useState(defaultStockPrices);
+  const [liveStockPreviousCloses, setLiveStockPreviousCloses] = useState({});
   const [preMarketPrices, setPreMarketPrices] = useState({});
   const [preMarketStatus, setPreMarketStatus] = useState({});
   const [afterHoursPrices, setAfterHoursPrices] = useState({});
@@ -1581,6 +1582,16 @@ export default function StockManagerUltimateV39_11() {
 
         return next;
       });
+      setLiveStockPreviousCloses((prev) => {
+        const next = { ...prev };
+        targetStocks.forEach((stock) => {
+          const previousClose = Number(priceMap.get(stock.티커)?.previousClose);
+          if (Number.isFinite(previousClose) && previousClose > 0) {
+            next[stock.티커] = previousClose;
+          }
+        });
+        return next;
+      });
       setLivePriceStatus(() => {
         const next = {};
 
@@ -2275,6 +2286,7 @@ export default function StockManagerUltimateV39_11() {
               <HoldingsSummaryTab
                 stats={stats}
                 dailyPriceSnapshots={dailyPriceSnapshots}
+                liveStockPreviousCloses={liveStockPreviousCloses}
                 transactions={transactions}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
@@ -2289,6 +2301,7 @@ export default function StockManagerUltimateV39_11() {
                 formatNum={formatNum}
                 formatFloat={formatFloat}
                 dailyPriceSnapshots={dailyPriceSnapshots}
+                liveStockPreviousCloses={liveStockPreviousCloses}
                 transactions={transactions}
                 dailyPriceHistoryMap={dailyPriceHistoryMap}
                 dailyPriceDetailMap={dailyPriceDetailMap}

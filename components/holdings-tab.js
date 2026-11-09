@@ -353,6 +353,7 @@ export default function HoldingsTab({
   formatNum,
   formatFloat,
   dailyPriceSnapshots,
+  liveStockPreviousCloses,
   transactions,
   dailyPriceHistoryMap,
   dailyPriceDetailMap,
@@ -386,10 +387,13 @@ export default function HoldingsTab({
               const isForeign = isForeignMarket(row.market, row.ticker);
               const snapshot = dailyPriceSnapshots?.[row.ticker];
               const latestDate = snapshot?.latestDate || today;
-              const referenceClose =
+              const savedReferenceClose =
                 latestDate === today && snapshot?.previousRegularClose != null
                   ? Number(snapshot.previousRegularClose)
                   : Number(snapshot?.latestRegularClose ?? snapshot?.latestPrice);
+              const referenceClose = isForeign
+                ? savedReferenceClose
+                : Number(liveStockPreviousCloses?.[row.ticker]) || savedReferenceClose;
               const daily = calculateHoldingDailyProfit({
                 holding: row,
                 transactions,

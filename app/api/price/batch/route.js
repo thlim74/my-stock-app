@@ -84,6 +84,7 @@ const fetchPrice = async (rawCode) => {
         code: rawCode,
         sourceCode: code,
         price,
+          previousClose: parseNumber(quote?.pcv),
         // Naver exposes the indicative call-auction price as the current price before 09:00.
         preOpen: isKoreanPreOpenWindow() ? price : null,
         regularOpen: parseNumber(quote?.ov),
