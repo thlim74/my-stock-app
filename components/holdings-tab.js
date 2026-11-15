@@ -58,135 +58,6 @@ const formatSignedRate = (current, base) => {
   return `${rate >= 0 ? "+" : ""}${rate.toFixed(2)}%`;
 };
 
-const buildPath = (points) =>
-  points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-
-function PriceGapChart({ dates, rows, selectedName, formatPrice }) {
-  const [activePoint, setActivePoint] = useState(null);
-  const flatPoints = dates.flatMap((date) =>
-    ["prevClose", "prevAfter", "preOpen", "regularOpen"].map((key) => ({
-      date,
-      key,
-      label: pointLabels[key],
-      value: rows[key]?.[date],
-    })),
-  );
-  const validPoints = flatPoints.filter((point) => Number.isFinite(point.value) && point.value > 0);
-
-  if (validPoints.length < 2) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-[12px] font-bold text-slate-500">
-        가격 갭 분석에 필요한 가격 포인트가 아직 부족합니다. 현재 저장된 정규장 종가부터 표시되며,
-        애프터/사전장/시초가 저장 구조가 추가되면 그래프가 자동 확장됩니다.
-      </div>
-    );
-  }
-
-  const width = 980;
-  const height = 310;
-  const padding = { top: 24, right: 28, bottom: 70, left: 70 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const minValue = Math.min(...validPoints.map((point) => point.value));
-  const maxValue = Math.max(...validPoints.map((point) => point.value));
-  const range = Math.max(1, maxValue - minValue);
-  const slot = plotWidth / Math.max(1, flatPoints.length - 1);
-  const chartPoints = flatPoints
-    .map((point, index) => {
-      if (!Number.isFinite(point.value) || point.value <= 0) return null;
-      return {
-        ...point,
-        x: padding.left + slot * index,
-        y: padding.top + ((maxValue - point.value) / range) * plotHeight,
-      };
-    })
-    .filter(Boolean);
-  const axisValues = [maxValue, minValue + range / 2, minValue];
-
-  return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="min-w-[760px] w-full h-[280px] sm:h-[310px]"
-        onMouseLeave={() => setActivePoint(null)}
-      >
-        <rect x="0" y="0" width={width} height={height} rx="18" fill="#0f172a" />
-        <rect x="12" y="12" width={width - 24} height={height - 24} rx="16" fill="#172033" />
-
-        {axisValues.map((value) => {
-          const y = padding.top + ((maxValue - value) / range) * plotHeight;
-          return (
-            <g key={value}>
-              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#334155" />
-              <text x={padding.left - 12} y={y + 4} textAnchor="end" fontSize="11" fontWeight="900" fill="#cbd5e1">
-                {formatPrice(value)}
-              </text>
-            </g>
-          );
-        })}
-
-        {dates.map((date, dateIndex) => {
-          const x = padding.left + slot * (dateIndex * 4 + 1.5);
-          return (
-            <g key={date}>
-              <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom + 18} stroke="#263449" />
-              <text x={x} y={height - 24} textAnchor="middle" fontSize="13" fontWeight="900" fill="#e2e8f0">
-                {dateLabel(date)}
-              </text>
-            </g>
-          );
-        })}
-
-        <path
-          d={buildPath(chartPoints)}
-          fill="none"
-          stroke="#67e8f9"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {chartPoints.map((point) => (
-          <g
-            key={`${point.date}-${point.key}`}
-            className="cursor-pointer"
-            onMouseEnter={() => setActivePoint(point)}
-            onClick={() => setActivePoint(point)}
-          >
-            <circle cx={point.x} cy={point.y} r="5" fill="#67e8f9" stroke="#0f172a" strokeWidth="2" />
-            <text
-              x={point.x}
-              y={height - 48}
-              textAnchor="middle"
-              fontSize="9"
-              fontWeight="800"
-              fill="#cbd5e1"
-            >
-              {point.label.replace(" ", "\n").slice(0, 8)}
-            </text>
-          </g>
-        ))}
-
-        {activePoint && (
-          <g>
-            <line x1={activePoint.x} y1={padding.top} x2={activePoint.x} y2={height - padding.bottom} stroke="#94a3b8" strokeDasharray="4 4" />
-            <rect x={Math.min(activePoint.x + 12, width - 276)} y={Math.max(18, activePoint.y - 62)} width="264" height="76" rx="12" fill="#020617" opacity="0.95" />
-            <text x={Math.min(activePoint.x + 26, width - 262)} y={Math.max(42, activePoint.y - 36)} fontSize="12" fontWeight="900" fill="#ffffff">
-              {selectedName} · {activePoint.date}
-            </text>
-            <text x={Math.min(activePoint.x + 26, width - 262)} y={Math.max(62, activePoint.y - 16)} fontSize="12" fontWeight="900" fill="#67e8f9">
-              {activePoint.label}: {formatPrice(activePoint.value)}
-            </text>
-            <text x={Math.min(activePoint.x + 26, width - 262)} y={Math.max(82, activePoint.y + 4)} fontSize="11" fontWeight="800" fill="#cbd5e1">
-              전 지점 대비 {formatSignedRate(activePoint.value, chartPoints[chartPoints.indexOf(activePoint) - 1]?.value)}
-            </text>
-          </g>
-        )}
-      </svg>
-    </div>
-  );
-}
-
 function PriceGapAnalysis({
   holdings,
   dailyPriceHistoryMap,
@@ -279,8 +150,6 @@ function PriceGapAnalysis({
     if (!Number.isFinite(Number(value)) || Number(value) <= 0) return "-";
     return isForeign ? `$ ${formatFloat(value)}` : formatNum(value);
   };
-  const selectedName = selectedHolding.name || selectedHolding.ticker;
-
   return (
     <section className="mt-5 rounded-3xl border border-cyan-100 bg-gradient-to-br from-slate-950 to-slate-800 p-4 sm:p-5 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -302,14 +171,6 @@ function PriceGapAnalysis({
           ))}
         </select>
       </div>
-
-      <PriceGapChart
-        dates={analysis.dates}
-        rows={analysis.rows}
-        selectedName={selectedName}
-        formatPrice={formatPrice}
-      />
-
       <div className="-mx-4 mt-4 overflow-x-auto rounded-none border-y border-cyan-400/60 bg-slate-900/80 sm:mx-0 sm:rounded-2xl sm:border">
         <table className="min-w-[590px] table-fixed text-center text-[12px] font-bold text-slate-100 sm:min-w-[720px] sm:w-full">
           <thead className="bg-cyan-500/20 text-cyan-100">
