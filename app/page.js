@@ -58,6 +58,7 @@ import {
 const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
 const INDEX_REFRESH_MS = 15 * 1000;
+const KIS_NIGHT_FUTURES_RECONNECT_MS = 30 * 1000;
 const INVESTOR_TREND_REFRESH_MS = 20 * 60 * 1000;
 const KIS_INVESTOR_TIME_REFRESH_MS = 5 * 60 * 1000;
 const LIVE_PRICE_REFRESH_MS = 5 * 1000;
@@ -112,6 +113,18 @@ const hasMarketValue = (value) =>
 const formatMarketValue = (value, { maximumFractionDigits = 2, suffix = "" } = {}) => {
   if (!hasMarketValue(value)) return "-";
   return `${Number(value).toLocaleString(undefined, { maximumFractionDigits })}${suffix}`;
+};
+
+const isKoreanNightFuturesSession = () => {
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = (type) => Number(time.find((part) => part.type === type)?.value);
+  const minutes = value("hour") * 60 + value("minute");
+  return minutes >= 18 * 60 || minutes < 6 * 60;
 };
 
 /**
@@ -481,6 +494,89 @@ export default function StockManagerUltimateV39_11() {
     return () => {
       cancelled = true;
       clearInterval(timer);
+    };
+  }, [authUser, isPageVisible]);
+
+  useEffect(() => {
+    if (!authUser || !isPageVisible) return undefined;
+
+    let socket = null;
+    let reconnectTimer = null;
+    let disposed = false;
+
+    const closeSocket = () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || !isKoreanNightFuturesSession() || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, KIS_NIGHT_FUTURES_RECONNECT_MS);
+    };
+
+    const connect = async () => {
+      if (disposed || socket || !isKoreanNightFuturesSession()) return;
+
+      try {
+        const response = await fetch("/api/kis/night-futures/approval", { method: "POST", cache: "no-store" });
+        const approval = await response.json();
+        if (!response.ok || !approval?.approvalKey || disposed) {
+          scheduleReconnect();
+          return;
+        }
+
+        socket = new WebSocket(approval.webSocketUrl);
+        socket.onopen = () => {
+          socket?.send(JSON.stringify({
+            header: {
+              approval_key: approval.approvalKey,
+              custtype: "P",
+              tr_type: "1",
+              "content-type": "utf-8",
+            },
+            body: { input: { tr_id: "H0MFCNT0", tr_key: "101W9000" } },
+          }));
+        };
+        socket.onmessage = (event) => {
+          const message = String(event.data || "");
+          if (!message.startsWith("0|H0MFCNT0|")) return;
+
+          const fields = message.split("|");
+          const data = fields.slice(3);
+          const changePercent = Number(data[4]);
+          const value = Number(data[5]);
+          if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(changePercent)) return;
+
+          setLiveTicks((previous) => ({ ...previous, kospi200NightFutures: value }));
+          setIndexChangePercents((previous) => ({ ...previous, kospi200NightFutures: changePercent }));
+        };
+        socket.onclose = () => {
+          socket = null;
+          scheduleReconnect();
+        };
+        socket.onerror = () => socket?.close();
+      } catch (_error) {
+        scheduleReconnect();
+      }
+    };
+
+    const sessionTimer = setInterval(() => {
+      if (isKoreanNightFuturesSession()) connect();
+      else closeSocket();
+    }, KIS_NIGHT_FUTURES_RECONNECT_MS);
+    connect();
+
+    return () => {
+      disposed = true;
+      clearInterval(sessionTimer);
+      closeSocket();
     };
   }, [authUser, isPageVisible]);
 
