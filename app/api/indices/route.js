@@ -131,8 +131,11 @@ const fetchKospi200NightFutures = async () => {
       changePercent: quote.changePercent,
       isUp: quote.changePercent >= 0,
     };
-  } catch (_error) {
-    return emptyItem("kospi200NightFutures", "KOSPI 200 FUTURES");
+  } catch (error) {
+    return {
+      ...emptyItem("kospi200NightFutures", "KOSPI 200 FUTURES"),
+      diagnostic: error instanceof Error ? error.message : "KIS futures quote request failed.",
+    };
   }
 };
 
