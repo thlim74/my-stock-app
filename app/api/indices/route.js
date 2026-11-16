@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchKisKospi200FuturesQuote } from "@/lib/kis-market-investor";
 
 const DOMESTIC_SYMBOLS = [
   { key: "kospi", name: "KOSPI", code: "KOSPI" },
@@ -120,9 +121,20 @@ const fetchYahooItem = async (item) => {
   }
 };
 
-// The public feeds used here do not expose the rolling KRX night-futures contract reliably.
-const fetchKospi200NightFutures = async () =>
-  emptyItem("kospi200NightFutures", "KOSPI 200 NIGHT FUTURES");
+const fetchKospi200NightFutures = async () => {
+  try {
+    const quote = await fetchKisKospi200FuturesQuote();
+    return {
+      key: "kospi200NightFutures",
+      name: "KOSPI 200 FUTURES",
+      value: quote.value,
+      changePercent: quote.changePercent,
+      isUp: quote.changePercent >= 0,
+    };
+  } catch (_error) {
+    return emptyItem("kospi200NightFutures", "KOSPI 200 FUTURES");
+  }
+};
 
 const fetchUsdKrw = async () => {
   try {
