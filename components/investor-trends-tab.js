@@ -175,12 +175,12 @@ export default function InvestorTrendsTab({
       {trend ? (
         <>
           <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-sm">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-5 sm:py-4">
+            <div className="relative flex items-center justify-center border-b border-white/10 px-3 py-3 text-center sm:px-5 sm:py-4">
               <div>
                 <h3 className="text-sm font-black sm:text-base">한투 시장별 시간 동향</h3>
                 <p className="mt-0.5 text-[10px] font-bold text-slate-400">{market} · 순매수 거래대금(억원) · 5분 구간</p>
               </div>
-              <p className="rounded-md bg-cyan-400/15 px-2 py-1 text-[10px] font-black text-cyan-200">
+              <p className="absolute right-3 rounded-md bg-cyan-400/15 px-2 py-1 text-[10px] font-black text-cyan-200 sm:right-5">
                 {intraday ? formatAsOf(intraday.fetchedAt, true) : "연결 중"}
               </p>
             </div>
