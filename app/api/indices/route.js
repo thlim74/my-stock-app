@@ -9,6 +9,13 @@ const WORLD_SYMBOLS = [
   { key: "dow", name: "DOW JONES", code: ".DJI" },
   { key: "nasdaq", name: "NASDAQ", code: ".IXIC" },
   { key: "sp500", name: "S&P 500", code: ".INX" },
+  { key: "philadelphiaSemiconductor", name: "PHILADELPHIA SEMICONDUCTOR", code: ".SOX" },
+];
+
+const YAHOO_SYMBOLS = [
+  { key: "ewy", name: "EWY (MSCI KOREA ETF)", code: "EWY" },
+  { key: "us10y", name: "US 10-YEAR TREASURY YIELD", code: "^TNX" },
+  { key: "vix", name: "VIX", code: "^VIX" },
 ];
 
 const COMMON_HEADERS = {
@@ -94,6 +101,29 @@ const fetchNasdaq100Futures = async () => {
   }
 };
 
+const fetchYahooItem = async (item) => {
+  try {
+    const data = await fetchJson(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(item.code)}?range=5d&interval=1d`,
+    );
+    const quote = data?.chart?.result?.[0]?.meta;
+    const value = toNumber(quote?.regularMarketPrice);
+    const changePercent = toNumber(quote?.regularMarketChangePercent);
+
+    if (!Number.isFinite(value) || !Number.isFinite(changePercent)) {
+      return emptyItem(item.key, item.name);
+    }
+
+    return { key: item.key, name: item.name, value, changePercent, isUp: changePercent >= 0 };
+  } catch (_error) {
+    return emptyItem(item.key, item.name);
+  }
+};
+
+// The public feeds used here do not expose the rolling KRX night-futures contract reliably.
+const fetchKospi200NightFutures = async () =>
+  emptyItem("kospi200NightFutures", "KOSPI 200 NIGHT FUTURES");
+
 const fetchUsdKrw = async () => {
   try {
     const data = await fetchJson(
@@ -106,11 +136,13 @@ const fetchUsdKrw = async () => {
 };
 
 export async function GET() {
-  const [domesticItems, worldItems, nasdaq100Futures, exchangeItem] =
+  const [domesticItems, worldItems, nasdaq100Futures, yahooItems, kospi200NightFutures, exchangeItem] =
     await Promise.all([
       Promise.all(DOMESTIC_SYMBOLS.map(fetchDomesticItem)),
       fetchWorldItems(),
       fetchNasdaq100Futures(),
+      Promise.all(YAHOO_SYMBOLS.map(fetchYahooItem)),
+      fetchKospi200NightFutures(),
       fetchUsdKrw(),
     ]);
 
@@ -118,6 +150,8 @@ export async function GET() {
     ...domesticItems,
     ...worldItems,
     nasdaq100Futures,
+    ...yahooItems,
+    kospi200NightFutures,
     exchangeItem,
   ]);
 }

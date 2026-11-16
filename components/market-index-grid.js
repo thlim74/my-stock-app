@@ -11,13 +11,17 @@ export default function MarketIndexGrid({ items }) {
               {item.n}
             </p>
             <p className="text-sm sm:text-base font-black text-slate-800 leading-none">{item.v}</p>
-            <span
-              className={`text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit ${
-                item.up ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
-              }`}
-            >
-              {item.d}
-            </span>
+            {item.available === false ? (
+              <span className="text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit bg-slate-100 text-slate-500">시세 확인 중</span>
+            ) : (
+              <span
+                className={`text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit ${
+                  item.up ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
+                }`}
+              >
+                {item.d}
+              </span>
+            )}
           </div>
         </div>
       ))}

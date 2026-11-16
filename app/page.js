@@ -106,6 +106,14 @@ const formatToday = () => {
   return `${year}-${month}-${day}`;
 };
 
+const hasMarketValue = (value) =>
+  value !== null && value !== undefined && Number.isFinite(Number(value));
+
+const formatMarketValue = (value, { maximumFractionDigits = 2, suffix = "" } = {}) => {
+  if (!hasMarketValue(value)) return "-";
+  return `${Number(value).toLocaleString(undefined, { maximumFractionDigits })}${suffix}`;
+};
+
 /**
  * [STOCK-MANAGER ULTIMATE FINAL V39.11 - PIVOT FILTER PATCH]
  * - [개선] '보유종목일별' 탭의 시작일/종료일 지정 후 [조회] 버튼 클릭 시 필터링 완벽 바인딩
@@ -175,6 +183,11 @@ export default function StockManagerUltimateV39_11() {
     nasdaq100Futures: 0,
     sp500: 0,
     exchangeRate: 0,
+    philadelphiaSemiconductor: 0,
+    ewy: 0,
+    us10y: 0,
+    vix: 0,
+    kospi200NightFutures: 0,
   });
   const [investorTrendData, setInvestorTrendData] = useState(null);
   const [investorTrendLoading, setInvestorTrendLoading] = useState(false);
@@ -1871,6 +1884,41 @@ export default function StockManagerUltimateV39_11() {
         v: liveTicks.exchangeRate.toLocaleString() + " 원",
         d: getChangeStr(indexChangePercents.exchangeRate),
         up: indexChangePercents.exchangeRate >= 0,
+      },
+      {
+        n: "필라델피아 반도체지수",
+        v: formatMarketValue(liveTicks.philadelphiaSemiconductor),
+        d: getChangeStr(indexChangePercents.philadelphiaSemiconductor),
+        up: indexChangePercents.philadelphiaSemiconductor >= 0,
+        available: hasMarketValue(liveTicks.philadelphiaSemiconductor),
+      },
+      {
+        n: "EWY (MSCI 한국 ETF)",
+        v: formatMarketValue(liveTicks.ewy),
+        d: getChangeStr(indexChangePercents.ewy),
+        up: indexChangePercents.ewy >= 0,
+        available: hasMarketValue(liveTicks.ewy),
+      },
+      {
+        n: "미국 국채 10년물 금리",
+        v: formatMarketValue(liveTicks.us10y, { maximumFractionDigits: 3, suffix: "%" }),
+        d: getChangeStr(indexChangePercents.us10y),
+        up: indexChangePercents.us10y >= 0,
+        available: hasMarketValue(liveTicks.us10y),
+      },
+      {
+        n: "VIX (공포지수)",
+        v: formatMarketValue(liveTicks.vix),
+        d: getChangeStr(indexChangePercents.vix),
+        up: indexChangePercents.vix >= 0,
+        available: hasMarketValue(liveTicks.vix),
+      },
+      {
+        n: "코스피200 야간선물",
+        v: formatMarketValue(liveTicks.kospi200NightFutures),
+        d: getChangeStr(indexChangePercents.kospi200NightFutures),
+        up: indexChangePercents.kospi200NightFutures >= 0,
+        available: hasMarketValue(liveTicks.kospi200NightFutures),
       },
     ],
     [liveTicks, indexChangePercents],
