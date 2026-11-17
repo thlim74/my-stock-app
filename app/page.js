@@ -59,6 +59,7 @@ const DAILY_CLOSE_SYNC_KEY = "ultimate_v39_11_daily_close_sync_final_date";
 const ACTIVE_PORTFOLIO_STORAGE_KEY = "ultimate_v39_11_active_portfolio";
 const INDEX_REFRESH_MS = 15 * 1000;
 const KIS_NIGHT_FUTURES_RECONNECT_MS = 30 * 1000;
+const KOSPI200_NIGHT_FUTURES_CACHE_KEY = "kospi200-night-futures-quote";
 const INVESTOR_TREND_REFRESH_MS = 20 * 60 * 1000;
 const KIS_INVESTOR_TIME_REFRESH_MS = 5 * 60 * 1000;
 const LIVE_PRICE_REFRESH_MS = 5 * 1000;
@@ -125,6 +126,20 @@ const isKoreanNightFuturesSession = () => {
   const value = (type) => Number(time.find((part) => part.type === type)?.value);
   const minutes = value("hour") * 60 + value("minute");
   return minutes >= 18 * 60 || minutes < 6 * 60;
+};
+
+const formatKoreanQuoteTime = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date).replace(/\. /g, ".").replace(/\.$/, "");
 };
 
 /**
@@ -202,6 +217,7 @@ export default function StockManagerUltimateV39_11() {
     vix: 0,
     kospi200NightFutures: 0,
   });
+  const [kospi200NightFuturesAsOf, setKospi200NightFuturesAsOf] = useState(null);
   const [investorTrendData, setInvestorTrendData] = useState(null);
   const [investorTrendLoading, setInvestorTrendLoading] = useState(false);
   const [investorTrendError, setInvestorTrendError] = useState(false);
@@ -504,6 +520,19 @@ export default function StockManagerUltimateV39_11() {
     let reconnectTimer = null;
     let disposed = false;
 
+    try {
+      const savedQuote = JSON.parse(localStorage.getItem(KOSPI200_NIGHT_FUTURES_CACHE_KEY) || "null");
+      const value = Number(savedQuote?.value);
+      const changePercent = Number(savedQuote?.changePercent);
+      if (Number.isFinite(value) && value > 0 && Number.isFinite(changePercent)) {
+        setLiveTicks((previous) => ({ ...previous, kospi200NightFutures: value }));
+        setIndexChangePercents((previous) => ({ ...previous, kospi200NightFutures: changePercent }));
+        setKospi200NightFuturesAsOf(savedQuote.capturedAt || null);
+      }
+    } catch (_error) {
+      localStorage.removeItem(KOSPI200_NIGHT_FUTURES_CACHE_KEY);
+    }
+
     const closeSocket = () => {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       reconnectTimer = null;
@@ -554,8 +583,14 @@ export default function StockManagerUltimateV39_11() {
           const value = Number(data[5]);
           if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(changePercent)) return;
 
+          const capturedAt = new Date().toISOString();
           setLiveTicks((previous) => ({ ...previous, kospi200NightFutures: value }));
           setIndexChangePercents((previous) => ({ ...previous, kospi200NightFutures: changePercent }));
+          setKospi200NightFuturesAsOf(capturedAt);
+          localStorage.setItem(
+            KOSPI200_NIGHT_FUTURES_CACHE_KEY,
+            JSON.stringify({ value, changePercent, capturedAt }),
+          );
         };
         socket.onclose = () => {
           socket = null;
@@ -1989,6 +2024,7 @@ export default function StockManagerUltimateV39_11() {
         d: getChangeStr(indexChangePercents.kospi200NightFutures),
         up: indexChangePercents.kospi200NightFutures >= 0,
         available: hasMarketValue(liveTicks.kospi200NightFutures),
+        asOf: kospi200NightFuturesAsOf ? `야간 ${formatKoreanQuoteTime(kospi200NightFuturesAsOf)} 기준` : null,
       },
       {
         n: "나스닥100 선물",
@@ -2017,7 +2053,7 @@ export default function StockManagerUltimateV39_11() {
         up: indexChangePercents.exchangeRate >= 0,
       },
     ],
-    [liveTicks, indexChangePercents],
+    [liveTicks, indexChangePercents, kospi200NightFuturesAsOf],
   );
 
   // [조회] 버튼 핸들러 연결

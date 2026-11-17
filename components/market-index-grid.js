@@ -22,6 +22,7 @@ export default function MarketIndexGrid({ items }) {
                 {item.d}
               </span>
             )}
+            {item.asOf ? <p className="text-[8px] font-bold text-slate-400">{item.asOf}</p> : null}
           </div>
         </div>
       ))}
