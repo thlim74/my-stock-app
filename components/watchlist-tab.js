@@ -31,7 +31,6 @@ export default function WatchlistTab({
   liveStockPrices,
   liveStockPreviousCloses,
   afterHoursPrices,
-  livePriceStatus,
 }) {
   return (
     <div className="space-y-4">
@@ -89,14 +88,13 @@ export default function WatchlistTab({
             <h3 className="text-sm font-black text-slate-800">관심 시세</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full text-left">
+            <table className="min-w-[620px] w-full text-left">
               <thead className="border-b border-slate-200 bg-slate-100 text-[11px] font-black text-slate-500">
                 <tr>
                   <th className="px-4 py-3">종목</th>
                   <th className="px-4 py-3 text-right">현재가</th>
                   <th className="px-4 py-3 text-right">등락률</th>
                   <th className="px-4 py-3 text-right">애프터 시세</th>
-                  <th className="px-4 py-3">시세 상태</th>
                   <th className="px-4 py-3 text-right">관리</th>
                 </tr>
               </thead>
@@ -113,12 +111,10 @@ export default function WatchlistTab({
                     <tr key={stock.id} className="bg-white hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <p className="text-sm font-black text-slate-900">{stock.name || stock.ticker}</p>
-                        <p className="mt-0.5 text-[10px] font-bold text-slate-400">{stock.market} · {stock.ticker}</p>
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-black text-slate-800">{formatValue(price, foreign)}</td>
                       <td className={`px-4 py-3 text-right text-sm font-black ${positive ? "text-rose-500" : "text-blue-600"}`}>{rate}</td>
                       <td className="px-4 py-3 text-right text-sm font-black text-slate-700">{afterPrice !== undefined ? formatValue(afterPrice, foreign) : "-"}</td>
-                      <td className="px-4 py-3 text-[11px] font-bold text-slate-400">{livePriceStatus[stock.ticker]?.message || "시세 확인 중"}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <button
                           onClick={() => onMove(stock.id, -1)}

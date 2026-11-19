@@ -2641,7 +2641,6 @@ export default function StockManagerUltimateV39_11() {
                 liveStockPrices={effectiveLivePrices}
                 liveStockPreviousCloses={liveStockPreviousCloses}
                 afterHoursPrices={afterHoursPrices}
-                livePriceStatus={livePriceStatus}
               />
             )}
 
