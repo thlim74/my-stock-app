@@ -25,6 +25,8 @@ export default function WatchlistTab({
   onAdd,
   onRemove,
   onTickerBlur,
+  onNameChange,
+  stockMaster,
   liveStockPrices,
   liveStockPreviousCloses,
   afterHoursPrices,
@@ -48,11 +50,17 @@ export default function WatchlistTab({
           />
           <input
             value={newWatch.name}
-            onChange={(event) => setNewWatch({ ...newWatch, name: event.target.value })}
+            onChange={(event) => onNameChange(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && onAdd()}
-            placeholder="종목명"
+            list="watchlist-stock-names"
+            placeholder="종목명으로도 검색 가능"
             className="h-11 rounded-xl border border-white/20 bg-white px-3 text-[12px] font-black text-slate-900 outline-none"
           />
+          <datalist id="watchlist-stock-names">
+            {stockMaster.map((stock) => (
+              <option key={stock.티커} value={stock.종목명} />
+            ))}
+          </datalist>
           <select
             value={newWatch.market}
             onChange={(event) => setNewWatch({ ...newWatch, market: event.target.value })}

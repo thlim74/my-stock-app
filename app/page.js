@@ -2379,6 +2379,24 @@ export default function StockManagerUltimateV39_11() {
     }
   };
 
+  const handleWatchNameChange = (name) => {
+    const trimmedName = String(name || "").trim();
+    const masterMatch = stockMaster.find(
+      (stock) => stock.종목명 === trimmedName,
+    );
+
+    setNewWatch((previous) => ({
+      ...previous,
+      name,
+      ...(masterMatch
+        ? {
+            ticker: masterMatch.티커,
+            market: masterMatch.시장 || inferMarketFromTicker(masterMatch.티커),
+          }
+        : {}),
+    }));
+  };
+
   const addWatchlistItem = () => {
     const ticker = String(newWatch.ticker || "").trim().toUpperCase();
     if (!ticker) {
@@ -2603,6 +2621,8 @@ export default function StockManagerUltimateV39_11() {
                 onAdd={addWatchlistItem}
                 onRemove={removeWatchlistItem}
                 onTickerBlur={handleWatchTickerBlur}
+                onNameChange={handleWatchNameChange}
+                stockMaster={stockMaster}
                 liveStockPrices={effectiveLivePrices}
                 liveStockPreviousCloses={liveStockPreviousCloses}
                 afterHoursPrices={afterHoursPrices}
