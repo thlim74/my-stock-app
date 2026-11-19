@@ -24,6 +24,7 @@ export default function WatchlistTab({
   setNewWatch,
   onAdd,
   onRemove,
+  onMove,
   onTickerBlur,
   onNameChange,
   stockMaster,
@@ -100,7 +101,7 @@ export default function WatchlistTab({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {watchlist.map((stock) => {
+                {watchlist.map((stock, index) => {
                   const foreign = isForeignMarket(stock.market, stock.ticker);
                   const price = liveStockPrices[stock.ticker];
                   const previousClose = liveStockPreviousCloses[stock.ticker];
@@ -118,7 +119,19 @@ export default function WatchlistTab({
                       <td className={`px-4 py-3 text-right text-sm font-black ${positive ? "text-rose-500" : "text-blue-600"}`}>{rate}</td>
                       <td className="px-4 py-3 text-right text-sm font-black text-slate-700">{afterPrice !== undefined ? formatValue(afterPrice, foreign) : "-"}</td>
                       <td className="px-4 py-3 text-[11px] font-bold text-slate-400">{livePriceStatus[stock.ticker]?.message || "시세 확인 중"}</td>
-                      <td className="px-4 py-3 text-right"><button onClick={() => onRemove(stock.id)} className="text-[11px] font-black text-rose-500 hover:underline">삭제</button></td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => onMove(stock.id, -1)}
+                          disabled={index === 0}
+                          className="mr-2 text-[11px] font-black text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-30"
+                        >위</button>
+                        <button
+                          onClick={() => onMove(stock.id, 1)}
+                          disabled={index === watchlist.length - 1}
+                          className="mr-2 text-[11px] font-black text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-30"
+                        >아래</button>
+                        <button onClick={() => onRemove(stock.id)} className="text-[11px] font-black text-rose-500 hover:underline">삭제</button>
+                      </td>
                     </tr>
                   );
                 })}

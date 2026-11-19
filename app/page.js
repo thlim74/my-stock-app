@@ -2425,6 +2425,20 @@ export default function StockManagerUltimateV39_11() {
     setWatchlist((previous) => previous.filter((stock) => stock.id !== id));
   };
 
+  const moveWatchlistItem = (id, direction) => {
+    setWatchlist((previous) => {
+      const fromIndex = previous.findIndex((stock) => stock.id === id);
+      const toIndex = fromIndex + direction;
+      if (fromIndex < 0 || toIndex < 0 || toIndex >= previous.length) {
+        return previous;
+      }
+
+      const next = [...previous];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  };
+
   const deleteItem = (id) => {
     if (!isAdminUser) {
       alert("일반사용자는 삭제할 수 없습니다.");
@@ -2620,6 +2634,7 @@ export default function StockManagerUltimateV39_11() {
                 setNewWatch={setNewWatch}
                 onAdd={addWatchlistItem}
                 onRemove={removeWatchlistItem}
+                onMove={moveWatchlistItem}
                 onTickerBlur={handleWatchTickerBlur}
                 onNameChange={handleWatchNameChange}
                 stockMaster={stockMaster}
