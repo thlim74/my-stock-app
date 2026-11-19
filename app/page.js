@@ -16,6 +16,7 @@ import PivotHistoryTab from "@/components/pivot-history-tab";
 import StockMasterTab from "@/components/stock-master-tab";
 import TabNavigation from "@/components/tab-navigation";
 import TransactionsTab from "@/components/transactions-tab";
+import WatchlistTab from "@/components/watchlist-tab";
 import {
   applyManualPrice,
   buildCashPayload,
@@ -244,6 +245,7 @@ export default function StockManagerUltimateV39_11() {
   const [transactions, setTransactions] = useState([]);
   const [cashFlows, setCashFlows] = useState([]);
   const [stockMaster, setStockMaster] = useState(INITIAL_STOCK_MASTER);
+  const [watchlist, setWatchlist] = useState([]);
   const [cashAdjustment, setCashAdjustment] = useState(0);
 
   const [isLoaded, setIsLoaded] = useState(false);
@@ -253,6 +255,7 @@ export default function StockManagerUltimateV39_11() {
   const [newTx, setNewTx] = useState(() => createInitialTx(today));
   const [newCash, setNewCash] = useState(() => createInitialCash(today));
   const [newStock, setNewStock] = useState(createInitialStock);
+  const [newWatch, setNewWatch] = useState({ ticker: "", name: "", market: "KOSPI" });
   const [manualPriceForm, setManualPriceForm] = useState(
     createInitialManualPriceForm,
   );
@@ -754,6 +757,7 @@ export default function StockManagerUltimateV39_11() {
       setTransactions([]);
       setCashFlows([]);
       setStockMaster([]);
+      setWatchlist([]);
       setCashAdjustment(0);
 
       const portfolioSuffix = activePortfolioId || "default";
@@ -766,6 +770,7 @@ export default function StockManagerUltimateV39_11() {
       const savedMaster =
         localStorage.getItem(`${STORAGE_KEYS.MASTER}:${portfolioSuffix}`) ||
         (portfolioSuffix === "default" ? localStorage.getItem(STORAGE_KEYS.MASTER) : null);
+      const savedWatchlist = localStorage.getItem(`${STORAGE_KEYS.WATCHLIST}:${portfolioSuffix}`);
 
       try {
         const response = await fetch(
@@ -798,6 +803,12 @@ export default function StockManagerUltimateV39_11() {
             setStockMaster(JSON.parse(savedMaster));
           }
 
+          if (Array.isArray(remoteState.watchlist)) {
+            setWatchlist(remoteState.watchlist);
+          } else if (savedWatchlist) {
+            setWatchlist(JSON.parse(savedWatchlist));
+          }
+
           setCashAdjustment(Number(remoteState.cashAdjustment) || 0);
 
           suppressRemoteSaveCountRef.current += 1;
@@ -816,6 +827,7 @@ export default function StockManagerUltimateV39_11() {
       if (savedTx) setTransactions(JSON.parse(savedTx));
       if (savedCash) setCashFlows(JSON.parse(savedCash));
       if (savedMaster) setStockMaster(JSON.parse(savedMaster));
+      if (savedWatchlist) setWatchlist(JSON.parse(savedWatchlist));
       setCashAdjustment(0);
       suppressRemoteSaveCountRef.current += 1;
       setIsLoaded(true);
@@ -836,6 +848,7 @@ export default function StockManagerUltimateV39_11() {
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.TX), JSON.stringify(transactions));
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.CASH), JSON.stringify(cashFlows));
     localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.MASTER), JSON.stringify(stockMaster));
+    localStorage.setItem(getPortfolioStorageKey(STORAGE_KEYS.WATCHLIST), JSON.stringify(watchlist));
     localStorage.setItem(ACTIVE_PORTFOLIO_STORAGE_KEY, activePortfolioId);
 
     if (suppressRemoteSaveCountRef.current > 0) {
@@ -847,6 +860,7 @@ export default function StockManagerUltimateV39_11() {
       transactions,
       cashFlows,
       stockMaster,
+      watchlist,
       cashAdjustment,
     });
     const appStateSaveKey = JSON.stringify({
@@ -854,6 +868,7 @@ export default function StockManagerUltimateV39_11() {
       transactions,
       cashFlows,
       stockMaster,
+      watchlist,
       cashAdjustment,
     });
     if (lastSavedAppStateRef.current === appStateSaveKey) return;
@@ -882,6 +897,7 @@ export default function StockManagerUltimateV39_11() {
     transactions,
     cashFlows,
     stockMaster,
+    watchlist,
     cashAdjustment,
     isLoaded,
     loadedPortfolioId,
@@ -1226,6 +1242,7 @@ export default function StockManagerUltimateV39_11() {
       transactions,
       cashFlows,
       stockMaster,
+      watchlist,
       cashAdjustment,
       exportedAt: new Date().toISOString(),
     };
@@ -1257,6 +1274,7 @@ export default function StockManagerUltimateV39_11() {
           setTransactions(parsed.transactions);
           setCashFlows(parsed.cashFlows);
           setStockMaster(parsed.stockMaster);
+          setWatchlist(Array.isArray(parsed.watchlist) ? parsed.watchlist : []);
           setCashAdjustment(Number(parsed.cashAdjustment) || 0);
           setErrorMessage("");
           alert("성공적으로 복구가 완료되었습니다.");
@@ -1503,6 +1521,26 @@ export default function StockManagerUltimateV39_11() {
     () => activeHoldingStocks.map((stock) => ({ 티커: stock.티커 })),
     [activeHoldingStocks],
   );
+  const activeQuoteStocks = useMemo(() => {
+    const byTicker = new Map();
+    activeHoldingStocks.forEach((stock) => {
+      byTicker.set(stock.티커, stock);
+    });
+    watchlist.forEach((stock) => {
+      const ticker = String(stock?.ticker || "").trim().toUpperCase();
+      if (!ticker || byTicker.has(ticker)) return;
+      byTicker.set(ticker, {
+        티커: ticker,
+        종목명: stock.name || ticker,
+        시장: stock.market || inferMarketFromTicker(ticker),
+      });
+    });
+    return [...byTicker.values()];
+  }, [activeHoldingStocks, watchlist]);
+  const activeQuoteTargetKey = useMemo(
+    () => activeQuoteStocks.map((stock) => stock.티커).sort().join("|"),
+    [activeQuoteStocks],
+  );
 
   useEffect(() => {
     if (!authUser || !isPageVisible || activeHoldingStocks.length === 0) return;
@@ -1685,7 +1723,7 @@ export default function StockManagerUltimateV39_11() {
     let cancelled = false;
 
     const fetchLivePrices = async () => {
-      const targetStocks = activeHoldingStocks;
+      const targetStocks = activeQuoteStocks;
 
       if (targetStocks.length === 0) {
         return;
@@ -1828,8 +1866,8 @@ export default function StockManagerUltimateV39_11() {
   }, [
     authUser,
     isPageVisible,
-    activeHoldingStocks,
-    activeHoldingTargetKey,
+    activeQuoteStocks,
+    activeQuoteTargetKey,
     buildRecordableGapPoints,
     recordPriceGapPoints,
     today,
@@ -1840,7 +1878,7 @@ export default function StockManagerUltimateV39_11() {
     let cancelled = false;
 
     const fetchAfterHours = async () => {
-      const targetStocks = activeHoldingStocks;
+      const targetStocks = activeQuoteStocks;
 
       if (targetStocks.length === 0) {
         if (!cancelled) {
@@ -1965,8 +2003,8 @@ export default function StockManagerUltimateV39_11() {
   }, [
     authUser,
     isPageVisible,
-    activeHoldingStocks,
-    activeHoldingTargetKey,
+    activeQuoteStocks,
+    activeQuoteTargetKey,
     buildRecordableGapPoints,
     recordPriceGapPoints,
     today,
@@ -2303,6 +2341,72 @@ export default function StockManagerUltimateV39_11() {
     }
   };
 
+  const handleWatchTickerBlur = async () => {
+    const ticker = String(newWatch.ticker || "").trim().toUpperCase();
+    if (!ticker) return;
+
+    const masterMatch = stockMaster.find((stock) => stock.티커 === ticker);
+    const domesticTicker = /^\d{6}$/.test(ticker);
+    const market = domesticTicker
+      ? inferMarketFromTicker(ticker)
+      : masterMatch?.시장 || newWatch.market || inferMarketFromTicker(ticker);
+
+    setNewWatch((previous) => ({
+      ...previous,
+      ticker,
+      market,
+      name: masterMatch?.종목명 || previous.name,
+    }));
+
+    if (!domesticTicker) return;
+
+    try {
+      const response = await fetch(
+        `/api/master/search?code=${encodeURIComponent(ticker)}`,
+        { cache: "no-store" },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.name) return;
+
+      setNewWatch((previous) => ({
+        ...previous,
+        ticker,
+        market: inferMarketFromTicker(ticker),
+        name: payload.name,
+      }));
+    } catch (_error) {
+      // Keep the manually entered name when lookup is unavailable.
+    }
+  };
+
+  const addWatchlistItem = () => {
+    const ticker = String(newWatch.ticker || "").trim().toUpperCase();
+    if (!ticker) {
+      alert("추가할 종목의 티커를 입력해 주세요.");
+      return;
+    }
+    if (watchlist.some((stock) => stock.ticker === ticker)) {
+      alert("이미 관심종목에 등록되어 있습니다.");
+      return;
+    }
+
+    const masterMatch = stockMaster.find((stock) => stock.티커 === ticker);
+    setWatchlist((previous) => [
+      ...previous,
+      {
+        id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${ticker}`,
+        ticker,
+        name: String(newWatch.name || masterMatch?.종목명 || ticker).trim(),
+        market: masterMatch?.시장 || newWatch.market || inferMarketFromTicker(ticker),
+      },
+    ]);
+    setNewWatch({ ticker: "", name: "", market: "KOSPI" });
+  };
+
+  const removeWatchlistItem = (id) => {
+    setWatchlist((previous) => previous.filter((stock) => stock.id !== id));
+  };
+
   const deleteItem = (id) => {
     if (!isAdminUser) {
       alert("일반사용자는 삭제할 수 없습니다.");
@@ -2488,6 +2592,21 @@ export default function StockManagerUltimateV39_11() {
                 priceGapPointsMap={priceGapPointsMap}
                 today={today}
                 exchangeRate={EXCHANGE_RATE}
+              />
+            )}
+
+            {activeTab === "관심종목" && (
+              <WatchlistTab
+                watchlist={watchlist}
+                newWatch={newWatch}
+                setNewWatch={setNewWatch}
+                onAdd={addWatchlistItem}
+                onRemove={removeWatchlistItem}
+                onTickerBlur={handleWatchTickerBlur}
+                liveStockPrices={effectiveLivePrices}
+                liveStockPreviousCloses={liveStockPreviousCloses}
+                afterHoursPrices={afterHoursPrices}
+                livePriceStatus={livePriceStatus}
               />
             )}
 

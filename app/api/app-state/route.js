@@ -19,6 +19,7 @@ const buildEmptyState = (source = "empty") => ({
   transactions: null,
   cashFlows: null,
   stockMaster: null,
+  watchlist: null,
   cashAdjustment: 0,
   source,
 });
@@ -46,14 +47,24 @@ export async function GET(request) {
 
     let data = null;
     let error = null;
+    let hasWatchlistColumn = true;
 
     ({ data, error } = await supabase
       .from("app_state")
-      .select("transactions, cash_flows, stock_master, cash_adjustment")
+      .select("transactions, cash_flows, stock_master, watchlist, cash_adjustment")
       .eq("id", appStateId)
       .maybeSingle());
 
-    if (error && error.message?.includes("cash_adjustment")) {
+    if (error?.message?.includes("watchlist")) {
+      hasWatchlistColumn = false;
+      ({ data, error } = await supabase
+        .from("app_state")
+        .select("transactions, cash_flows, stock_master, cash_adjustment")
+        .eq("id", appStateId)
+        .maybeSingle());
+    }
+
+    if (error?.message?.includes("cash_adjustment")) {
       ({ data, error } = await supabase
         .from("app_state")
         .select("transactions, cash_flows, stock_master")
@@ -77,6 +88,8 @@ export async function GET(request) {
       transactions: data.transactions || [],
       cashFlows: data.cash_flows || [],
       stockMaster: data.stock_master || [],
+      // Let the browser retain its local watchlist until the DB migration is run.
+      watchlist: hasWatchlistColumn ? data.watchlist || [] : null,
       cashAdjustment:
         typeof data.cash_adjustment === "number" ? data.cash_adjustment : 0,
       portfolioId,
@@ -108,13 +121,25 @@ export async function POST(request) {
       transactions: Array.isArray(body?.transactions) ? body.transactions : [],
       cash_flows: Array.isArray(body?.cashFlows) ? body.cashFlows : [],
       stock_master: Array.isArray(body?.stockMaster) ? body.stockMaster : [],
+      watchlist: Array.isArray(body?.watchlist) ? body.watchlist : [],
       cash_adjustment:
         typeof body?.cashAdjustment === "number" ? body.cashAdjustment : 0,
     };
 
     let { error } = await supabase.from("app_state").upsert(payload);
 
-    if (error && error.message?.includes("cash_adjustment")) {
+    if (error?.message?.includes("watchlist")) {
+      const watchlistFallbackPayload = {
+        id: payload.id,
+        transactions: payload.transactions,
+        cash_flows: payload.cash_flows,
+        stock_master: payload.stock_master,
+        cash_adjustment: payload.cash_adjustment,
+      };
+      ({ error } = await supabase.from("app_state").upsert(watchlistFallbackPayload));
+    }
+
+    if (error?.message?.includes("cash_adjustment")) {
       const fallbackPayload = {
         id: payload.id,
         transactions: payload.transactions,

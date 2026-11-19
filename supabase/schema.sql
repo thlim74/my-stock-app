@@ -34,6 +34,7 @@ create table if not exists public.app_state (
   transactions jsonb not null default '[]'::jsonb,
   cash_flows jsonb not null default '[]'::jsonb,
   stock_master jsonb not null default '[]'::jsonb,
+  watchlist jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
