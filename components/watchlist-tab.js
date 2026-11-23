@@ -35,7 +35,7 @@ export default function WatchlistTab({
   liveStockPreviousCloses,
 }) {
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4">
       <section className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-950 to-cyan-950 p-4 text-white shadow-sm sm:p-5">
         <p className="text-[11px] font-black tracking-[0.18em] text-cyan-300">WATCHLIST</p>
         <h2 className="mt-1 text-lg font-black sm:text-xl">관심종목</h2>
@@ -86,11 +86,11 @@ export default function WatchlistTab({
           관심 종목을 추가하면 실시간 시세를 여기에서 확인할 수 있습니다.
         </div>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40">
-          <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_42%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-3">
-            <h3 className="text-lg font-black tracking-tight text-white">관심 시세</h3>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/40">
+          <div className="border-b border-slate-200 bg-white px-4 py-3">
+            <h3 className="text-lg font-black tracking-tight text-slate-900">관심 시세</h3>
           </div>
-          <div className="divide-y divide-slate-800 px-4">
+          <div className="divide-y divide-slate-200 px-4">
             {watchlist.map((stock, index) => {
               const price = liveStockPrices[stock.ticker];
               const previousClose = liveStockPreviousCloses[stock.ticker];
@@ -100,17 +100,17 @@ export default function WatchlistTab({
 
               return (
                 <article key={stock.id} className="flex min-h-14 items-center justify-between gap-3 py-2.5">
-                  <p className="min-w-0 break-keep text-[14px] font-black tracking-tight text-white sm:text-base">{stock.name || stock.ticker}</p>
+                  <p className="min-w-0 break-keep text-[14px] font-black tracking-tight text-slate-900 sm:text-base">{stock.name || stock.ticker}</p>
                   <div className="flex shrink-0 items-center gap-2 text-right">
                     <div>
-                      <p className="whitespace-nowrap text-[14px] font-black text-white sm:text-[15px]">{formatValue(price, stock.market)}</p>
-                      <p className={`mt-0.5 text-[10px] font-black ${!priceAvailable ? "text-slate-600" : positive ? "text-rose-300" : "text-blue-300"}`}>{rate}</p>
+                      <p className="whitespace-nowrap text-[14px] font-black text-slate-800 sm:text-[15px]">{formatValue(price, stock.market)}</p>
+                      <p className={`mt-0.5 text-[10px] font-black ${!priceAvailable ? "text-slate-400" : positive ? "text-rose-500" : "text-blue-500"}`}>{rate}</p>
                     </div>
                     <div className="flex flex-col text-[10px] font-black">
-                      <button onClick={() => onMove(stock.id, -1)} disabled={index === 0} className="text-slate-400 hover:text-white disabled:opacity-20">위</button>
-                      <button onClick={() => onMove(stock.id, 1)} disabled={index === watchlist.length - 1} className="text-slate-400 hover:text-white disabled:opacity-20">아래</button>
+                      <button onClick={() => onMove(stock.id, -1)} disabled={index === 0} className="text-slate-500 hover:text-slate-900 disabled:opacity-20">위</button>
+                      <button onClick={() => onMove(stock.id, 1)} disabled={index === watchlist.length - 1} className="text-slate-500 hover:text-slate-900 disabled:opacity-20">아래</button>
                     </div>
-                    <button onClick={() => onRemove(stock.id)} className="text-[10px] font-black text-rose-300 hover:text-rose-200">삭제</button>
+                    <button onClick={() => onRemove(stock.id)} className="text-[10px] font-black text-rose-500 hover:text-rose-600">삭제</button>
                   </div>
                 </article>
               );
