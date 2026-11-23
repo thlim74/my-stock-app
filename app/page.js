@@ -501,6 +501,25 @@ export default function StockManagerUltimateV39_11() {
 
           return next;
         });
+
+        const nightFutures = items.find(
+          (item) =>
+            item?.key === "kospi200NightFutures" &&
+            Number.isFinite(Number(item.value)) &&
+            Number.isFinite(Number(item.changePercent)),
+        );
+        if (nightFutures) {
+          const capturedAt = new Date().toISOString();
+          localStorage.setItem(
+            KOSPI200_NIGHT_FUTURES_CACHE_KEY,
+            JSON.stringify({
+              value: Number(nightFutures.value),
+              changePercent: Number(nightFutures.changePercent),
+              capturedAt,
+            }),
+          );
+          setKospi200NightFuturesAsOf(capturedAt);
+        }
         setLastUpdate(new Date().toLocaleTimeString());
       } catch (_error) {
         // Keep the previous values on transient fetch failures.
@@ -2063,6 +2082,9 @@ export default function StockManagerUltimateV39_11() {
         up: indexChangePercents.kospi200NightFutures >= 0,
         available: hasMarketValue(liveTicks.kospi200NightFutures),
         asOf: kospi200NightFuturesAsOf ? `야간 ${formatKoreanQuoteTime(kospi200NightFuturesAsOf)} 기준` : null,
+        unavailableLabel: isKoreanNightFuturesSession()
+          ? "야간 시세 연결 중"
+          : "야간장 종료",
       },
       {
         n: "나스닥100 선물",

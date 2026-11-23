@@ -12,7 +12,7 @@ export default function MarketIndexGrid({ items }) {
             </p>
             <p className="text-sm sm:text-base font-black text-slate-800 leading-none">{item.v}</p>
             {item.available === false ? (
-              <span className="text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit bg-slate-100 text-slate-500">시세 확인 중</span>
+              <span className="text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit bg-slate-100 text-slate-500">{item.unavailableLabel || "시세 확인 중"}</span>
             ) : (
               <span
                 className={`text-[10px] sm:text-[11px] font-black px-2 py-1 rounded-lg w-fit ${
