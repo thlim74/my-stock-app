@@ -1897,7 +1897,7 @@ export default function StockManagerUltimateV39_11() {
     let cancelled = false;
 
     const fetchAfterHours = async () => {
-      const targetStocks = activeQuoteStocks;
+      const targetStocks = activeHoldingStocks;
 
       if (targetStocks.length === 0) {
         if (!cancelled) {
@@ -2022,8 +2022,8 @@ export default function StockManagerUltimateV39_11() {
   }, [
     authUser,
     isPageVisible,
-    activeQuoteStocks,
-    activeQuoteTargetKey,
+    activeHoldingStocks,
+    activeHoldingTargetKey,
     buildRecordableGapPoints,
     recordPriceGapPoints,
     today,
@@ -2420,17 +2420,20 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const addWatchlistItem = () => {
-    const ticker = String(newWatch.ticker || "").trim().toUpperCase();
-    if (!ticker) {
+    const enteredTicker = String(newWatch.ticker || "").trim().toUpperCase();
+    if (!enteredTicker) {
       alert("추가할 종목의 티커를 입력해 주세요.");
       return;
     }
+    const ticker = newWatch.market === "TSE" && !enteredTicker.startsWith("TSE:")
+      ? `TSE:${enteredTicker.replace(/\.T$/, "")}`
+      : enteredTicker;
     if (watchlist.some((stock) => stock.ticker === ticker)) {
       alert("이미 관심종목에 등록되어 있습니다.");
       return;
     }
 
-    const masterMatch = stockMaster.find((stock) => stock.티커 === ticker);
+    const masterMatch = stockMaster.find((stock) => stock.티커 === enteredTicker);
     setWatchlist((previous) => [
       ...previous,
       {
@@ -2662,7 +2665,6 @@ export default function StockManagerUltimateV39_11() {
                 stockMaster={stockMaster}
                 liveStockPrices={effectiveLivePrices}
                 liveStockPreviousCloses={liveStockPreviousCloses}
-                afterHoursPrices={afterHoursPrices}
               />
             )}
 

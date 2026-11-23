@@ -2,10 +2,13 @@
 
 import { isForeignMarket } from "@/lib/market-utils";
 
-const formatValue = (value, foreign) => {
+const formatValue = (value, market) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return "-";
-  return foreign
+  if (market === "TSE") {
+    return `¥ ${number.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  }
+  return isForeignMarket(market)
     ? `$ ${number.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
     : `${Math.round(number).toLocaleString()}원`;
 };
@@ -30,7 +33,6 @@ export default function WatchlistTab({
   stockMaster,
   liveStockPrices,
   liveStockPreviousCloses,
-  afterHoursPrices,
 }) {
   return (
     <div className="space-y-4">
@@ -39,13 +41,13 @@ export default function WatchlistTab({
         <h2 className="mt-1 text-lg font-black sm:text-xl">관심종목</h2>
         <p className="mt-1 text-[11px] font-bold text-slate-300">보유 여부와 관계없이 등록한 종목의 시세를 확인합니다.</p>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_120px_auto]">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_120px_auto]">
           <input
             value={newWatch.ticker}
             onChange={(event) => setNewWatch({ ...newWatch, ticker: event.target.value.toUpperCase() })}
             onBlur={onTickerBlur}
             onKeyDown={(event) => event.key === "Enter" && onAdd()}
-            placeholder="티커: 005930, MSFT"
+            placeholder="티커: 005930, MSFT, 9984"
             className="h-11 rounded-xl border border-white/20 bg-white px-3 text-[12px] font-black text-slate-900 outline-none"
           />
           <input
@@ -71,6 +73,7 @@ export default function WatchlistTab({
             <option>NASDAQ</option>
             <option>NYSE</option>
             <option>AMEX</option>
+            <option>TSE</option>
           </select>
           <button onClick={onAdd} className="h-11 rounded-xl bg-cyan-400 px-4 text-[12px] font-black text-slate-950 hover:bg-cyan-300">
             추가
@@ -83,56 +86,35 @@ export default function WatchlistTab({
           관심 종목을 추가하면 실시간 시세를 여기에서 확인할 수 있습니다.
         </div>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <h3 className="text-sm font-black text-slate-800">관심 시세</h3>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/40">
+          <div className="bg-[radial-gradient(circle_at_top_right,_#0e7490_0,_transparent_42%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-3">
+            <h3 className="text-lg font-black tracking-tight text-white">관심 시세</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-[620px] w-full text-left">
-              <thead className="border-b border-slate-200 bg-slate-100 text-[11px] font-black text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">종목</th>
-                  <th className="px-4 py-3 text-right">현재가</th>
-                  <th className="px-4 py-3 text-right">등락률</th>
-                  <th className="px-4 py-3 text-right">애프터 시세</th>
-                  <th className="px-4 py-3 text-right">관리</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {watchlist.map((stock, index) => {
-                  const foreign = isForeignMarket(stock.market, stock.ticker);
-                  const price = liveStockPrices[stock.ticker];
-                  const previousClose = liveStockPreviousCloses[stock.ticker];
-                  const afterPrice = afterHoursPrices[stock.ticker];
-                  const rate = rateText(price, previousClose);
-                  const positive = Number(price) >= Number(previousClose);
+          <div className="divide-y divide-slate-800 px-4">
+            {watchlist.map((stock, index) => {
+              const price = liveStockPrices[stock.ticker];
+              const previousClose = liveStockPreviousCloses[stock.ticker];
+              const rate = rateText(price, previousClose);
+              const priceAvailable = Number.isFinite(Number(price));
+              const positive = Number(price) >= Number(previousClose);
 
-                  return (
-                    <tr key={stock.id} className="bg-white hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-black text-slate-900">{stock.name || stock.ticker}</p>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-black text-slate-800">{formatValue(price, foreign)}</td>
-                      <td className={`px-4 py-3 text-right text-sm font-black ${positive ? "text-rose-500" : "text-blue-600"}`}>{rate}</td>
-                      <td className="px-4 py-3 text-right text-sm font-black text-slate-700">{afterPrice !== undefined ? formatValue(afterPrice, foreign) : "-"}</td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => onMove(stock.id, -1)}
-                          disabled={index === 0}
-                          className="mr-2 text-[11px] font-black text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-30"
-                        >위</button>
-                        <button
-                          onClick={() => onMove(stock.id, 1)}
-                          disabled={index === watchlist.length - 1}
-                          className="mr-2 text-[11px] font-black text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-30"
-                        >아래</button>
-                        <button onClick={() => onRemove(stock.id)} className="text-[11px] font-black text-rose-500 hover:underline">삭제</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              return (
+                <article key={stock.id} className="flex min-h-14 items-center justify-between gap-3 py-2.5">
+                  <p className="min-w-0 break-keep text-[14px] font-black tracking-tight text-white sm:text-base">{stock.name || stock.ticker}</p>
+                  <div className="flex shrink-0 items-center gap-2 text-right">
+                    <div>
+                      <p className="whitespace-nowrap text-[14px] font-black text-white sm:text-[15px]">{formatValue(price, stock.market)}</p>
+                      <p className={`mt-0.5 text-[10px] font-black ${!priceAvailable ? "text-slate-600" : positive ? "text-rose-300" : "text-blue-300"}`}>{rate}</p>
+                    </div>
+                    <div className="flex flex-col text-[10px] font-black">
+                      <button onClick={() => onMove(stock.id, -1)} disabled={index === 0} className="text-slate-400 hover:text-white disabled:opacity-20">위</button>
+                      <button onClick={() => onMove(stock.id, 1)} disabled={index === watchlist.length - 1} className="text-slate-400 hover:text-white disabled:opacity-20">아래</button>
+                    </div>
+                    <button onClick={() => onRemove(stock.id)} className="text-[10px] font-black text-rose-300 hover:text-rose-200">삭제</button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       )}

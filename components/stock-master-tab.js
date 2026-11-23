@@ -95,6 +95,7 @@ export default function StockMasterTab({
             <option>NASDAQ</option>
             <option>NYSE</option>
             <option>AMEX</option>
+            <option>TSE</option>
           </select>
         </div>
 

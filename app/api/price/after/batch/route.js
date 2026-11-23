@@ -9,7 +9,8 @@ const normalizeSymbol = (rawCode) => {
   return raw;
 };
 
-const isForeignTicker = (code) => code && /^[A-Z]+$/.test(code);
+const isForeignTicker = (code) =>
+  code && (code.includes(":") || /^[A-Z]+(?:\.(?:O|N|A|T))?$/.test(code));
 const parseNumber = (value) => {
   if (typeof value === "number") return value;
   if (value === null || value === undefined) return null;
