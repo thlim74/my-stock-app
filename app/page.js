@@ -2447,6 +2447,9 @@ export default function StockManagerUltimateV39_11() {
   };
 
   const removeWatchlistItem = (id) => {
+    if (!confirm("관심종목에서 삭제하시겠습니까?")) {
+      return;
+    }
     setWatchlist((previous) => previous.filter((stock) => stock.id !== id));
   };
 

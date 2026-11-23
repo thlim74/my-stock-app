@@ -110,7 +110,7 @@ export default function WatchlistTab({
                       <button onClick={() => onMove(stock.id, -1)} disabled={index === 0} className="text-slate-500 hover:text-slate-900 disabled:opacity-20">위</button>
                       <button onClick={() => onMove(stock.id, 1)} disabled={index === watchlist.length - 1} className="text-slate-500 hover:text-slate-900 disabled:opacity-20">아래</button>
                     </div>
-                    <button onClick={() => onRemove(stock.id)} className="text-[10px] font-black text-rose-500 hover:text-rose-600">삭제</button>
+                    <button onClick={() => onRemove(stock.id)} className="ml-2 min-h-8 border-l border-slate-200 pl-3 text-[10px] font-black text-rose-500 hover:text-rose-600">삭제</button>
                   </div>
                 </article>
               );
